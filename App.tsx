@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react'
 // import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 // import Modal from 'react-native-modal';
 import NetInfo from "@react-native-community/netinfo";
 // import VersionCheck from 'react-native-version-check';
@@ -26,6 +27,15 @@ import Category from './src/Screen/BTN_Tab/Category'
 import Subscribe from './src/Screen/BTN_Tab/Subscribe'
 import NewProfile from './src/Screen/BTN_Tab/NewProfile'
 
+// Pages
+import Notification from './src/Screen/Notification/Index'
+import MyOrder from './src/Screen/MyOrder/Index'
+import Address from './src/Screen/Address/Index'
+import HelpAndSupport from './src/Screen/HelpAndSupport/Index'
+import AboutUs from './src/Screen/AboutUs/Index'
+import TermsAndConditions from './src/Screen/TermsAndConditions/Index'
+import PrivacyPolicy from './src/Screen/PrivacyPolicy/Index'
+
 const Stack = createStackNavigator();
 
 // export const base_url = "https://panditapp.mandirparikrama.com/"
@@ -35,6 +45,7 @@ const App = () => {
 
   const [showSplash, setShowSplash] = useState(true);
   const [isConnected, setIsConnected] = useState(true);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   // const [showUpdateModal, setShowUpdateModal] = useState(false);
   // const [latestVersion, setLatestVersion] = useState('');
 
@@ -85,6 +96,12 @@ const App = () => {
   //   };
   // }, [showUpdateModal]);
 
+  const getAccesstoken = async () => {
+    var access_token = await AsyncStorage.getItem('storeAccesstoken');
+    console.log("access_token=-=-", access_token);
+    setAccessToken(access_token);
+  }
+
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(state => {
       console.log("Connection type", state.type);
@@ -103,6 +120,10 @@ const App = () => {
     }, 5000)
   }, []);
 
+  useEffect(() => {
+    getAccesstoken();
+  }, []);
+
   return (
     <TabProvider>
       <NavigationContainer>
@@ -113,14 +134,22 @@ const App = () => {
             <Stack.Screen name="NoInternet" component={NoInternet} />
           ) : (
             <>
-              <Stack.Screen name='BTN_Layout' component={BTN_Layout} />
-              <Stack.Screen name='Login' component={Login} />
+              {accessToken ? <Stack.Screen name="BTN_Layout" component={BTN_Layout} /> : <Stack.Screen name="Login" component={Login} />}
+              {!accessToken ? <Stack.Screen name="BTN_Layout" component={BTN_Layout} /> : <Stack.Screen name="Login" component={Login} />}
+              {/* <Stack.Screen name='BTN_Layout' component={BTN_Layout} /> */}
               <Stack.Screen name='OTP' component={OTP} />
               <Stack.Screen name='CustomOrderScreen' component={CustomOrderScreen} />
               <Stack.Screen name='NewHome' component={NewHome} />
               <Stack.Screen name='Category' component={Category} />
               <Stack.Screen name='Subscribe' component={Subscribe} />
               <Stack.Screen name='NewProfile' component={NewProfile} />
+              <Stack.Screen name='Notification' component={Notification} />
+              <Stack.Screen name='MyOrder' component={MyOrder} />
+              <Stack.Screen name='Address' component={Address} />
+              <Stack.Screen name='HelpAndSupport' component={HelpAndSupport} />
+              <Stack.Screen name='AboutUs' component={AboutUs} />
+              <Stack.Screen name='TermsAndConditions' component={TermsAndConditions} />
+              <Stack.Screen name='PrivacyPolicy' component={PrivacyPolicy} />
             </>
           )}
         </Stack.Navigator>

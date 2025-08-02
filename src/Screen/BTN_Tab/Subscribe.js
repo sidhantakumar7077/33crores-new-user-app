@@ -92,7 +92,7 @@ export default function SubscriptionScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <View style={{ flex: 1 }}>
                 <LinearGradient colors={['#1E293B', '#334155', '#475569']} style={styles.header}>
                     <View style={styles.heroContent}>
                         <TouchableOpacity style={styles.headerRow} onPress={() => setActiveTab('home')}>
@@ -105,68 +105,78 @@ export default function SubscriptionScreen() {
                     </View>
                 </LinearGradient>
 
-                {/* Benefits Section */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>✨ Benefits</Text>
-                    <View style={styles.grid}>
-                        {BENEFITS.map((item, idx) => (
-                            <View key={idx} style={styles.card}>
-                                <LinearGradient colors={item.gradient} style={styles.iconCircle}>
-                                    <Icon name={item.icon} size={24} color="#fff" />
-                                </LinearGradient>
-                                <Text style={styles.cardTitle}>{item.title}</Text>
-                                <Text style={styles.cardDesc}>{item.description}</Text>
-                            </View>
-                        ))}
+                {spinner ?
+                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ color: '#ffcb44', fontSize: 17 }}>Loading...</Text>
                     </View>
-                </View>
+                    :
+                    <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+                        {/* Benefits Section */}
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>✨ Benefits</Text>
+                            <View style={styles.grid}>
+                                {BENEFITS.map((item, idx) => (
+                                    <View key={idx} style={styles.card}>
+                                        <LinearGradient colors={item.gradient} style={styles.iconCircle}>
+                                            <Icon name={item.icon} size={24} color="#fff" />
+                                        </LinearGradient>
+                                        <Text style={styles.cardTitle}>{item.title}</Text>
+                                        <Text style={styles.cardDesc}>{item.description}</Text>
+                                    </View>
+                                ))}
+                            </View>
+                        </View>
 
-                {/* Plans Section */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>📦 Subscription Plans</Text>
-                    {allPackages.map((plan) => (
-                        <TouchableOpacity
-                            key={plan.product_id}
-                            onPress={() => setSelectedPlan(plan.product_id)}
-                            style={[
-                                styles.planCard,
-                                selectedPlan === plan.product_id && styles.planCardSelected,
-                            ]}
-                        >
-                            <Image source={{ uri: plan.product_image }} style={styles.planImage} />
-                            <View style={styles.planContent}>
-                                <Text style={styles.planTitle}>{plan.name}</Text>
-                                <Text style={styles.planPrice}>
-                                    ₹{plan.price} <Text style={styles.planOriginal}>₹{plan.mrp}</Text>
-                                </Text>
-                                <Text style={styles.planInterval}>{plan.duration} Month</Text>
-                                <View style={styles.planFeatures}>
-                                    {/* {plan.features.slice(0, 3).map((f, i) => (
-                                        <View key={i} style={styles.featureRow}>
-                                            <Icon name="check" size={12} color="#059669" />
-                                            <Text style={styles.featureText}>{f}</Text>
+                        {/* Plans Section */}
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>📦 Subscription Plans</Text>
+                            {allPackages.map((plan) => (
+                                <TouchableOpacity
+                                    key={plan.product_id}
+                                    onPress={() => setSelectedPlan(plan.product_id)}
+                                    style={[
+                                        styles.planCard,
+                                        selectedPlan === plan.product_id && styles.planCardSelected,
+                                    ]}
+                                >
+                                    <Image source={{ uri: plan.product_image }} style={styles.planImage} />
+                                    <View style={styles.planContent}>
+                                        <Text style={styles.planTitle}>{plan.name}</Text>
+                                        <Text style={styles.planPrice}>
+                                            ₹{plan.price} <Text style={styles.planOriginal}>₹{plan.mrp}</Text>
+                                        </Text>
+                                        <Text style={styles.planInterval}>{plan.duration} Month</Text>
+                                        <View style={styles.planFeatures}>
+                                            <View style={styles.planFeatures}>
+                                                {plan.benefits && plan.benefits.split('#').map((benefit, idx) => (
+                                                    <View key={idx} style={styles.featureRow}>
+                                                        <Icon name="check" size={12} color="#059669" />
+                                                        <Text style={styles.featureText}>{benefit.trim()}</Text>
+                                                    </View>
+                                                ))}
+                                            </View>
                                         </View>
-                                    ))} */}
-                                </View>
-                            </View>
-                            <View style={styles.radio}>
-                                {selectedPlan === plan.product_id && <Icon name="dot-circle" size={18} color="#FF6B35" />}
-                            </View>
-                        </TouchableOpacity>
-                    ))}
-                </View>
+                                    </View>
+                                    <View style={styles.radio}>
+                                        {selectedPlan === plan.product_id && <Icon name="dot-circle" size={18} color="#FF6B35" />}
+                                    </View>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
 
-                {/* Subscribe Button */}
-                <View style={styles.subscribe}>
-                    <TouchableOpacity style={styles.subscribeBtn}>
-                        <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.subscribeGradient}>
-                            <Text style={styles.subscribeText}>
-                                {allPackages.find(p => p.product_id === selectedPlan)?.name} - ₹{allPackages.find(p => p.product_id === selectedPlan)?.price}/{allPackages.find(p => p.product_id === selectedPlan)?.interval}
-                            </Text>
-                        </LinearGradient>
-                    </TouchableOpacity>
-                </View>
-            </ScrollView>
+                        {/* Subscribe Button */}
+                        <View style={styles.subscribe}>
+                            <TouchableOpacity style={styles.subscribeBtn}>
+                                <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.subscribeGradient}>
+                                    <Text style={styles.subscribeText}>
+                                        {allPackages.find(p => p.product_id === selectedPlan)?.name} - ₹{allPackages.find(p => p.product_id === selectedPlan)?.price}/{allPackages.find(p => p.product_id === selectedPlan)?.interval}
+                                    </Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </View>
+                    </ScrollView>
+                }
+            </View>
         </SafeAreaView>
     );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     View,
     Text,
@@ -7,21 +7,32 @@ import {
     TouchableOpacity,
     SafeAreaView,
     Image,
+    BackHandler,
+    Modal,
+    TextInput,
+    StatusBar,
+    ToastAndroid
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation, useIsFocused } from '@react-navigation/native';
+import { useNavigation, useIsFocused, useFocusEffect } from '@react-navigation/native';
+import DropDownPicker from 'react-native-dropdown-picker';
+import { launchImageLibrary } from 'react-native-image-picker';
 import Icon from 'react-native-vector-icons/FontAwesome5';
+import Feather from 'react-native-vector-icons/Feather';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useTab } from '../TabContext';
 import { base_url } from '../../../App';
+import ProfileImgMenu from '../../component/ProfileImgMenu';
+import ShowDP from '../../component/ShowDP';
 
 const PROFILE_OPTIONS = [
-    { id: '1', title: 'My Orders', icon: 'clock', subtitle: 'Track your pooja flower deliveries', gradient: ['#FF6B35', '#F7931E'] },
-    { id: '2', title: 'Delivery Address', icon: 'map-marker-alt', subtitle: 'Home temple delivery location', gradient: ['#10B981', '#059669'] },
-    { id: '6', title: 'Help & Support', icon: 'question-circle', subtitle: 'Get help with flower selection', gradient: ['#06B6D4', '#0891B2'] },
-    { id: '3', title: 'About us', icon: 'info-circle', subtitle: 'Learn more about our mission', gradient: ['#EF4444', '#DC2626'] },
-    { id: '4', title: 'Terms & Conditions', icon: 'file-alt', subtitle: 'Read our terms of service', gradient: ['#8B5CF6', '#A855F7'] },
-    { id: '5', title: 'Privacy Policy', icon: 'shield-alt', subtitle: 'Your data privacy matters', gradient: ['#F59E0B', '#D97706'] },
+    { id: '1', title: 'My Orders', icon: 'clock', subtitle: 'Track your pooja flower deliveries', gradient: ['#FF6B35', '#F7931E'], page: 'MyOrder' },
+    { id: '2', title: 'Delivery Address', icon: 'map-marker-alt', subtitle: 'Home temple delivery location', gradient: ['#10B981', '#059669'], page: 'Address' },
+    { id: '6', title: 'Help & Support', icon: 'question-circle', subtitle: 'Get help with flower selection', gradient: ['#06B6D4', '#0891B2'], page: 'HelpAndSupport' },
+    { id: '3', title: 'About us', icon: 'info-circle', subtitle: 'Learn more about our mission', gradient: ['#EF4444', '#DC2626'], page: 'AboutUs' },
+    { id: '4', title: 'Terms & Conditions', icon: 'file-alt', subtitle: 'Read our terms of service', gradient: ['#8B5CF6', '#A855F7'], page: 'TermsAndConditions' },
+    { id: '5', title: 'Privacy Policy', icon: 'shield-alt', subtitle: 'Your data privacy matters', gradient: ['#F59E0B', '#D97706'], page: 'PrivacyPolicy' },
 ];
 
 const NewProfile = () => {
@@ -31,6 +42,7 @@ const NewProfile = () => {
     const { setActiveTab } = useTab();
     const [spinner, setSpinner] = useState(false);
     const [profileDetails, setProfileDetails] = useState({});
+    const [isFocus, setIsFocus] = useState(false);
     const [name, setName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
     const [email, setEmail] = useState('');
@@ -44,6 +56,13 @@ const NewProfile = () => {
         { label: 'Prefer not to disclose', value: 'Prefer_not_to_disclose' }
     ]);
     const [imageSource, setImageSource] = useState(null);
+
+    const [profileModal, setProfileModal] = useState(false);
+    const closeProfileModal = () => { setProfileModal(false); }
+    const [updateProfileErrorVisible, setUpdateProfileErrorVisible] = useState(false);
+    const [updateProfileError, setUpdateProfileError] = useState('');
+    const [profileImgMenu, setProfileImgMenu] = useState(false);
+    const [showProfileImage, setShowProfileImage] = useState(false);
 
     const getProfile = async () => {
         var access_token = await AsyncStorage.getItem('storeAccesstoken');
@@ -77,6 +96,162 @@ const NewProfile = () => {
         }
     }
 
+    useFocusEffect(
+        useCallback(() => {
+            const onBackPress = () => {
+                setActiveTab('home');
+                return false;
+            };
+
+            const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+            return () => backHandler.remove();
+        }, [])
+    );
+
+    const EditProfile = async () => {
+        var access_token = await AsyncStorage.getItem('storeAccesstoken');
+        if (!name) {
+            setUpdateProfileErrorVisible(true);
+            setUpdateProfileError('Enter Your Name');
+            setTimeout(() => {
+                setUpdateProfileErrorVisible(false);
+            }, 5000);
+            return;
+        }
+        if (!email) {
+            setUpdateProfileErrorVisible(true);
+            setUpdateProfileError('Enter Your Email');
+            setTimeout(() => {
+                setUpdateProfileErrorVisible(false);
+            }, 5000);
+            return;
+        }
+        if (genderID === null) {
+            setUpdateProfileErrorVisible(true);
+            setUpdateProfileError('Select Your Gender');
+            setTimeout(() => {
+                setUpdateProfileErrorVisible(false);
+            }, 5000);
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('name', name);
+        formData.append('email', email);
+        formData.append('gender', genderID);
+        formData.append('about', about);
+
+        try {
+            const response = await fetch(base_url + 'api/update-profile', {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Authorization': `Bearer ${access_token}`
+                },
+                body: formData,
+            });
+            const responseData = await response.json();
+            console.log("responseData", responseData);
+            if (response.ok) {
+                console.log("Profile Updated successfully");
+                closeProfileModal();
+                getProfile();
+            } else {
+                console.error('Failed to Edit Profile:', responseData.message);
+            }
+        } catch (error) {
+            console.log("Error when Edit Profile:", error);
+        }
+    }
+
+    const removeProfilePhoto = async () => {
+        var access_token = await AsyncStorage.getItem('storeAccesstoken');
+        if (!imageSource) {
+            ToastAndroid.show('Profile photo not available', ToastAndroid.SHORT);
+        } else {
+            try {
+                const response = await fetch(base_url + 'api/deletePhoto', {
+                    method: 'POST',
+                    headers: {
+                        Accept: 'application/json',
+                        'Authorization': `Bearer ${access_token}`
+                    },
+                });
+                const responseData = await response.json();
+                // console.log("responseData", responseData);
+                if (response.ok) {
+                    // console.log("Profile Photo Remove successfully");
+                    setImageSource(null);
+                    setProfileImgMenu(false);
+                    closeProfileModal();
+                    getProfile();
+                } else {
+                    console.error('Failed to Remove Profile Photo:', responseData.message);
+                }
+            } catch (error) {
+                console.log("Error when Remove Profile Photo:", error);
+            }
+        }
+    }
+
+    const selectImage = async () => {
+        var access_token = await AsyncStorage.getItem('storeAccesstoken');
+        const options = {
+            title: 'Select Image',
+            storageOptions: {
+                skipBackup: true,
+                path: 'images',
+            },
+        };
+
+        launchImageLibrary(options, (response) => {
+            if (response.didCancel) {
+                console.log('User cancelled image picker');
+            } else if (response.error) {
+                console.log('ImagePicker Error: ', response.error);
+            } else {
+                const source = response.assets[0].uri
+                setImageSource(source);
+                // console.log("selected image-=-=", response.assets[0])
+
+                let imageBody = new FormData();
+                imageBody.append('userphoto',
+                    {
+                        uri: response.assets[0].uri,
+                        name: response.assets[0].fileName,
+                        filename: response.assets[0].fileName,
+                        type: response.assets[0].type
+                    });
+
+                fetch(base_url + 'api/update-userphoto',
+                    {
+                        method: 'POST',
+                        headers: {
+                            "Content-Type": "multipart/form-data",
+                            'Authorization': `Bearer ${access_token}`
+                        },
+                        body: imageBody
+                    })
+                    .then((response) => response.json())
+                    .then(async (responseData) => {
+                        console.log("Profile-picture Update----", responseData);
+                    })
+                    .catch((error) => {
+                        console.error('There was a problem with the fetch operation:', error);
+                    });
+            }
+        });
+    };
+
+    const viewProfileImage = () => {
+        // console.log("imageSource", imageSource);
+        if (!imageSource) {
+            ToastAndroid.show('Profile photo not available', ToastAndroid.SHORT);
+        } else {
+            setShowProfileImage(true);
+        }
+    }
+
     useEffect(() => {
         if (isFocused) {
             getProfile();
@@ -85,10 +260,20 @@ const NewProfile = () => {
 
     return (
         <SafeAreaView style={styles.container}>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ProfileImgMenu isVisible={profileImgMenu} onClose={() => setProfileImgMenu(false)} selectImage={selectImage} showProfileImage={viewProfileImage} removeProfilePhoto={removeProfilePhoto} />
+            <ShowDP showProfileImage={showProfileImage} onClose={() => setShowProfileImage(false)} imageSource={imageSource} />
+            <View style={{ flex: 1 }}>
                 <LinearGradient colors={['#1E293B', '#334155', '#475569']} style={styles.header}>
                     <View style={styles.heroContent}>
-                        <TouchableOpacity style={styles.headerRow} onPress={() => setActiveTab('home')}>
+                        <TouchableOpacity
+                            style={styles.headerRow}
+                            onPress={() => {
+                                setActiveTab('home');
+                                if (navigation.canGoBack()) {
+                                    navigation.goBack();
+                                }
+                            }}
+                        >
                             <Icon name="arrow-left" size={24} color="#FFFFFF" style={styles.backIcon} />
                             <Text style={styles.heroTitle}>My Profile</Text>
                         </TouchableOpacity>
@@ -97,71 +282,219 @@ const NewProfile = () => {
                         </Text>
                     </View>
                 </LinearGradient>
-
-                <View style={styles.profileCard}>
-                    {imageSource ?
-                        <Image
-                            source={{ uri: imageSource }}
-                            style={styles.avatar}
-                        />
+                <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, marginBottom: 10 }}>
+                    {spinner ?
+                        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 10 }}>
+                            <Text style={{ color: '#ffcb44', fontSize: 17 }}>Loading...</Text>
+                        </View>
                         :
-                        <Icon name="user-circle" size={80} color="#9CA3AF" style={styles.avatar} />
-                    }
-                    <View style={styles.userInfo}>
-                        <Text style={styles.userName}>Priya Patel</Text>
-                        <Text style={styles.userEmail}>priya.patel@example.com</Text>
-                    </View>
-                </View>
-
-                {/* <View style={styles.statsContainer}>
-                    <View style={styles.statBox}><Text style={styles.statNum}>180</Text><Text style={styles.statLabel}>Orders</Text></View>
-                    <View style={styles.statBox}><Text style={styles.statNum}>12</Text><Text style={styles.statLabel}>Favorites</Text></View>
-                    <View style={styles.statBox}><Text style={styles.statNum}>₹2,400</Text><Text style={styles.statLabel}>Saved</Text></View>
-                </View> */}
-
-                <View style={styles.optionsContainer}>
-                    {PROFILE_OPTIONS.map(option => (
-                        <TouchableOpacity key={option.id} style={styles.optionCard}>
-                            <LinearGradient colors={option.gradient} style={styles.iconContainer}>
-                                <Icon name={option.icon} size={20} color="#fff" />
-                            </LinearGradient>
-                            <View style={styles.optionTextContainer}>
-                                <Text style={styles.optionTitle}>{option.title}</Text>
-                                <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
+                        <View style={styles.profileCard}>
+                            {imageSource ?
+                                <Image
+                                    source={{ uri: imageSource }}
+                                    style={styles.avatar}
+                                />
+                                :
+                                <Image
+                                    source={require('../../assets/images/user.png')}
+                                    style={styles.avatar}
+                                />
+                            }
+                            <View style={styles.userInfo}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    {profileDetails?.name && <Text style={{ color: '#000', fontSize: 16, fontWeight: '500', marginRight: 4 }}>{profileDetails?.name}</Text>}
+                                    {profileDetails?.email && !profileDetails?.name && <Text style={{ color: '#000', fontSize: 16, fontWeight: '500', marginRight: 4 }}>{profileDetails?.email}</Text>}
+                                    {profileDetails?.mobile_number && !profileDetails?.email && !profileDetails?.name && <Text style={{ color: '#000', fontSize: 16, fontWeight: '500', marginRight: 4 }}>{profileDetails?.mobile_number}</Text>}
+                                    <Feather name="check-circle" color={'#28a745'} size={16} />
+                                </View>
+                                {profileDetails?.email && profileDetails?.name && <Text style={{ color: '#555454', fontSize: 12, fontWeight: '400' }}>{profileDetails?.email}</Text>}
+                                {profileDetails?.mobile_number && profileDetails?.email && profileDetails?.name && <Text style={{ color: '#555454', fontSize: 12, fontWeight: '400' }}>{profileDetails?.mobile_number}</Text>}
                             </View>
-                            <Icon name="chevron-right" size={16} color="#9CA3AF" />
-                        </TouchableOpacity>
-                    ))}
-                </View>
+                        </View>
+                    }
 
-                {/* Premium Upgrade Card */}
-                {/* <View style={styles.upgradeContainer}>
-                    <LinearGradient
-                        colors={['#8B5CF6', '#A855F7', '#C084FC']}
-                        style={styles.upgradeGradient}
-                    >
-                        <View style={styles.upgradeContent}>
-                            <Icon name="crown" size={40} color="#fff" />
-                            <Text style={styles.upgradeTitle}>Upgrade to Premium</Text>
-                            <Text style={styles.upgradeSubtitle}>Get exclusive flowers and priority delivery</Text>
-                            <TouchableOpacity style={styles.upgradeButton}>
-                                <Text style={styles.upgradeButtonText}>Upgrade Now</Text>
+                    {/* <View style={styles.statsContainer}>
+                        <View style={styles.statBox}><Text style={styles.statNum}>180</Text><Text style={styles.statLabel}>Orders</Text></View>
+                        <View style={styles.statBox}><Text style={styles.statNum}>12</Text><Text style={styles.statLabel}>Favorites</Text></View>
+                        <View style={styles.statBox}><Text style={styles.statNum}>₹2,400</Text><Text style={styles.statLabel}>Saved</Text></View>
+                    </View> */}
+
+                    <View style={styles.optionsContainer}>
+                        {PROFILE_OPTIONS.map(option => (
+                            <TouchableOpacity key={option.id} style={styles.optionCard} onPress={() => navigation.navigate(option.page)}>
+                                <LinearGradient colors={option.gradient} style={styles.iconContainer}>
+                                    <Icon name={option.icon} size={20} color="#fff" />
+                                </LinearGradient>
+                                <View style={styles.optionTextContainer}>
+                                    <Text style={styles.optionTitle}>{option.title}</Text>
+                                    <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
+                                </View>
+                                <Icon name="chevron-right" size={16} color="#9CA3AF" />
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+
+                    {/* Premium Upgrade Card */}
+                    {/* <View style={styles.upgradeContainer}>
+                        <LinearGradient
+                            colors={['#8B5CF6', '#A855F7', '#C084FC']}
+                            style={styles.upgradeGradient}
+                        >
+                            <View style={styles.upgradeContent}>
+                                <Icon name="crown" size={40} color="#fff" />
+                                <Text style={styles.upgradeTitle}>Upgrade to Premium</Text>
+                                <Text style={styles.upgradeSubtitle}>Get exclusive flowers and priority delivery</Text>
+                                <TouchableOpacity style={styles.upgradeButton}>
+                                    <Text style={styles.upgradeButtonText}>Upgrade Now</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </LinearGradient>
+                    </View> */}
+
+                    {/* Enhanced Edit Profile Button */}
+                    <TouchableOpacity style={styles.logoutButton} onPress={() => setProfileModal(true)}>
+                        <LinearGradient
+                            colors={['#FFFFFF', '#F8FAFC']}
+                            style={styles.logoutGradient}
+                        >
+                            <Icon name="user-edit" size={20} color="#EF4444" />
+                            <Text style={styles.logoutText}>Edit Profile</Text>
+                        </LinearGradient>
+                    </TouchableOpacity>
+                </ScrollView>
+            </View>
+
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={profileModal}
+                onRequestClose={() => { setProfileModal(false) }}
+            >
+                <View style={styles.fullModal}>
+                    <StatusBar hidden={true} />
+                    <View style={styles.headerPart}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Text style={{ color: '#000', fontSize: 16, fontWeight: '500', marginBottom: 3, marginLeft: 5 }}>Edit Profile</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                            <TouchableOpacity onPress={closeProfileModal} style={{ marginLeft: 20 }}>
+                                <MaterialIcons name="close" color={'#000'} size={25} />
                             </TouchableOpacity>
                         </View>
-                    </LinearGradient>
-                </View> */}
-
-                {/* Enhanced Logout Button */}
-                <TouchableOpacity style={styles.logoutButton}>
-                    <LinearGradient
-                        colors={['#FFFFFF', '#F8FAFC']}
-                        style={styles.logoutGradient}
-                    >
-                        <Icon name="sign-out-alt" size={20} color="#EF4444" />
-                        <Text style={styles.logoutText}>Sign Out</Text>
-                    </LinearGradient>
-                </TouchableOpacity>
-            </ScrollView>
+                    </View>
+                    <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+                        <View style={{ marginVertical: 10, alignItems: 'center' }}>
+                            <View style={styles.profileBorder}>
+                                <TouchableOpacity onPress={() => setProfileImgMenu(true)} style={styles.profileContainer}>
+                                    {imageSource ?
+                                        <Image source={{ uri: imageSource }} style={{ width: '100%', height: '100%', resizeMode: 'cover', borderRadius: 90 }} />
+                                        :
+                                        <Image
+                                            source={require('../../assets/images/user.png')}
+                                            style={{ width: '100%', height: '100%', resizeMode: 'cover', borderRadius: 90 }}
+                                        />
+                                    }
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => setProfileImgMenu(true)} style={styles.cameraBtm}>
+                                    <Feather name="edit" style={{ color: '#fff' }} size={18} />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                        <View style={{ width: '90%', height: '100%', alignSelf: 'center', marginTop: 14 }}>
+                            <View style={{ width: '100%' }}>
+                                <Text style={{ color: '#000', fontSize: 16, marginLeft: 8 }}>Name</Text>
+                                <View style={styles.cardStyle}>
+                                    <TextInput
+                                        style={styles.inputs}
+                                        onChangeText={setName}
+                                        type='text'
+                                        value={name}
+                                        placeholder="Enter Your Name"
+                                        placeholderTextColor="#b7b7c2"
+                                        underlineColorAndroid='transparent'
+                                    />
+                                </View>
+                            </View>
+                            <View style={{ width: '100%' }}>
+                                <Text style={{ color: '#000', fontSize: 16, marginLeft: 8 }}>Phone Number</Text>
+                                <View style={[styles.cardStyle, { backgroundColor: '#e8e8eb', borderColor: '#868687', }]}>
+                                    <TextInput
+                                        style={[styles.inputs, { color: '#6a6a6b' }]}
+                                        onChangeText={setPhoneNumber}
+                                        type='number'
+                                        editable={false}
+                                        keyboardType='numeric'
+                                        value={phoneNumber}
+                                        placeholder="Enter Your Phone Number"
+                                        placeholderTextColor="#b7b7c2"
+                                        underlineColorAndroid='transparent'
+                                    />
+                                </View>
+                            </View>
+                            <View style={{ width: '100%' }}>
+                                <Text style={{ color: '#000', fontSize: 16, marginLeft: 8 }}>Email ID</Text>
+                                <View style={styles.cardStyle}>
+                                    <TextInput
+                                        style={styles.inputs}
+                                        onChangeText={setEmail}
+                                        type='email'
+                                        value={email}
+                                        keyboardType='email-address'
+                                        placeholder="Enter Your Email ID"
+                                        placeholderTextColor="#b7b7c2"
+                                        underlineColorAndroid='transparent'
+                                    />
+                                </View>
+                            </View>
+                            <View style={{ width: '100%' }}>
+                                <Text style={{ color: '#000', fontSize: 16, marginLeft: 8, marginBottom: 4 }}>Gender</Text>
+                                <DropDownPicker
+                                    style={{ zIndex: 10, borderWidth: 0, backgroundColor: "#fff", borderWidth: 0.4, borderColor: '#000', marginBottom: 15 }}
+                                    placeholder={!isFocus ? 'Gender' : '...'}
+                                    open={gender}
+                                    value={genderID}
+                                    items={genderitems}
+                                    listMode="SCROLLVIEW"
+                                    // dropDownDirection="TOP"
+                                    disableBorderRadius={true}
+                                    dropDownContainerStyle={{
+                                        backgroundColor: "#fff",
+                                        borderWidth: 0.8,
+                                        borderColor: '#000',
+                                        // zIndex: 9
+                                    }}
+                                    itemSeparator={true}
+                                    autoScroll={true}
+                                    setOpen={setGender}
+                                    setValue={setGenderID}
+                                    setItems={setGenderItems}
+                                />
+                            </View>
+                            <View style={{ width: '100%' }}>
+                                <Text style={{ color: '#000', fontSize: 16, marginLeft: 8 }}>About Yourself</Text>
+                                <View style={styles.cardStyle}>
+                                    <TextInput
+                                        style={{ width: '80%', alignSelf: 'center', marginLeft: 0, fontSize: 16, color: '#000' }}
+                                        onChangeText={setAbout}
+                                        type='text'
+                                        value={about}
+                                        placeholder="Enter About Yourself"
+                                        placeholderTextColor="#b7b7c2"
+                                        underlineColorAndroid='transparent'
+                                        multiline
+                                    />
+                                </View>
+                            </View>
+                            <Text style={styles.errorText}>{updateProfileErrorVisible ? updateProfileError : ''}</Text>
+                            <View style={{ width: '100%', alignItems: 'flex-end', marginTop: 20, marginBottom: 20 }}>
+                                <TouchableOpacity onPress={() => EditProfile()} style={styles.saveBtm}>
+                                    <Text style={{ fontSize: 20, fontWeight: '500' }}>Save</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </ScrollView>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 };
@@ -349,5 +682,86 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#EF4444',
         marginLeft: 12,
+    },
+    // Modal styles
+    fullModal: {
+        width: '100%',
+        height: '100%',
+        backgroundColor: '#fff',
+        // borderTopLeftRadius: 20,
+        // borderTopRightRadius: 20,
+        bottom: 0,
+        position: 'absolute',
+        alignSelf: 'center',
+        borderRadius: 10
+    },
+    headerPart: {
+        width: '100%',
+        alignSelf: 'center',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        backgroundColor: '#fff',
+        paddingVertical: 13,
+        paddingHorizontal: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.8,
+        shadowRadius: 13,
+        elevation: 5
+    },
+    profileBorder: {
+        borderColor: '#88888a',
+        borderWidth: 2,
+        height: 120,
+        width: 120,
+        padding: 2,
+        borderRadius: 90,
+        alignItems: 'center',
+        justifyContent: 'center'
+    },
+    profileContainer: {
+        backgroundColor: '#ffcb44',
+        width: '100%',
+        height: '100%',
+        borderRadius: 90,
+        alignItems: 'center',
+    },
+    cameraBtm: {
+        position: 'absolute',
+        right: 0,
+        bottom: 6,
+        backgroundColor: '#9c9998',
+        borderRadius: 20,
+        padding: 6
+    },
+    cardStyle: {
+        backgroundColor: '#fff',
+        width: '100%',
+        marginTop: 4,
+        marginBottom: 15,
+        flexDirection: 'row',
+        paddingHorizontal: 10,
+        borderRadius: 10,
+        borderColor: '#000',
+        borderWidth: 0.4
+    },
+    inputs: {
+        height: 50,
+        width: '80%',
+        alignSelf: 'center',
+        marginLeft: 0,
+        fontSize: 16,
+        color: '#000'
+    },
+    saveBtm: {
+        backgroundColor: '#ffcb44',
+        paddingHorizontal: 15,
+        paddingVertical: 6,
+        borderRadius: 6
+    },
+    errorText: {
+        color: '#f00c27',
+        marginTop: 10,
+        // fontWeight: '500'
     },
 });

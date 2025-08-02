@@ -5,9 +5,9 @@ import { useNavigation, useIsFocused } from '@react-navigation/native'
 import LinearGradient from 'react-native-linear-gradient';
 import Entypo from 'react-native-vector-icons/Entypo';
 import Feather from 'react-native-vector-icons/Feather';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { base_url } from '../../App';
+// import { base_url } from '../../App';
 // import messaging from '@react-native-firebase/messaging';
 
 const Drawer = ({ visible, onClose }) => {
@@ -15,55 +15,6 @@ const Drawer = ({ visible, onClose }) => {
     const navigation = useNavigation();
     const isFocused = useIsFocused();
     const [accessToken, setAccessToken] = useState(null);
-    const [fcmToken, setFcmToken] = useState(null);
-
-    // async function getFCMToken() {
-    //     try {
-    //         const token = await messaging().getToken();
-    //         // console.log('FCM Token:', token)
-    //         setFcmToken(token);
-    //     } catch (error) {
-    //         console.log('Error getting FCM token:', error);
-    //     }
-    // }
-
-    const confirmLogout = () => {
-        onClose();
-        try {
-            fetch(base_url + 'api/userLogout', {
-                method: 'POST',
-                headers: {
-                    Accept: 'application/json',
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${accessToken}`
-                },
-                body: JSON.stringify({
-                    device_id: fcmToken,
-                }),
-            })
-                .then((response) => response.json())
-                .then(async (responseData) => {
-                    if (responseData.status === 200) {
-                        // console.log(responseData)
-                        AsyncStorage.removeItem('storeAccesstoken');
-                        navigation.replace('Home');
-                    } else {
-                        // console.log("Error-----", responseData.message);
-                        alert(responseData.message);
-                    }
-                })
-        } catch (error) {
-            console.log("error", error)
-        }
-    };
-
-    const isLogout = () => {
-        onClose();
-        Alert.alert('Confirm Logout', 'Are you sure you want to Logout ?', [
-            { text: 'cancel' },
-            { text: 'OK', onPress: confirmLogout },
-        ]);
-    };
 
     const getAccesstoken = async () => {
         var access_token = await AsyncStorage.getItem('storeAccesstoken');
@@ -73,7 +24,6 @@ const Drawer = ({ visible, onClose }) => {
 
     useEffect(() => {
         if (isFocused) {
-            // getFCMToken();
             getAccesstoken();
         }
     }, [isFocused])
@@ -81,7 +31,37 @@ const Drawer = ({ visible, onClose }) => {
     const goToProfile = () => {
         if (accessToken) {
             onClose();
-            navigation.navigate('Profile');
+            navigation.navigate('NewProfile');
+        } else {
+            onClose();
+            navigation.navigate('Login');
+        }
+    }
+
+    const goToNotifications = () => {
+        if (accessToken) {
+            onClose();
+            navigation.navigate('Notification');
+        } else {
+            onClose();
+            navigation.navigate('Login');
+        }
+    }
+
+    const goToMyOrders = () => {
+        if (accessToken) {
+            onClose();
+            navigation.navigate('MyOrder');
+        } else {
+            onClose();
+            navigation.navigate('Login');
+        }
+    }
+
+    const goToAddress = () => {
+        if (accessToken) {
+            onClose();
+            navigation.navigate('Address');
         } else {
             onClose();
             navigation.navigate('Login');
@@ -115,38 +95,48 @@ const Drawer = ({ visible, onClose }) => {
                                         <Text style={styles.menuLabel}>Profile</Text>
                                     </TouchableOpacity>
 
-                                    <TouchableOpacity style={styles.menuItem}>
+                                    <TouchableOpacity onPress={goToNotifications} style={styles.menuItem}>
                                         <Ionicons name="notifications-outline" color="#fff" size={20} />
                                         <Text style={styles.menuLabel}>Notifications</Text>
                                     </TouchableOpacity>
 
-                                    <TouchableOpacity style={styles.menuItem}>
+                                    <TouchableOpacity onPress={goToMyOrders} style={styles.menuItem}>
                                         <Ionicons name="cart-outline" color="#fff" size={20} />
                                         <Text style={styles.menuLabel}>My Orders</Text>
                                     </TouchableOpacity>
 
-                                    <TouchableOpacity style={styles.menuItem}>
+                                    <TouchableOpacity onPress={goToAddress} style={styles.menuItem}>
                                         <Entypo name="location" color="#fff" size={20} />
                                         <Text style={styles.menuLabel}>Address</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity style={styles.menuItem} onPress={() => { navigation.navigate('HelpAndSupport'); onClose(); }}>
+                                        <FontAwesome5 name="question-circle" color="#fff" size={20} />
+                                        <Text style={styles.menuLabel}>Help & Support</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity style={styles.menuItem} onPress={() => { navigation.navigate('AboutUs'); onClose(); }}>
+                                        <FontAwesome5 name="info-circle" color="#fff" size={20} />
+                                        <Text style={styles.menuLabel}>About us</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity style={styles.menuItem} onPress={() => { navigation.navigate('TermsAndConditions'); onClose(); }}>
+                                        <FontAwesome5 name="file-alt" color="#fff" size={20} />
+                                        <Text style={styles.menuLabel}>Terms & Conditions</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity style={styles.menuItem} onPress={() => { navigation.navigate('PrivacyPolicy'); onClose(); }}>
+                                        <FontAwesome5 name="shield-alt" color="#fff" size={20} />
+                                        <Text style={styles.menuLabel}>Privacy Policy</Text>
                                     </TouchableOpacity>
                                 </View>
 
                                 {/* Divider */}
                                 <View style={styles.divider} />
 
-                                {/* Logout/Login */}
+                                {/* Show current version */}
                                 <View style={styles.footerSection}>
-                                    {accessToken ? (
-                                        <TouchableOpacity onPress={isLogout} style={styles.menuItem}>
-                                            <MaterialCommunityIcons name="logout" color="#EF4444" size={20} />
-                                            <Text style={[styles.menuLabel, { color: '#EF4444' }]}>Logout</Text>
-                                        </TouchableOpacity>
-                                    ) : (
-                                        <TouchableOpacity onPress={() => { onClose(); navigation.navigate('Login'); }} style={styles.menuItem}>
-                                            <MaterialCommunityIcons name="login" color="#0bdc97ff" size={20} />
-                                            <Text style={[styles.menuLabel, { color: '#0bdc97ff' }]}>Login</Text>
-                                        </TouchableOpacity>
-                                    )}
+                                    <Text style={styles.versionLabel}>Version 1.0.0</Text>
                                 </View>
                             </LinearGradient>
                         </TouchableWithoutFeedback>
@@ -213,5 +203,11 @@ const styles = StyleSheet.create({
     },
     footerSection: {
         paddingBottom: 0,
+    },
+    versionLabel: {
+        fontSize: 14,
+        color: '#fff',
+        textAlign: 'center',
+        opacity: 0.7,
     },
 })

@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, ImageBackground, StyleSheet, TouchableOpacity, ActivityIndicator, PermissionsAndroid, Platform } from 'react-native';
-import { FloatingLabelInput } from 'react-native-floating-label-input';
+import {
+  View,
+  Text,
+  TextInput,
+  Image,
+  ImageBackground,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  PermissionsAndroid,
+  Platform,
+  Keyboard
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { base_url } from '../../../App';
 
@@ -8,21 +19,20 @@ const Login = () => {
 
   const navigation = useNavigation();
   const [phone, setPhone] = useState('+91');
+  const [isFocused, setIsFocused] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [showError, setShowError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const pressHandler = async () => {
+    Keyboard.dismiss();
     setIsLoading(true);
-    // const strippedPhone = phone.replace(/^\+91/, '');
     try {
       const phoneRegex = /^\+91\d{10}$/;
       if (phone === "" || !phoneRegex.test(phone)) {
         setErrorMessage('Please enter a valid phone number');
         setShowError(true);
-        setTimeout(() => {
-          setShowError(false);
-        }, 5000);
+        setTimeout(() => setShowError(false), 5000);
         setIsLoading(false);
         return;
       }
@@ -37,27 +47,21 @@ const Login = () => {
 
       const data = await response.json();
       if (response.ok) {
-        console.log('OTP sent successfully', data);
         let phone_orderId = {
           phone: phone,
           order_id: data.order_id
-        }
+        };
         navigation.navigate('OTP', phone_orderId);
       } else {
-        // Handle error response
         setErrorMessage(data.message || 'Failed to send OTP. Please try again.');
         setShowError(true);
-        setTimeout(() => {
-          setShowError(false);
-        }, 5000);
+        setTimeout(() => setShowError(false), 5000);
       }
     } catch (error) {
       setErrorMessage('Failed to send OTP. Please try again.');
       setShowError(true);
       console.log("Error", error);
-      setTimeout(() => {
-        setShowError(false);
-      }, 5000);
+      setTimeout(() => setShowError(false), 5000);
     } finally {
       setIsLoading(false);
     }
@@ -91,7 +95,10 @@ const Login = () => {
 
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' }}>
-      <ImageBackground source={require('../../assets/images/Login_BG.png')} style={{ flex: 1, resizeMode: 'cover', justifyContent: 'center', alignItems: 'center', height: '100%', width: '100%' }}>
+      <ImageBackground
+        source={require('../../assets/images/Login_BG.png')}
+        style={{ flex: 1, resizeMode: 'cover', justifyContent: 'center', alignItems: 'center', height: '100%', width: '100%' }}
+      >
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' }}>
           <Image
             source={require('../../assets/images/whitelogo.png')}
@@ -99,36 +106,30 @@ const Login = () => {
           />
         </View>
         <View style={styles.footer}>
-          <Text style={{ fontSize: 18, fontFamily: 'okra', fontWeight: '600', color: '#353535', fontWeight: 'bold' }}>Welcome</Text>
-          <Text style={{ fontSize: 15, fontFamily: 'okra', fontWeight: '600', color: '#353535', marginBottom: 18, }}>Login to continue</Text>
-          <FloatingLabelInput
-            label="Phone Number"
-            value={phone}
-            customLabelStyles={{ colorFocused: '#c80100', fontSizeFocused: 14 }}
-            labelStyles={{
-              backgroundColor: '#ffffff',
-              paddingHorizontal: 5,
-            }}
-            maxLength={13}
-            keyboardType="phone-pad"
-            onChangeText={value => {
-              if (value.length >= 4 || value.startsWith('+91')) {
-                setPhone(value);
-              } else {
-                setPhone('+91');
-              }
-            }}
-            containerStyles={{
-              borderWidth: 0.5,
-              borderColor: '#353535',
-              backgroundColor: '#ffffff',
-              padding: 10,
-              borderRadius: 8,
-              marginVertical: 12,
-              marginHorizontal: 50,
-              borderRadius: 100,
-            }}
-          />
+          <Text style={styles.welcomeText}>Welcome</Text>
+          <Text style={styles.subText}>Login to continue</Text>
+
+          <View style={styles.inputWrapper}>
+            {(isFocused || phone.length > 3) && (
+              <Text style={styles.floatingLabel}>Phone Number</Text>
+            )}
+            <TextInput
+              style={styles.textInput}
+              value={phone}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              maxLength={13}
+              keyboardType="phone-pad"
+              onChangeText={value => {
+                if (value.length >= 4 || value.startsWith('+91')) {
+                  setPhone(value);
+                } else {
+                  setPhone('+91');
+                }
+              }}
+            />
+          </View>
+
           {showError && <Text style={styles.errorText}>{errorMessage}</Text>}
         </View>
         <View style={styles.bottom}>
@@ -149,19 +150,54 @@ export default Login;
 
 const styles = StyleSheet.create({
   footer: {
-    height: 150,
+    height: 180,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
     padding: 10,
     marginTop: 10,
   },
-  textInput: {
+  welcomeText: {
     fontSize: 18,
+    fontFamily: 'okra',
+    fontWeight: 'bold',
     color: '#353535',
-    marginVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#cacaca',
+  },
+  subText: {
+    fontSize: 15,
+    fontFamily: 'okra',
+    fontWeight: '600',
+    color: '#353535',
+    marginBottom: 18,
+  },
+  inputWrapper: {
+    width: '80%',
+    position: 'relative',
+    borderWidth: 0.5,
+    borderColor: '#353535',
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 20,
+    paddingVertical: 5,
+    borderRadius: 100,
+    justifyContent: 'center',
+  },
+  floatingLabel: {
+    position: 'absolute',
+    top: -10,
+    left: 20,
+    backgroundColor: '#fff',
+    fontSize: 12,
+    color: '#c80100',
+    paddingHorizontal: 4,
+    zIndex: 1,
+  },
+  textInput: {
+    fontSize: 16,
+    color: '#353535',
+    width: 200,
+    height: 40,
+    paddingVertical: 0,
+    paddingHorizontal: 10,
     fontFamily: 'Titillium Web',
   },
   bottom: {

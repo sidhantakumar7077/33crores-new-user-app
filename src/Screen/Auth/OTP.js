@@ -1,26 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, ImageBackground, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { FloatingLabelInput } from 'react-native-floating-label-input';
+import {
+    View,
+    Text,
+    TextInput,
+    Image,
+    ImageBackground,
+    StyleSheet,
+    TouchableOpacity,
+    ActivityIndicator
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { base_url } from '../../../App';
 import DeviceInfo from 'react-native-device-info';
+// import messaging from '@react-native-firebase/messaging';
 
 const OTP = (props) => {
-
     const navigation = useNavigation();
     const [otp, setOtp] = useState('');
+    const [isFocused, setIsFocused] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
     const [showError, setShowError] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [access_token, setAccess_token] = useState('');
+    const [fcmToken, setFcmToken] = useState(null);
 
     useEffect(() => {
         if (otp.length === 6) {
             pressHandler();
         }
     }, [otp]);
-
-    const [access_token, setAccess_token] = useState('');
 
     const getAccessToken = async () => {
         try {
@@ -31,7 +40,6 @@ const OTP = (props) => {
         }
     };
 
-    // Request user permission for notifications
     async function requestUserPermission() {
         const authStatus = await messaging().requestPermission();
         const enabled =
@@ -39,18 +47,13 @@ const OTP = (props) => {
             authStatus === messaging.AuthorizationStatus.PROVISIONAL;
 
         if (enabled) {
-            console.log('Authorization status:', authStatus);
             getFCMToken();
         }
     }
 
-    const [fcmToken, setFcmToken] = useState(null);
-
-    // Get the FCM token for the device
     async function getFCMToken() {
         try {
             const token = await messaging().getToken();
-            console.log('FCM Token:', token);
             setFcmToken(token);
         } catch (error) {
             console.log('Error getting FCM token:', error);
@@ -59,20 +62,18 @@ const OTP = (props) => {
 
     useEffect(() => {
         getAccessToken();
-        requestUserPermission();
-    }, [])
+        // requestUserPermission();
+    }, []);
 
     const pressHandler = async () => {
         let platformName = DeviceInfo.getSystemName();
         let deviceModel = DeviceInfo.getModel();
         setIsLoading(true);
         try {
-            if (otp === "" || otp.length != 6) {
+            if (otp === "" || otp.length !== 6) {
                 setErrorMessage('Please enter a valid OTP');
                 setShowError(true);
-                setTimeout(() => {
-                    setShowError(false);
-                }, 5000);
+                setTimeout(() => setShowError(false), 5000);
                 setIsLoading(false);
                 return;
             }
@@ -85,41 +86,35 @@ const OTP = (props) => {
             formData.append('device_model', deviceModel);
             formData.append('platform', platformName);
 
-            // console.log("formData", formData);
-            // return;
-
             const response = await fetch(base_url + "api/verify-otpless", {
                 method: 'POST',
                 body: formData,
             });
             const data = await response.json();
             if (response.ok) {
-                console.log('Login successfully', data);
                 await AsyncStorage.setItem('storeAccesstoken', data.token);
-                navigation.navigate('Home');
+                navigation.navigate('BTN_Layout');
             } else {
-                // Handle error response
                 setErrorMessage(data.message || 'Failed to Login. Please try again.');
                 setShowError(true);
-                setTimeout(() => {
-                    setShowError(false);
-                }, 5000);
+                setTimeout(() => setShowError(false), 5000);
             }
         } catch (error) {
-            setErrorMessage('Failed to Login. Please try again.--');
+            setErrorMessage('Failed to Login. Please try again.');
             setShowError(true);
-            console.log("Error-=-=", error);
-            setTimeout(() => {
-                setShowError(false);
-            }, 5000);
+            console.log("Error:", error);
+            setTimeout(() => setShowError(false), 5000);
         } finally {
             setIsLoading(false);
         }
-    }
+    };
 
     return (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' }}>
-            <ImageBackground source={require('../../assets/images/Login_BG.png')} style={{ flex: 1, resizeMode: 'cover', justifyContent: 'center', alignItems: 'center', height: '100%', width: '100%' }}>
+            <ImageBackground
+                source={require('../../assets/images/Login_BG.png')}
+                style={{ flex: 1, resizeMode: 'cover', justifyContent: 'center', alignItems: 'center', height: '100%', width: '100%' }}
+            >
                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' }}>
                     <Image
                         source={require('../../assets/images/whitelogo.png')}
@@ -127,30 +122,21 @@ const OTP = (props) => {
                     />
                 </View>
                 <View style={styles.footer}>
-                    {/* <Text style={{ fontSize: 18, fontFamily: 'okra', fontWeight: '600', color: '#353535', fontWeight: 'bold' }}>Enter OTP For Login</Text> */}
-                    <Text style={{ fontSize: 16, fontFamily: 'okra', fontWeight: 'semibold', color: '#353535', marginBottom: 18, }}>Enter OTP For Login</Text>
-                    <FloatingLabelInput
-                        label="OTP"
-                        value={otp}
-                        customLabelStyles={{ colorFocused: '#c80100', fontSizeFocused: 14 }}
-                        labelStyles={{
-                            backgroundColor: '#ffffff',
-                            paddingHorizontal: 5,
-                        }}
-                        maxLength={6}
-                        keyboardType="numeric"
-                        onChangeText={value => setOtp(value)}
-                        containerStyles={{
-                            borderWidth: 0.5,
-                            borderColor: '#353535',
-                            backgroundColor: '#ffffff',
-                            padding: 10,
-                            borderRadius: 8,
-                            marginVertical: 12,
-                            marginHorizontal: 50,
-                            borderRadius: 100,
-                        }}
-                    />
+                    <Text style={styles.titleText}>Enter OTP For Login</Text>
+                    <View style={styles.inputWrapper}>
+                        {(isFocused || otp.length > 0) && (
+                            <Text style={styles.floatingLabel}>OTP</Text>
+                        )}
+                        <TextInput
+                            style={styles.textInput}
+                            value={otp}
+                            onFocus={() => setIsFocused(true)}
+                            onBlur={() => setIsFocused(false)}
+                            maxLength={6}
+                            keyboardType="numeric"
+                            onChangeText={value => setOtp(value)}
+                        />
+                    </View>
                     {showError && <Text style={styles.errorText}>{errorMessage}</Text>}
                 </View>
                 <View style={styles.bottom}>
@@ -164,14 +150,13 @@ const OTP = (props) => {
                 </View>
             </ImageBackground>
         </View>
-    )
-}
+    );
+};
 
-export default OTP
+export default OTP;
 
 const styles = StyleSheet.create({
     footer: {
-        // flex: 0.3,
         height: 135,
         justifyContent: 'center',
         alignItems: 'center',
@@ -179,13 +164,41 @@ const styles = StyleSheet.create({
         padding: 10,
         marginTop: 10,
     },
-
-    textInput: {
-        fontSize: 18,
+    titleText: {
+        fontSize: 16,
+        fontFamily: 'okra',
+        fontWeight: '600',
         color: '#353535',
-        marginVertical: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: '#cacaca',
+        marginBottom: 18,
+    },
+    inputWrapper: {
+        width: '80%',
+        position: 'relative',
+        borderWidth: 0.5,
+        borderColor: '#353535',
+        backgroundColor: '#ffffff',
+        paddingHorizontal: 20,
+        paddingVertical: 5,
+        borderRadius: 100,
+        justifyContent: 'center',
+    },
+    floatingLabel: {
+        position: 'absolute',
+        top: -10,
+        left: 20,
+        backgroundColor: '#fff',
+        fontSize: 12,
+        color: '#c80100',
+        paddingHorizontal: 4,
+        zIndex: 1,
+    },
+    textInput: {
+        fontSize: 16,
+        color: '#353535',
+        width: 200,
+        height: 40,
+        paddingVertical: 0,
+        paddingHorizontal: 10,
         fontFamily: 'Titillium Web',
     },
     bottom: {
@@ -202,7 +215,6 @@ const styles = StyleSheet.create({
         width: 150,
         marginBottom: 12,
         backgroundColor: '#c80100',
-        //padding: 10,
         borderRadius: 100,
         alignItems: 'center',
         shadowOffset: { height: 10, width: 10 },
@@ -222,4 +234,4 @@ const styles = StyleSheet.create({
         marginTop: 10,
         fontSize: 14,
     },
-})
+});

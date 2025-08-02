@@ -28,6 +28,8 @@
     "react-native-dropdown-picker": "^5.4.6",
     "react-native-floating-label-input": "^1.4.3",
     "react-native-gesture-handler": "^2.27.2",
+    "react-native-image-pan-zoom": "^2.1.12",
+    "react-native-image-picker": "^8.2.1",
     "react-native-linear-gradient": "^2.8.3",
     "react-native-modal": "^14.0.0-rc.1",
     "react-native-razorpay": "^2.3.0",

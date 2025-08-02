@@ -73,7 +73,7 @@ const Category = () => {
 
     return (
         <SafeAreaView style={styles.container}>
-            <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+            <View style={{ flex: 1 }}>
                 <LinearGradient colors={['#1E293B', '#334155', '#475569']} style={styles.header}>
                     <View style={styles.heroContent}>
                         <TouchableOpacity style={styles.headerRow} onPress={() => setActiveTab('home')}>
@@ -87,7 +87,7 @@ const Category = () => {
                 </LinearGradient>
 
                 {/* Categories Grid */}
-                <View style={styles.categoriesContainer}>
+                <ScrollView style={styles.categoriesContainer} showsVerticalScrollIndicator={false}>
                     <Text style={styles.sectionTitle}>🏷️ Sacred Flower Collections</Text>
                     <View style={styles.categoriesGrid}>
                         {CATEGORIES.map((category) => (
@@ -117,8 +117,8 @@ const Category = () => {
                             </TouchableOpacity>
                         ))}
                     </View>
-                </View>
-            </ScrollView>
+                </ScrollView>
+            </View>
         </SafeAreaView>
     );
 };
@@ -167,8 +167,7 @@ const styles = StyleSheet.create({
         opacity: 0.9,
     },
     categoriesContainer: {
-        marginBottom: 20,
-        marginTop: 10,
+        flex: 1,
     },
     sectionTitle: {
         fontSize: 22,

@@ -133,7 +133,7 @@ const NewHome = () => {
             const data = await response.json();
 
             if (response.ok) {
-                console.log('Offer details:', data.data[0]);
+                // console.log('Offer details:', data.data[0]);
                 setOfferDetails(data.data[0]);
             } else {
                 console.error('Failed to fetch:', data);
@@ -153,7 +153,7 @@ const NewHome = () => {
             },
         }).then(response => response.json()).then(response => {
             if (response.status === 200) {
-                console.log("object", response.data);
+                // console.log("object", response.data);
                 const filteredPackages = response.data.filter(item => item.category === "Subscription");
                 setAllPackages(filteredPackages);
                 setSpinner(false);
@@ -236,8 +236,8 @@ const NewHome = () => {
                             onPress={() => navigation.navigate('CustomOrderScreen')}
                         />
                         <QuickAction label="Subscribe" icon="clock" colors={['#10B981', '#059669']} onPress={() => setActiveTab('subscribe')} />
-                        <QuickAction label="Notification" icon="bell" colors={['#F59E0B', '#D97706']} onPress={() => setActiveTab('notification')} />
-                        <QuickAction label="My Orders" icon="truck" colors={['#EF4444', '#DC2626']} onPress={() => setActiveTab('myOrders')} />
+                        <QuickAction label="Notification" icon="bell" colors={['#F59E0B', '#D97706']} onPress={() => navigation.navigate('Notification')} />
+                        <QuickAction label="My Orders" icon="truck" colors={['#EF4444', '#DC2626']} onPress={() => navigation.navigate('MyOrder')} />
                     </View>
 
                     {/* Premium Subscription Card */}
@@ -368,8 +368,9 @@ const NewHome = () => {
 
                                     <View style={styles.offerHighlight}>
                                         <View style={styles.discountCircle}>
-                                            <Text style={styles.discountPercentage}>{offerDetails?.discount}%</Text>
-                                            <Text style={styles.discountText}>OFF</Text>
+                                            <Text style={styles.discountPercentage}>{offerDetails?.discount}</Text>
+                                            {/* <Text style={styles.discountText}>OFF</Text> */}
+                                            {/* <Text style={styles.discountPercentage}>Buy 1 Get 1 Free</Text> */}
                                         </View>
 
                                         <View style={styles.offerInfo}>
@@ -828,7 +829,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 24,
-        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        backgroundColor: 'rgba(255, 255, 255, 1)',
         borderRadius: 20,
         padding: 20,
         borderWidth: 1,
@@ -837,24 +838,14 @@ const styles = StyleSheet.create({
     discountCircle: {
         width: 80,
         height: 80,
-        borderRadius: 40,
-        backgroundColor: '#FFFFFF',
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: 10,
-        shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 4,
-        },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 6,
     },
     discountPercentage: {
-        fontSize: 24,
+        fontSize: 18,
         fontWeight: '700',
-        color: '#1236d8ff',
+        color: '#000',
         lineHeight: 28,
     },
     discountText: {
@@ -868,7 +859,7 @@ const styles = StyleSheet.create({
     },
     offerInfoText: {
         fontSize: 14,
-        color: '#FFFFFF',
+        color: '#000',
         fontWeight: '600',
         marginBottom: 6,
         opacity: 0.95,

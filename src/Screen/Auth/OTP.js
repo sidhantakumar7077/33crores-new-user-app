@@ -13,9 +13,11 @@ import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { base_url } from '../../../App';
 import DeviceInfo from 'react-native-device-info';
-// import messaging from '@react-native-firebase/messaging';
+import { getMessaging, getToken, requestPermission, AuthorizationStatus } from '@react-native-firebase/messaging';
+import Notification from '../../component/Notification';
 
 const OTP = (props) => {
+
     const navigation = useNavigation();
     const [otp, setOtp] = useState('');
     const [isFocused, setIsFocused] = useState(false);
@@ -41,10 +43,10 @@ const OTP = (props) => {
     };
 
     async function requestUserPermission() {
-        const authStatus = await messaging().requestPermission();
+        const authStatus = await requestPermission(getMessaging());
         const enabled =
-            authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-            authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+            authStatus === AuthorizationStatus.AUTHORIZED ||
+            authStatus === AuthorizationStatus.PROVISIONAL;
 
         if (enabled) {
             getFCMToken();
@@ -53,16 +55,16 @@ const OTP = (props) => {
 
     async function getFCMToken() {
         try {
-            const token = await messaging().getToken();
+            const token = await getToken(getMessaging());
             setFcmToken(token);
         } catch (error) {
             console.log('Error getting FCM token:', error);
         }
-    }
+    };
 
     useEffect(() => {
         getAccessToken();
-        // requestUserPermission();
+        requestUserPermission();
     }, []);
 
     const pressHandler = async () => {
@@ -79,12 +81,15 @@ const OTP = (props) => {
             }
 
             const formData = new FormData();
-            formData.append('orderId', props.route.params.order_id);
+            // formData.append('orderId', props.route.params.order_id);
             formData.append('otp', otp);
             formData.append('phoneNumber', props.route.params.phone);
             formData.append('device_id', fcmToken);
             formData.append('device_model', deviceModel);
             formData.append('platform', platformName);
+
+            // console.log("Form Data:", formData);
+            // return;
 
             const response = await fetch(base_url + "api/verify-otpless", {
                 method: 'POST',
@@ -111,6 +116,7 @@ const OTP = (props) => {
 
     return (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' }}>
+            {access_token && <Notification />}
             <ImageBackground
                 source={require('../../assets/images/Login_BG.png')}
                 style={{ flex: 1, resizeMode: 'cover', justifyContent: 'center', alignItems: 'center', height: '100%', width: '100%' }}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
     View,
     Text,
@@ -7,10 +7,10 @@ import {
     TouchableOpacity,
     SafeAreaView,
     Image,
-    StatusBar
+    BackHandler
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { useTab } from '../TabContext';
 
@@ -70,6 +70,18 @@ const Category = () => {
     const navigation = useNavigation();
     const { setActiveTab } = useTab();
     const [selectedFilter, setSelectedFilter] = useState('all');
+
+    useFocusEffect(
+        useCallback(() => {
+            const onBackPress = () => {
+                setActiveTab('home');
+                return false;
+            };
+
+            const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+            return () => backHandler.remove();
+        }, [])
+    );
 
     return (
         <SafeAreaView style={styles.container}>

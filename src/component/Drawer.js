@@ -8,7 +8,6 @@ import Feather from 'react-native-vector-icons/Feather';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 // import { base_url } from '../../App';
-// import messaging from '@react-native-firebase/messaging';
 
 const Drawer = ({ visible, onClose }) => {
 

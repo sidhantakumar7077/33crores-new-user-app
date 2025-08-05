@@ -19,6 +19,7 @@ import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { base_url } from '../../../App';
 import { useTab } from '../TabContext';
 import Drawer from '../../component/Drawer'
+import Notification from '../../component/Notification';
 
 const { width } = Dimensions.get('window');
 
@@ -177,6 +178,7 @@ const NewHome = () => {
 
     return (
         <SafeAreaView style={styles.container}>
+            <Notification />
             <Drawer visible={isModalVisible} navigation={navigation} onClose={closeModal} />
             <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                 <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -236,7 +238,7 @@ const NewHome = () => {
                             onPress={() => navigation.navigate('CustomOrderScreen')}
                         />
                         <QuickAction label="Subscribe" icon="clock" colors={['#10B981', '#059669']} onPress={() => setActiveTab('subscribe')} />
-                        <QuickAction label="Notification" icon="bell" colors={['#F59E0B', '#D97706']} onPress={() => navigation.navigate('Notification')} />
+                        <QuickAction label="Notification" icon="bell" colors={['#F59E0B', '#D97706']} onPress={() => navigation.navigate('Notificationpage')} />
                         <QuickAction label="My Orders" icon="truck" colors={['#EF4444', '#DC2626']} onPress={() => navigation.navigate('MyOrder')} />
                     </View>
 

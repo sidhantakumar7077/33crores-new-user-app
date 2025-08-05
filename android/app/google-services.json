@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "251995088901",
+    "project_id": "pandit-user",
+    "storage_bucket": "pandit-user.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:251995088901:android:e796f6449b81cfa6e4146c",
+        "android_client_info": {
+          "package_name": "com.thirtythreecroresapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD1zmVvJCw7sx_yLe-AWgGKO9krPq0DbC8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

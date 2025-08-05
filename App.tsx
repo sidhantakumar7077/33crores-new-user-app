@@ -7,6 +7,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // import Modal from 'react-native-modal';
 import NetInfo from "@react-native-community/netinfo";
 // import VersionCheck from 'react-native-version-check';
+import { getMessaging, setBackgroundMessageHandler } from '@react-native-firebase/messaging';
+import Notification from './src/component/Notification';
 import { TabProvider } from './src/Screen/TabContext';
 
 // SplashScreen
@@ -28,7 +30,7 @@ import Subscribe from './src/Screen/BTN_Tab/Subscribe'
 import NewProfile from './src/Screen/BTN_Tab/NewProfile'
 
 // Pages
-import Notification from './src/Screen/Notification/Index'
+import Notificationpage from './src/Screen/Notificationpage/Index'
 import MyOrder from './src/Screen/MyOrder/Index'
 import Address from './src/Screen/Address/Index'
 import HelpAndSupport from './src/Screen/HelpAndSupport/Index'
@@ -102,6 +104,10 @@ const App = () => {
     setAccessToken(access_token);
   }
 
+  setBackgroundMessageHandler(getMessaging(), async remoteMessage => {
+    console.log('Message handled in the background!', remoteMessage);
+  });
+
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(state => {
       console.log("Connection type", state.type);
@@ -127,6 +133,7 @@ const App = () => {
   return (
     <TabProvider>
       <NavigationContainer>
+        <Notification />
         <StatusBar backgroundColor="#c9170a" barStyle="light-content" />
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           {showSplash ? (<Stack.Screen name="SplashScreen" component={SplashScreen} options={{ presentation: 'modal', animationTypeForReplace: 'push', animation: 'slide_from_right' }} />) : null}
@@ -143,7 +150,7 @@ const App = () => {
               <Stack.Screen name='Category' component={Category} />
               <Stack.Screen name='Subscribe' component={Subscribe} />
               <Stack.Screen name='NewProfile' component={NewProfile} />
-              <Stack.Screen name='Notification' component={Notification} />
+              <Stack.Screen name='Notificationpage' component={Notificationpage} />
               <Stack.Screen name='MyOrder' component={MyOrder} />
               <Stack.Screen name='Address' component={Address} />
               <Stack.Screen name='HelpAndSupport' component={HelpAndSupport} />

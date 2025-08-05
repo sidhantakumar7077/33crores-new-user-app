@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     View,
     Text,
@@ -7,10 +7,10 @@ import {
     TouchableOpacity,
     SafeAreaView,
     Image,
-    StatusBar
+    BackHandler,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import { useNavigation, useIsFocused } from '@react-navigation/native';
+import { useNavigation, useIsFocused, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { useTab } from '../TabContext';
 import { base_url } from '../../../App';
@@ -83,6 +83,18 @@ export default function SubscriptionScreen() {
             setSpinner(false);
         }
     };
+
+    useFocusEffect(
+        useCallback(() => {
+            const onBackPress = () => {
+                setActiveTab('home');
+                return false;
+            };
+
+            const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+            return () => backHandler.remove();
+        }, [])
+    );
 
     useEffect(() => {
         if (isFocused) {

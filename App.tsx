@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, StatusBar, Linking, BackHandler } from 'react-native'
+import { StyleSheet, StatusBar, Platform } from 'react-native'
 import React, { useEffect, useState } from 'react'
 // import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer } from '@react-navigation/native';
@@ -7,7 +7,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // import Modal from 'react-native-modal';
 import NetInfo from "@react-native-community/netinfo";
 // import VersionCheck from 'react-native-version-check';
-import { getMessaging, setBackgroundMessageHandler } from '@react-native-firebase/messaging';
+import { PERMISSIONS, request, RESULTS } from 'react-native-permissions';
+import { getMessaging, getToken, setBackgroundMessageHandler, requestPermission, AuthorizationStatus } from '@react-native-firebase/messaging';
 import Notification from './src/component/Notification';
 import { TabProvider } from './src/Screen/TabContext';
 
@@ -98,16 +99,19 @@ const App = () => {
   //   };
   // }, [showUpdateModal]);
 
+  // Get Access Token from AsyncStorage
   const getAccesstoken = async () => {
     var access_token = await AsyncStorage.getItem('storeAccesstoken');
     console.log("access_token=-=-", access_token);
     setAccessToken(access_token);
   }
 
+  // Background Messsaging
   setBackgroundMessageHandler(getMessaging(), async remoteMessage => {
     console.log('Message handled in the background!', remoteMessage);
   });
 
+  // For Net Connection Info
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(state => {
       console.log("Connection type", state.type);
@@ -120,14 +124,50 @@ const App = () => {
     }
   }, []);
 
+  // Splash Screen Show timer
   useEffect(() => {
     setTimeout(() => {
       setShowSplash(false);
     }, 5000)
   }, []);
 
+  // Request Notification Permission
+  const askNotificationPermissionOnce = async () => {
+    const hasAsked = await AsyncStorage.getItem('notificationPermissionAsked');
+    if (hasAsked) return;
+
+    try {
+      if (Platform.OS === 'android') {
+        const result = await request(PERMISSIONS.ANDROID.POST_NOTIFICATIONS);
+        if (result === RESULTS.GRANTED) {
+          console.log('✅ Android notification permission granted');
+          await getToken(getMessaging());
+        } else {
+          console.log('🚫 Android notification permission denied');
+        }
+      } else if (Platform.OS === 'ios') {
+        const authStatus = await requestPermission(getMessaging());
+        if (
+          authStatus === AuthorizationStatus.AUTHORIZED ||
+          authStatus === AuthorizationStatus.PROVISIONAL
+        ) {
+          console.log('✅ iOS notification permission granted');
+          await getToken(getMessaging());
+        } else {
+          console.log('🚫 iOS notification permission denied');
+        }
+      }
+
+      await AsyncStorage.setItem('notificationPermissionAsked', 'true');
+    } catch (error) {
+      console.error('Permission error:', error);
+    }
+  };
+
+  // ✅ On App Launch
   useEffect(() => {
     getAccesstoken();
+    askNotificationPermissionOnce();
   }, []);
 
   return (

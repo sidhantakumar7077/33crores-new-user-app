@@ -487,8 +487,10 @@ const NewProfile = () => {
                             </View>
                             <Text style={styles.errorText}>{updateProfileErrorVisible ? updateProfileError : ''}</Text>
                             <View style={{ width: '100%', alignItems: 'flex-end', marginTop: 20, marginBottom: 20 }}>
-                                <TouchableOpacity onPress={() => EditProfile()} style={styles.saveBtm}>
-                                    <Text style={{ fontSize: 20, fontWeight: '500' }}>Save</Text>
+                                <TouchableOpacity onPress={() => EditProfile()}>
+                                    <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.saveBtm}>
+                                        <Text style={{ fontSize: 20, fontWeight: '500', color: '#fff' }}>Save</Text>
+                                    </LinearGradient>
                                 </TouchableOpacity>
                             </View>
                         </View>

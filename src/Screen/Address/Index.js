@@ -739,8 +739,10 @@ const Index = () => {
               {errors.activeAddressType && <Text style={styles.errorText}>{errors.activeAddressType}</Text>}
             </View>
           </ScrollView>
-          <TouchableOpacity onPress={saveAddress} style={styles.saveAddress}>
+          <TouchableOpacity onPress={saveAddress}>
+            <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.saveAddress}>
             <Text style={{ color: '#000', fontSize: 17, fontWeight: '600' }}>Save Address</Text>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       </Modal>
@@ -988,8 +990,10 @@ const Index = () => {
               {errors.activeAddressType && <Text style={styles.errorText}>{errors.activeAddressType}</Text>}
             </View>
           </ScrollView>
-          <TouchableOpacity onPress={editAddress} style={styles.saveAddress}>
-            <Text style={{ color: '#000', fontSize: 17, fontWeight: '600' }}>Edit Address</Text>
+          <TouchableOpacity onPress={editAddress}>
+            <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.saveAddress}>
+              <Text style={{ color: '#000', fontSize: 17, fontWeight: '600' }}>Edit Address</Text>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       </Modal>
@@ -1137,7 +1141,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     height: 50,
     borderRadius: 10,
-    marginBottom: 15
   },
   errorText: {
     color: 'red',

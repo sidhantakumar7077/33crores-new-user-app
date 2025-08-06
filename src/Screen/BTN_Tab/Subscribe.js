@@ -50,15 +50,7 @@ export default function SubscriptionScreen() {
     const [selectedPlan, setSelectedPlan] = useState(null);
     const [spinner, setSpinner] = useState(false);
     const [allPackages, setAllPackages] = useState([]);
-
-    const getIntervalText = (interval) => {
-        switch (interval) {
-            case 'month': return 'per month';
-            case 'quarter': return 'per quarter';
-            case 'year': return 'per year';
-            default: return '';
-        }
-    };
+    const [selectedPackage, setSelectedPackage] = useState(null);
 
     const getAllPackages = async () => {
         setSpinner(true);
@@ -73,6 +65,7 @@ export default function SubscriptionScreen() {
                 // ✅ Automatically select the first plan if available
                 if (filteredPackages.length > 0) {
                     setSelectedPlan(filteredPackages[0].product_id);
+                    setSelectedPackage(filteredPackages[0]);
                 }
             } else {
                 console.error('Failed to fetch packages:', json.message);
@@ -145,7 +138,7 @@ export default function SubscriptionScreen() {
                             {allPackages.map((plan) => (
                                 <TouchableOpacity
                                     key={plan.product_id}
-                                    onPress={() => setSelectedPlan(plan.product_id)}
+                                    onPress={() => {setSelectedPlan(plan.product_id); setSelectedPackage(plan)}}
                                     style={[
                                         styles.planCard,
                                         selectedPlan === plan.product_id && styles.planCardSelected,
@@ -178,7 +171,7 @@ export default function SubscriptionScreen() {
 
                         {/* Subscribe Button */}
                         <View style={styles.subscribe}>
-                            <TouchableOpacity style={styles.subscribeBtn}>
+                            <TouchableOpacity style={styles.subscribeBtn} onPress={() => navigation.navigate('SubscriptionCheckoutPage', selectedPackage)}>
                                 <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.subscribeGradient}>
                                     <Text style={styles.subscribeText}>
                                         {allPackages.find(p => p.product_id === selectedPlan)?.name} - ₹{allPackages.find(p => p.product_id === selectedPlan)?.price}/{allPackages.find(p => p.product_id === selectedPlan)?.interval}

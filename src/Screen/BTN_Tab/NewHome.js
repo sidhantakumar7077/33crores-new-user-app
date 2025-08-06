@@ -67,55 +67,6 @@ const NewHome = () => {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const closeModal = () => setIsModalVisible(false);
 
-    const subscriptions = [
-        {
-            id: '1',
-            title: 'Daily Pooja Subscription',
-            subtitle: 'Fresh flowers delivered every morning before sunrise',
-            price: '₹350',
-            originalPrice: '₹600',
-            interval: '/month',
-            image: 'https://images.pexels.com/photos/1128797/pexels-photo-1128797.jpeg',
-            gradient: ['#1E293B', '#334155', '#475569'],
-            buttonText: 'Start Subscription',
-            buttonColor: '#8B5CF6',
-        },
-        {
-            id: '2',
-            title: 'Weekly Flower Delivery',
-            subtitle: 'Weekly delivery of fresh flowers for your home',
-            price: '₹1200',
-            originalPrice: '₹1500',
-            interval: '/week',
-            image: 'https://images.pexels.com/photos/1128797/pexels-photo-1128797.jpeg',
-            gradient: ['#1E293B', '#334155', '#475569'],
-            buttonText: 'Subscribe Now',
-            buttonColor: '#10B981',
-        },
-        {
-            id: '3',
-            title: 'Monthly Flower Subscription',
-            subtitle: 'Monthly delivery of seasonal flowers',
-            price: '₹3000',
-            originalPrice: '₹3500',
-            interval: '/month',
-            image: 'https://images.pexels.com/photos/1128797/pexels-photo-1128797.jpeg',
-            gradient: ['#1E293B', '#334155', '#475569'],
-            buttonText: 'Join Now',
-            buttonColor: '#F59E0B',
-        },
-    ];
-
-    // useEffect(() => {
-    //     const interval = setInterval(() => {
-    //         const nextIndex = (activeIndex + 1) % subscriptions.length;
-    //         flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
-    //         setActiveIndex(nextIndex);
-    //     }, 10000); // 10 seconds
-
-    //     return () => clearInterval(interval);
-    // }, [activeIndex]);
-
     const onViewableItemsChanged = useRef(({ viewableItems }) => {
         if (viewableItems.length > 0) {
             setActiveIndex(viewableItems[0].index);
@@ -267,6 +218,7 @@ const NewHome = () => {
                                                 </View>
                                                 <TouchableOpacity
                                                     style={styles.subscribeButton}
+                                                    onPress={() => navigation.navigate('SubscriptionCheckoutPage', item)}
                                                 >
                                                     <Text style={styles.subscribeButtonText}>Subscribe Now</Text>
                                                 </TouchableOpacity>
@@ -283,7 +235,7 @@ const NewHome = () => {
 
                         {/* Dot Indicators */}
                         <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 12 }}>
-                            {subscriptions.map((_, index) => (
+                            {allPackages.map((_, index) => (
                                 <View
                                     key={index}
                                     style={[

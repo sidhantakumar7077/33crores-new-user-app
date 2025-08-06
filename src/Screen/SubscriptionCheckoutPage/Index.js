@@ -17,6 +17,7 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import DropDownPicker from 'react-native-dropdown-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import RazorpayCheckout from 'react-native-razorpay';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -25,37 +26,30 @@ import Entypo from 'react-native-vector-icons/Entypo';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Feather from 'react-native-vector-icons/Feather';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
-import DatePicker from 'react-native-date-picker';
 import { Calendar } from 'react-native-calendars';
 import moment from 'moment';
 import { base_url } from '../../../App';
 
-const Index = () => {
+const Index = (props) => {
 
   const navigation = useNavigation();
   const isFocused = useIsFocused();
-  const [spinner, setSpinner] = useState(false);
+  const [packageDetails, setPackageDetails] = useState({});
+  const [dob, setDob] = useState(new Date(new Date().setDate(new Date().getDate() + 1)));
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
   const openDatePicker = () => { setDatePickerVisibility(true) };
   const closeDatePicker = () => { setDatePickerVisibility(false) };
-  const [dob, setDob] = useState(new Date());
-  const [deliveryTime, setDeliveryTime] = useState(new Date(new Date().getTime() + 2 * 60 * 60 * 1000));
-  const [openTimePicker, setOpenTimePicker] = useState(false);
   const [suggestions, setSuggestions] = useState("");
   const [addressError, setAddressError] = useState('');
   const [addressErrorMessageVisible, setAddressErrorMessageVisible] = useState(false);
   const [addAddressModal, setAddAddressModal] = useState(false);
+  const [showAllAddresses, setShowAllAddresses] = useState(false);
+  const [allAddresses, setAllAddresses] = useState([]);
   const [displayedAddresses, setDisplayedAddresses] = useState([]);
   const [selectedOption, setSelectedOption] = useState('');
-  const [allAddresses, setAllAddresses] = useState([]);
-  const [showAllAddresses, setShowAllAddresses] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [flowerRequestModalVisible, setFlowerRequestModalVisible] = useState(false);
-  const closeFlowerRequestModal = () => { setFlowerRequestModalVisible(false) };
-  const [errorModal, setErrorModal] = useState(false);
-  const closeErrorModal = () => { setErrorModal(false); }
-  const [errormasg, setErrormasg] = useState(null);
-  const [flowerRequest, setFlowerRequest] = useState([]);
+  const [orderModalVisible, setOrderModalVisible] = useState(false);
+  const closeOrderModal = () => { setOrderModalVisible(false) };
+  const [profileDetails, setProfileDetails] = useState({});
 
   const [isFocus, setIsFocus] = useState(false);
   const [seletedAddress, setSeletedAddress] = useState(null);
@@ -80,39 +74,18 @@ const Index = () => {
   const [activeAddressType, setActiveAddressType] = useState(null);
   const [errors, setErrors] = useState({});
   const scaleAnim = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(scaleAnim, {
-          toValue: 1.2,
-          duration: 1000,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 1,
-          duration: 1000,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ]),
-    ).start();
-  }, []);
+  const [errorModal, setErrorModal] = useState(false);
+  const closeErrorModal = () => { setErrorModal(false); }
+  const [errormasg, setErrormasg] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleDayPress = (day) => {
     setDob(new Date(day.dateString));
-    setDeliveryTime(new Date(new Date().getTime() + 2 * 60 * 60 * 1000));
     closeDatePicker();
   };
 
-  const handleAddressChange = (option) => {
-    setSelectedOption(option);
-    // console.log("Address Id", option);
-  };
-
   const getAllAddress = async () => {
-    const access_token = await AsyncStorage.getItem('storeAccesstoken');
+    var access_token = await AsyncStorage.getItem('storeAccesstoken');
     try {
       const response = await fetch(base_url + 'api/mngaddress', {
         method: 'GET',
@@ -135,6 +108,27 @@ const Index = () => {
       console.log(error);
     }
   }
+
+  useEffect(() => {
+    // When 'allAddresses' changes, update 'displayedAddresses' with the first address
+    if (allAddresses.length > 0) {
+      setDisplayedAddresses(allAddresses.slice(0, 1));
+    }
+  }, [allAddresses]);
+
+  const handleAddressChange = (option) => {
+    setSelectedOption(option);
+    // console.log("Address Id", option);
+  };
+
+  const toggleAddresses = () => {
+    setShowAllAddresses(!showAllAddresses);
+    if (!showAllAddresses) {
+      setDisplayedAddresses(allAddresses);
+    } else {
+      setDisplayedAddresses(allAddresses.slice(0, 1));
+    }
+  };
 
   const closeAddAddressModal = () => {
     setSelectedOption(null);
@@ -198,6 +192,63 @@ const Index = () => {
     }
   };
 
+  const saveAddress = async () => {
+    if (!validateFields()) return;
+    const apartment = apartmentValue && apartmentValue !== 'add_new' ? apartmentValue : newApartment;
+    const access_token = await AsyncStorage.getItem('storeAccesstoken');
+    // let addressData = JSON.stringify({
+    //     country: "India",
+    //     state: state,
+    //     city: city,
+    //     pincode: pincode,
+    //     address_type: activeAddressType,
+    //     locality: localityValue,
+    //     apartment_name: apartmentValue,
+    //     place_category: String(seletedAddress),
+    //     apartment_flat_plot: apartment,
+    //     landmark: landmark
+    // });
+    // console.log("addressData", addressData);
+    // return;
+    try {
+      const response = await fetch(base_url + 'api/saveaddress', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${access_token}`
+        },
+        body: JSON.stringify({
+          country: "India",
+          state: state,
+          city: city,
+          pincode: pincode,
+          address_type: activeAddressType,
+          locality: localityValue,
+          apartment_name: apartment,
+          place_category: String(seletedAddress),
+          apartment_flat_plot: plotFlatNumber,
+          landmark: landmark
+        }),
+      });
+
+      const responseData = await response.json();
+      console.log("responseData", responseData);
+
+      if (responseData.success === 200) {
+        console.log("Address saved successfully");
+        setAddAddressModal(false);
+        getAllAddress();
+        closeAddAddressModal();
+      } else {
+        console.error('Failed to save address:', responseData.message);
+      }
+
+    } catch (error) {
+      console.log("Error saving address:", error);
+    }
+  };
+
   const validateFields = () => {
     let valid = true;
     let errors = {};
@@ -247,185 +298,6 @@ const Index = () => {
     return valid;
   };
 
-  const saveAddress = async () => {
-    if (!validateFields()) return;
-    const apartment = apartmentValue && apartmentValue !== 'add_new' ? apartmentValue : newApartment;
-    const access_token = await AsyncStorage.getItem('storeAccesstoken');
-    // let addressData = JSON.stringify({
-    //     country: "India",
-    //     state: state,
-    //     city: city,
-    //     pincode: pincode,
-    //     address_type: activeAddressType,
-    //     locality: localityValue,
-    //     apartment_name: apartmentValue,
-    //     place_category: String(seletedAddress),
-    //     apartment_flat_plot: apartment,
-    //     landmark: landmark
-    // });
-    // console.log("addressData", addressData);
-    // return;
-    try {
-      const response = await fetch(base_url + 'api/saveaddress', {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${access_token}`
-        },
-        body: JSON.stringify({
-          country: "India",
-          state: state,
-          city: city,
-          pincode: pincode,
-          address_type: activeAddressType,
-          locality: localityValue,
-          apartment_name: apartment,
-          place_category: String(seletedAddress),
-          apartment_flat_plot: plotFlatNumber,
-          landmark: landmark
-        }),
-      });
-
-      const responseData = await response.json();
-      // console.log("responseData", responseData);
-
-      if (responseData.success === 200) {
-        // console.log("Address saved successfully");
-        setAddAddressModal(false);
-        getAllAddress();
-        closeAddAddressModal();
-      } else {
-        console.error('Failed to save address:', responseData.message);
-      }
-
-    } catch (error) {
-      console.log("Error saving address:", error);
-    }
-  };
-
-  useEffect(() => {
-    // When 'allAddresses' changes, update 'displayedAddresses' with the first address
-    if (allAddresses.length > 0) {
-      setDisplayedAddresses(allAddresses.slice(0, 1));
-    }
-  }, [allAddresses]);
-
-  const toggleAddresses = () => {
-    setShowAllAddresses(!showAllAddresses);
-    if (!showAllAddresses) {
-      setDisplayedAddresses(allAddresses);
-    } else {
-      setDisplayedAddresses(allAddresses.slice(0, 1));
-    }
-  };
-
-  const [flowerDetails, setFlowerDetails] = useState([
-    {
-      flowerName: null,
-      flowerQuantity: '',
-      flowerUnit: null,
-      flowerNameOpen: false,
-      flowerUnitOpen: false,
-    },
-  ]);
-
-  const handleAddMore = () => {
-    setFlowerDetails([...flowerDetails, {
-      flowerName: null,
-      flowerQuantity: '',
-      flowerUnit: null,
-      flowerNameOpen: false,
-      flowerUnitOpen: false,
-    }]);
-  };
-
-  const handleRemove = (index) => {
-    if (index > 0) {
-      const newFlowerDetails = [...flowerDetails];
-      newFlowerDetails.splice(index, 1);
-      setFlowerDetails(newFlowerDetails);
-    }
-  };
-
-  const [flowerNames, setFlowerNames] = useState([]);
-  const [flowerUnits, setFlowerUnits] = useState([]);
-
-  const getUnitList = async () => {
-    const access_token = await AsyncStorage.getItem('storeAccesstoken');
-    try {
-      const response = await fetch(base_url + 'api/manageunit', {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${access_token}`
-        },
-      });
-      const responseData = await response.json();
-      if (response.ok) {
-        // console.log("Units fetched successfully", responseData);
-        const units = responseData.data.map(unit => ({
-          label: unit.unit_name,
-          value: unit.unit_name
-        }));
-        setFlowerUnits(units);
-      } else {
-        console.error('Failed to fetch units:', responseData.message);
-      }
-    } catch (error) {
-      console.error('Error fetching units:', error);
-    }
-  };
-
-  const getFlowerList = async () => {
-    await fetch(base_url + 'api/products', {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-    }).then(response => response.json()).then(response => {
-      if (response.status === 200) {
-        // console.log("Flower List", response.data);
-        const flowers = response.data.filter(product => product.category === "Flower");
-        const flowerNames = flowers.map(flower => ({
-          label: flower.name,
-          value: flower.name
-        }));
-        setFlowerNames(flowerNames);
-      } else {
-        console.error('Failed to fetch packages:', response.message);
-      }
-    }).catch((error) => {
-      console.error('Error:', error);
-    });
-  };
-
-  const getRequestFlowerData = async () => {
-    setSpinner(true);
-    await fetch(base_url + 'api/products', {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-    }).then(response => response.json()).then(response => {
-      if (response.status === 200) {
-        // console.log("object", response.data.find(item => item.category === "Immediateproduct"));
-        setFlowerRequest(response.data.find(item => item.category === "Immediateproduct"));
-        setSpinner(false);
-      } else {
-        // console.error('Failed to fetch packages:', response.message);
-        setSpinner(false);
-      }
-      setSpinner(false);
-    }).catch((error) => {
-      // console.error('Error:', error);
-      setSpinner(false);
-    });
-  };
-
   const displayErrorMessage = (message) => {
     setAddressError(message);
     setAddressErrorMessageVisible(true);
@@ -436,23 +308,72 @@ const Index = () => {
     }, 10000); // 10 seconds
   };
 
-  const handleAnyFlowerBuy = async () => {
+  const getProfile = async () => {
+    var access_token = await AsyncStorage.getItem('storeAccesstoken');
+    try {
+      const response = await fetch(base_url + 'api/user/details', {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${access_token}`
+        },
+      });
+      const responseData = await response.json();
+      if (responseData.success === true) {
+        // console.log("getProfile-------", responseData);
+        setProfileDetails(responseData.user);
+        // setImageSource(user.);
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  const handleBuy = async () => {
     const access_token = await AsyncStorage.getItem('storeAccesstoken');
     setIsLoading(true);
 
     try {
-      if (flowerDetails.some(detail => !detail.flowerName || !detail.flowerQuantity || !detail.flowerUnit)) {
-        displayErrorMessage("Please fill in all flower details");
-        setIsLoading(false);
-        return;
-      }
       if (selectedOption === "") {
         displayErrorMessage("Please Select Your Address");
         setIsLoading(false);
         return;
       }
 
-      const response = await fetch(base_url + 'api/flower-requests', {
+      const options = {
+        description: props.route.params.name,
+        image: '',
+        currency: 'INR',
+        key: 'rzp_live_m8GAuZDtZ9W0AI',
+        amount: props.route.params.price * 100,
+        name: profileDetails.name,
+        order_id: '', // Consider generating this on the server if needed
+        prefill: {
+          email: profileDetails.email,
+          contact: profileDetails.mobile_number,
+          name: profileDetails.name
+        },
+        theme: { color: '#53a20e' }
+      };
+      const data = await RazorpayCheckout.open(options);
+
+      // const Data = {
+      //     product_id: props.route.params.product_id,
+      //     order_id: props.route.params.orderId || "", // capture Razorpay order ID if available
+      //     address_id: selectedOption,
+      //     payment_id: data.razorpay_payment_id || "", // capture Razorpay payment ID if available
+      //     // payment_id: "pay_29QQoUBi66xm2f",
+      //     paid_amount: props.route.params.price,
+      //     duration: props.route.params.duration,
+      //     suggestion: suggestions,
+      //     start_date: moment(dob).format('YYYY-MM-DD')
+      // }
+      // console.log("Data", Data);
+      // return;
+
+      // Proceed only if Razorpay payment succeeds
+      const response = await fetch(base_url + 'api/purchase-subscription', {
         method: 'POST',
         headers: {
           Accept: 'application/json',
@@ -460,21 +381,22 @@ const Index = () => {
           'Authorization': `Bearer ${access_token}`
         },
         body: JSON.stringify({
-          product_id: flowerRequest.product_id,
+          product_id: props.route.params.product_id,
+          order_id: props.route.params.orderId || "", // capture Razorpay order ID if available
           address_id: selectedOption,
+          payment_id: data.razorpay_payment_id || "", // capture Razorpay payment ID if available
+          // payment_id: "pay_29QQoUBi66xm2f",
+          paid_amount: props.route.params.price,
+          duration: props.route.params.duration,
           suggestion: suggestions,
-          date: moment(dob).format('YYYY-MM-DD'),
-          time: moment(deliveryTime).format('hh:mm A'),
-          flower_name: flowerDetails.map(detail => detail.flowerName),
-          flower_unit: flowerDetails.map(detail => detail.flowerUnit),
-          flower_quantity: flowerDetails.map(detail => detail.flowerQuantity)
+          start_date: moment(dob).format('YYYY-MM-DD')
         }),
       });
 
       const responseData = await response.json();
       if (response.ok) {
-        console.log("Booking successfully", responseData);
-        setFlowerRequestModalVisible(true);
+        // console.log("Booking successfully", responseData);
+        setOrderModalVisible(true);
       } else {
         setErrorModal(true);
         setErrormasg(responseData.message);
@@ -483,156 +405,94 @@ const Index = () => {
     } catch (error) {
       // Handle any errors, either from Razorpay or fetch
       setErrorModal(true);
-      setErrormasg(error);
-      // console.log("Error", error);
+      setErrormasg(error.message || "An error occurred during payment");
+      console.log("An error occurred during payment", error);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 1.2,
+          duration: 1000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 1000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    ).start();
+  }, []);
+
+  useEffect(() => {
     if (isFocused) {
-      getRequestFlowerData();
-      getUnitList();
-      getFlowerList();
+      // console.log("Get Subscription Details By props", props.route.params);
+      setPackageDetails(props.route.params || {});
       getAllAddress();
       getAllLocality();
+      getProfile();
     }
   }, [isFocused]);
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.scrollView}>
-        {/* Hero Header with Gradient */}
         <LinearGradient colors={['#1E293B', '#334155', '#475569']} style={styles.header}>
           <View style={styles.heroContent}>
             <TouchableOpacity style={styles.headerRow} onPress={() => navigation.goBack()}>
               <Icon name="arrow-left" size={24} color="#FFFFFF" style={styles.backIcon} />
-              <Text style={styles.heroTitle}>Custom Order</Text>
+              <Text style={styles.heroTitle}>Subscription Checkout</Text>
             </TouchableOpacity>
             <Text style={styles.heroSubtitle}>
-              Create your own custom flower arrangements for any occasion
+              Please review your subscription details before proceeding to payment.
             </Text>
           </View>
         </LinearGradient>
+
         <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, marginBottom: 50 }}>
-          {/* Product Details */}
-          <View style={styles.productDetails}>
-            <View style={{ width: '35%', paddingVertical: 10 }}>
-              <View style={styles.flowerImage}>
-                <Image style={{ flex: 1, borderRadius: 8, resizeMode: 'cover' }} source={{ uri: flowerRequest.product_image }} />
-              </View>
-            </View>
-            <View style={{ width: '60%', alignItems: 'flex-start', justifyContent: 'center' }}>
-              <Text style={{ color: '#000', fontSize: 18, fontWeight: '500', textTransform: 'capitalize' }}>{flowerRequest.name}</Text>
-              <Text style={{ color: '#000', fontSize: 14, fontWeight: '400', textTransform: 'capitalize', marginTop: 5 }}>Price :  {flowerRequest.immediate_price}</Text>
-            </View>
-          </View>
-          {/* Flower Details */}
-          <View style={{ marginTop: 15, backgroundColor: '#fff', width: '100%', paddingHorizontal: 15, zIndex: 2000 }}>
-            {flowerDetails.map((flowerDetail, index) => (
-              <View key={index} style={{ width: '100%', padding: 10, marginVertical: 10, borderColor: '#7e7f80', borderWidth: 0.7, borderRadius: 7 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <View style={{ width: '30%', marginBottom: 15, zIndex: 2000, elevation: 2000 }}>
-                    <Text style={styles.label}>Flower</Text>
-                    <View style={{ zIndex: 2000, elevation: 2000 }}>
-                      <DropDownPicker
-                        open={flowerDetail.flowerNameOpen}
-                        value={flowerDetail.flowerName}
-                        items={flowerNames}
-                        setOpen={(open) => {
-                          setFlowerDetails(prevDetails => {
-                            const newDetails = [...prevDetails];
-                            newDetails[index].flowerNameOpen = open;
-                            return newDetails;
-                          });
-                        }}
-                        setValue={(callback) => {
-                          setFlowerDetails(prevDetails => {
-                            const newDetails = [...prevDetails];
-                            newDetails[index].flowerName = callback(newDetails[index].flowerName);
-                            return newDetails;
-                          });
-                        }}
-                        placeholder="Flower"
-                        listMode="MODAL"
-                        style={{ borderColor: '#edeff1', borderRadius: 5, marginTop: 5 }}
-                        dropDownContainerStyle={{ borderColor: '#edeff1' }}
-                        zIndex={2000}
-                        zIndexInverse={1000}
-                      />
-                    </View>
-                  </View>
-                  <View style={{ width: '25%', marginBottom: 15, zIndex: 1500, elevation: 1500 }}>
-                    <Text style={styles.label}>Quantity</Text>
-                    <TextInput
-                      style={{ borderColor: '#edeff1', borderRadius: 5, borderWidth: 1, padding: 10, fontSize: 15, color: '#000', marginTop: 3 }}
-                      onChangeText={(text) => {
-                        setFlowerDetails(prevDetails => {
-                          const newDetails = [...prevDetails];
-                          newDetails[index].flowerQuantity = text;
-                          return newDetails;
-                        });
-                      }}
-                      value={flowerDetail.flowerQuantity}
-                      keyboardType="numeric"
-                      placeholder="Quantity"
-                      placeholderTextColor="#888888"
-                      underlineColorAndroid='transparent'
-                    />
-                  </View>
-                  <View style={{ width: '40%', zIndex: 1000, elevation: 1000 }}>
-                    <Text style={styles.label}>Select Unit</Text>
-                    <View style={{ zIndex: 1000, elevation: 1000 }}>
-                      <DropDownPicker
-                        open={flowerDetail.flowerUnitOpen}
-                        value={flowerDetail.flowerUnit}
-                        items={flowerUnits}
-                        setOpen={(open) => {
-                          setFlowerDetails(prevDetails => {
-                            const newDetails = [...prevDetails];
-                            newDetails[index].flowerUnitOpen = open;
-                            return newDetails;
-                          });
-                        }}
-                        setValue={(callback) => {
-                          setFlowerDetails(prevDetails => {
-                            const newDetails = [...prevDetails];
-                            newDetails[index].flowerUnit = callback(newDetails[index].flowerUnit);
-                            return newDetails;
-                          });
-                        }}
-                        placeholder="Unit"
-                        listMode="MODAL"
-                        style={{ borderColor: '#edeff1', borderRadius: 5, marginTop: 5 }}
-                        dropDownContainerStyle={{ borderColor: '#edeff1' }}
-                        zIndex={1000}
-                        zIndexInverse={2000}
-                      />
-                    </View>
-                  </View>
-                </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', width: '100%' }}>
-                  {index === flowerDetails.length - 1 && (
-                    <TouchableOpacity onPress={handleAddMore} style={{ backgroundColor: '#28a745', borderRadius: 5, alignItems: 'center', width: 100, height: 46, alignItems: 'center', justifyContent: 'center' }}>
-                      <LinearGradient colors={['#FF6B35', '#F7931E']} style={{ width: '100%', height: '100%', borderRadius: 5, alignItems: 'center', justifyContent: 'center' }}>
-                        <Text style={{ color: '#fff', fontSize: 16 }}>Add More</Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  )}
-                  {index > 0 && (
-                    <TouchableOpacity onPress={() => handleRemove(index)} style={{ backgroundColor: '#dc3545', borderRadius: 5, alignItems: 'center', width: 100, height: 46, alignItems: 'center', justifyContent: 'center', marginLeft: 8 }}>
-                      <Text style={{ color: '#fff', fontSize: 16 }}>Remove</Text>
-                    </TouchableOpacity>
-                  )}
+          <View style={styles.productContainer}>
+            <View style={styles.productDetails}>
+              <View style={{ width: '35%', paddingVertical: 10 }}>
+                <View style={styles.flowerImage}>
+                  <Image
+                    style={{ flex: 1, borderRadius: 8, resizeMode: 'cover' }}
+                    source={{ uri: packageDetails.product_image }}
+                  />
                 </View>
               </View>
-            ))}
+              <View style={{ width: '60%', justifyContent: 'center' }}>
+                <Text style={{ color: '#000', fontSize: 18, fontWeight: '500', textTransform: 'capitalize' }}>
+                  {packageDetails.name}
+                </Text>
+                <Text style={{ color: '#000', fontSize: 14, fontWeight: '400', textTransform: 'capitalize', marginTop: 5 }}>
+                  Price : ₹{packageDetails.price}
+                </Text>
+              </View>
+            </View>
+            {/* Benefits Section */}
+            {packageDetails.benefits && (
+              <View style={styles.planFeatures}>
+                {packageDetails.benefits.split('#').map((benefit, idx) => (
+                  <View key={idx} style={styles.featureRow}>
+                    <Icon name="check" size={12} color="#059669" />
+                    <Text style={styles.featureText}>{benefit.trim()}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
-          {/* Delivery Address And date & time */}
+          {/* Address, Date & Suggestion Section */}
           <View style={styles.address}>
+            {/* Subscription Start Date */}
             <View style={{ width: '100%', marginBottom: 5 }}>
-              <Text style={styles.label}>Delivery Flower Date</Text>
+              <Text style={styles.label}>Subscription Start Date</Text>
               <TouchableOpacity onPress={openDatePicker}>
                 <TextInput
                   style={styles.input}
@@ -642,29 +502,7 @@ const Index = () => {
                 <MaterialCommunityIcons name="calendar-month" color={'#555454'} size={26} style={{ position: 'absolute', right: 10, top: 10 }} />
               </TouchableOpacity>
             </View>
-            <View style={{ width: '100%', marginBottom: 15 }}>
-              <Text style={styles.label}>Delivery Flower Time</Text>
-              <TouchableOpacity onPress={() => setOpenTimePicker(true)}>
-                <TextInput
-                  style={styles.input}
-                  value={deliveryTime ? moment(deliveryTime).format('hh:mm A') : ""}
-                  editable={false}
-                />
-                <MaterialCommunityIcons name="av-timer" color={'#555454'} size={26} style={{ position: 'absolute', right: 10, top: 10 }} />
-              </TouchableOpacity>
-              <DatePicker
-                modal
-                mode="time"
-                open={openTimePicker}
-                date={deliveryTime}
-                onConfirm={(date) => {
-                  setDeliveryTime(date);
-                  setOpenTimePicker(false);
-                }}
-                onCancel={() => setOpenTimePicker(false)}
-                minimumDate={dob?.toDateString() === new Date().toDateString() ? new Date(new Date().getTime() + 2 * 60 * 60 * 1000) : undefined}
-              />
-            </View>
+            {/* Message & Suggestions */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
               <View style={{ width: '15%', height: 80, borderWidth: 0.8, borderRightWidth: 0, backgroundColor: '#fbfdff', alignItems: 'center', justifyContent: 'center', borderColor: '#edeff1', borderTopLeftRadius: 5, borderBottomLeftRadius: 5 }}>
                 <Feather name="message-square" color={'#495057'} size={20} />
@@ -682,6 +520,7 @@ const Index = () => {
                 />
               </View>
             </View>
+            {/* Address */}
             <View style={{ flex: 1, marginTop: 15 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5, alignItems: 'center' }}>
                 <View style={{ width: '65%' }}>
@@ -749,7 +588,7 @@ const Index = () => {
         {isLoading ? (
           <ActivityIndicator size="large" color="#c80100" />
         ) : (
-          <TouchableOpacity onPress={handleAnyFlowerBuy}>
+          <TouchableOpacity onPress={handleBuy}>
             <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.fixedBtm}>
               <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>BUY NOW</Text>
               <Feather name="arrow-right" color={'#fff'} size={24} marginLeft={10} marginTop={3} />
@@ -776,7 +615,7 @@ const Index = () => {
                   selectedColor: 'blue'
                 }
               }}
-              minDate={moment().format('YYYY-MM-DD')}
+              minDate={moment().add(1, 'days').format('YYYY-MM-DD')}
             />
           </View>
         </View>
@@ -1031,12 +870,12 @@ const Index = () => {
         </View>
       </Modal>
 
-      {/* Flower Request Modal */}
+      {/* Order Success Modal */}
       <Modal
         animationType="slide"
         transparent={true}
-        visible={flowerRequestModalVisible}
-        onRequestClose={closeFlowerRequestModal}
+        visible={orderModalVisible}
+        onRequestClose={closeOrderModal}
       >
         <View style={styles.pModalContainer}>
           <View style={styles.pModalContent}>
@@ -1045,7 +884,7 @@ const Index = () => {
             </Animated.View>
             <Text style={styles.pModalCongratulationsText}>Congratulations!</Text>
             <Text style={styles.pModalDetailText}>Your order has been placed successfully.</Text>
-            <Text style={[styles.pModalDetailText, { marginTop: 10 }]}>For any inquiry call us at this number</Text>
+            <Text style={[styles.pModalCallText, { marginTop: 10 }]}>For any inquiry call us at this number</Text>
             <TouchableOpacity onPress={() => Linking.openURL('tel:9776888887')}>
               <Text style={{ color: '#fff', fontSize: 16, fontWeight: '500', textAlign: 'center', marginTop: 5 }}>9776888887</Text>
             </TouchableOpacity>
@@ -1115,7 +954,7 @@ const styles = StyleSheet.create({
     // marginTop: 10,
   },
   heroTitle: {
-    fontSize: 28,
+    fontSize: 25,
     fontWeight: '800',
     color: '#FFFFFF',
     textAlign: 'center',
@@ -1127,14 +966,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     opacity: 0.9,
   },
-  productDetails: {
+  spinnerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row'
+  },
+  productContainer: {
     width: '95%',
+    backgroundColor: '#fff',
     alignSelf: 'center',
     marginTop: 15,
-    backgroundColor: '#fff',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 10,
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -1142,25 +984,64 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
+  productDetails: {
+    width: '100%',
+    alignSelf: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 10,
+  },
   flowerImage: {
     height: 120,
     width: 120,
     borderRadius: 8,
-    backgroundColor: '#6c757d'
+    backgroundColor: '#6c757d',
+  },
+  planFeatures: {
+    width: '95%',
+    alignSelf: 'center',
+    marginBottom: 8,
+    backgroundColor: '#F0FDF4',
+    padding: 8,
+    borderRadius: 8,
+  },
+  benefitsHeader: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#059669',
+    marginBottom: 6,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  featureText: {
+    marginLeft: 6,
+    fontSize: 12,
+    color: '#374151',
+    flexShrink: 1,
+  },
+  address: {
+    marginVertical: 15,
+    backgroundColor: '#fff',
+    width: '95%',
+    alignSelf: 'center',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    zIndex: 1000
   },
   label: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
-  },
-  // Address And date & time styles
-  address: {
-    marginTop: 15,
-    backgroundColor: '#fff',
-    width: '100%',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    zIndex: 1000
   },
   input: {
     borderBottomWidth: 1,
@@ -1174,21 +1055,13 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 6
   },
-  // Buy Now Button
-  fixedBtm: {
-    backgroundColor: '#28a745',
-    width: '90%',
-    alignSelf: 'center',
-    borderRadius: 12,
-    paddingVertical: 15,
-    paddingHorizontal: 15,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'absolute',
-    bottom: 0
+  errorText: {
+    color: '#f00c27',
+    marginTop: 10,
+    fontWeight: '500'
   },
-  // Address Modal styles
+
+  // Add address Modal
   modalContainer: {
     backgroundColor: '#f5f5f5',
     flex: 1
@@ -1231,11 +1104,6 @@ const styles = StyleSheet.create({
     shadowRadius: 13,
     elevation: 5,
   },
-  errorText: {
-    color: '#f00c27',
-    marginTop: 10,
-    fontWeight: '500'
-  },
   inputs: {
     height: 50,
     width: '90%',
@@ -1253,7 +1121,21 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 15
   },
-  // Success Modal styles
+  // fixedBtm
+  fixedBtm: {
+    backgroundColor: '#28a745',
+    width: '90%',
+    alignSelf: 'center',
+    borderRadius: 12,
+    paddingVertical: 15,
+    paddingHorizontal: 15,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute',
+    bottom: 0
+  },
+  // Order Modal
   pModalContainer: {
     flex: 1,
     backgroundColor: '#141416',
@@ -1297,6 +1179,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
+  // Error Modal
   errorModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -1313,6 +1196,11 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 10,
     padding: 20,
+  },
+  btnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600'
   },
   confirmDeleteBtn: {
     backgroundColor: 'green',

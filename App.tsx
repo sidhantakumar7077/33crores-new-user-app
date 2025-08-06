@@ -24,16 +24,19 @@ import OTP from './src/Screen/Auth/OTP'
 
 // BTN_Layout
 import BTN_Layout from './src/Screen/BTN_Layout'
-import CustomOrderScreen from './src/Screen/CustomOrderScreen/Index';
 import NewHome from './src/Screen/BTN_Tab/NewHome'
 import Category from './src/Screen/BTN_Tab/Category'
 import Subscribe from './src/Screen/BTN_Tab/Subscribe'
 import NewProfile from './src/Screen/BTN_Tab/NewProfile'
 
 // Pages
-import Notificationpage from './src/Screen/Notificationpage/Index'
+import SubscriptionCheckoutPage from './src/Screen/SubscriptionCheckoutPage/Index';
+import CustomOrderScreen from './src/Screen/CustomOrderScreen/Index';
+import SubscriptionOrderHistory from './src/Screen/SubscriptionOrderHistory/Index'
+import CustomOrderHistory from './src/Screen/CustomOrderHistory/Index'
 import MyOrder from './src/Screen/MyOrder/Index'
 import Address from './src/Screen/Address/Index'
+import Notificationpage from './src/Screen/Notificationpage/Index'
 import HelpAndSupport from './src/Screen/HelpAndSupport/Index'
 import AboutUs from './src/Screen/AboutUs/Index'
 import TermsAndConditions from './src/Screen/TermsAndConditions/Index'
@@ -185,6 +188,7 @@ const App = () => {
               {!accessToken ? <Stack.Screen name="BTN_Layout" component={BTN_Layout} /> : <Stack.Screen name="Login" component={Login} />}
               {/* <Stack.Screen name='BTN_Layout' component={BTN_Layout} /> */}
               <Stack.Screen name='OTP' component={OTP} />
+              <Stack.Screen name='SubscriptionCheckoutPage' component={SubscriptionCheckoutPage} />
               <Stack.Screen name='CustomOrderScreen' component={CustomOrderScreen} />
               <Stack.Screen name='NewHome' component={NewHome} />
               <Stack.Screen name='Category' component={Category} />
@@ -192,6 +196,8 @@ const App = () => {
               <Stack.Screen name='NewProfile' component={NewProfile} />
               <Stack.Screen name='Notificationpage' component={Notificationpage} />
               <Stack.Screen name='MyOrder' component={MyOrder} />
+              <Stack.Screen name='SubscriptionOrderHistory' component={SubscriptionOrderHistory} />
+              <Stack.Screen name='CustomOrderHistory' component={CustomOrderHistory} />
               <Stack.Screen name='Address' component={Address} />
               <Stack.Screen name='HelpAndSupport' component={HelpAndSupport} />
               <Stack.Screen name='AboutUs' component={AboutUs} />

@@ -1,12 +1,12 @@
-import { StyleSheet, StatusBar, Platform } from 'react-native'
+import { StyleSheet, StatusBar, Platform, BackHandler, Linking, View, Text } from 'react-native'
 import React, { useEffect, useState } from 'react'
 // import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-// import Modal from 'react-native-modal';
+import Modal from 'react-native-modal';
 import NetInfo from "@react-native-community/netinfo";
-// import VersionCheck from 'react-native-version-check';
+import VersionCheck from 'react-native-version-check';
 import { PERMISSIONS, request, RESULTS } from 'react-native-permissions';
 import { getMessaging, getToken, setBackgroundMessageHandler, requestPermission, AuthorizationStatus } from '@react-native-firebase/messaging';
 import Notification from './src/component/Notification';
@@ -52,55 +52,55 @@ const App = () => {
   const [showSplash, setShowSplash] = useState(true);
   const [isConnected, setIsConnected] = useState(true);
   const [accessToken, setAccessToken] = useState<string | null>(null);
-  // const [showUpdateModal, setShowUpdateModal] = useState(false);
-  // const [latestVersion, setLatestVersion] = useState('');
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [latestVersion, setLatestVersion] = useState('');
 
-  // useEffect(() => {
-  //   const checkForUpdates = async () => {
-  //     try {
-  //       const currentVersion = await VersionCheck.getCurrentVersion();
-  //       const storeVersion = await VersionCheck.getLatestVersion({
-  //         provider: 'playStore',
-  //       });
+  useEffect(() => {
+    const checkForUpdates = async () => {
+      try {
+        const currentVersion = await VersionCheck.getCurrentVersion();
+        const storeVersion = await VersionCheck.getLatestVersion({
+          provider: 'playStore',
+        });
 
-  //       console.log("storeVersion:", storeVersion);
-  //       console.log("currentVersion:", currentVersion);
+        console.log("storeVersion:", storeVersion);
+        console.log("currentVersion:", currentVersion);
 
-  //       const updateInfo = await VersionCheck.needUpdate({
-  //         currentVersion,
-  //         latestVersion: storeVersion,
-  //       });
+        const updateInfo = await VersionCheck.needUpdate({
+          currentVersion,
+          latestVersion: storeVersion,
+        });
 
-  //       if (updateInfo && updateInfo.isNeeded) {
-  //         setLatestVersion(storeVersion);
-  //         setShowUpdateModal(true);
-  //         console.log("Update is required to version:", storeVersion);
-  //       } else {
-  //         console.log("No update needed or updateInfo is null");
-  //       }
-  //     } catch (error) {
-  //       console.error('Error checking app version:', error);
-  //     }
-  //   };
+        if (updateInfo && updateInfo.isNeeded) {
+          setLatestVersion(storeVersion);
+          setShowUpdateModal(true);
+          console.log("Update is required to version:", storeVersion);
+        } else {
+          console.log("No update needed or updateInfo is null");
+        }
+      } catch (error) {
+        console.error('Error checking app version:', error);
+      }
+    };
 
-  //   checkForUpdates();
-  // }, []);
+    checkForUpdates();
+  }, []);
 
-  // useEffect(() => {
-  //   const handleBackPress = () => {
-  //     if (showUpdateModal) {
-  //       return true; // Prevent default behavior (closing the modal)
-  //     }
-  //     return false; // Allow default behavior
-  //     // BackHandler.exitApp();
-  //   };
+  useEffect(() => {
+    const handleBackPress = () => {
+      if (showUpdateModal) {
+        return true; // Prevent default behavior (closing the modal)
+      }
+      return false; // Allow default behavior
+      // BackHandler.exitApp();
+    };
 
-  //   const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
 
-  //   return () => {
-  //     backHandler.remove();
-  //   };
-  // }, [showUpdateModal]);
+    return () => {
+      backHandler.remove();
+    };
+  }, [showUpdateModal]);
 
   // Get Access Token from AsyncStorage
   const getAccesstoken = async () => {
@@ -206,6 +206,25 @@ const App = () => {
             </>
           )}
         </Stack.Navigator>
+
+        {/* Version Update Modal */}
+        <Modal isVisible={showUpdateModal} style={styles.modalContainer}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalHeader}>Update Available</Text>
+            <Text style={styles.modalText}>
+              A new version of the app is available. Please update to version <Text style={styles.modalVersion}>{latestVersion}</Text> for the best experience.
+            </Text>
+            <View style={styles.modalButtonContainer}>
+              <Text
+                style={styles.modalButton}
+                onPress={() => Linking.openURL('https://play.google.com/store/apps/details?id=com.thirtythreecroresapp')}
+              >
+                Update Now
+              </Text>
+            </View>
+          </View>
+        </Modal>
+
       </NavigationContainer>
     </TabProvider>
   )
@@ -213,4 +232,56 @@ const App = () => {
 
 export default App
 
-const styles = StyleSheet.create({})
+const styles = StyleSheet.create({
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBox: {
+    backgroundColor: '#ffffff',
+    padding: 25,
+    borderRadius: 15,
+    width: '85%',
+    alignItems: 'center',
+    elevation: 5, // Add shadow for Android
+    shadowColor: '#000', // Add shadow for iOS
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
+  modalHeader: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#c9170a', // Highlight color for the header
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  modalText: {
+    fontSize: 16,
+    color: '#555',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 24,
+  },
+  modalVersion: {
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  modalButtonContainer: {
+    marginTop: 10,
+    width: '100%',
+    alignItems: 'center',
+  },
+  modalButton: {
+    backgroundColor: '#c9170a',
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 30,
+    borderRadius: 8,
+    width: '80%',
+  },
+})

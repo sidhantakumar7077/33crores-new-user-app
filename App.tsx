@@ -34,6 +34,8 @@ import SubscriptionCheckoutPage from './src/Screen/SubscriptionCheckoutPage/Inde
 import CustomOrderScreen from './src/Screen/CustomOrderScreen/Index';
 import SubscriptionOrderHistory from './src/Screen/SubscriptionOrderHistory/Index'
 import CustomOrderHistory from './src/Screen/CustomOrderHistory/Index'
+import CustomOrderDetailsPage from './src/Screen/CustomOrderDetailsPage/Index'
+import SubscriptionOrderDetailsPage from './src/Screen/SubscriptionOrderDetailsPage/Index';
 import MyOrder from './src/Screen/MyOrder/Index'
 import Address from './src/Screen/Address/Index'
 import Notificationpage from './src/Screen/Notificationpage/Index'
@@ -197,7 +199,9 @@ const App = () => {
               <Stack.Screen name='Notificationpage' component={Notificationpage} />
               <Stack.Screen name='MyOrder' component={MyOrder} />
               <Stack.Screen name='SubscriptionOrderHistory' component={SubscriptionOrderHistory} />
+              <Stack.Screen name='SubscriptionOrderDetailsPage' component={SubscriptionOrderDetailsPage} />
               <Stack.Screen name='CustomOrderHistory' component={CustomOrderHistory} />
+              <Stack.Screen name='CustomOrderDetailsPage' component={CustomOrderDetailsPage} />
               <Stack.Screen name='Address' component={Address} />
               <Stack.Screen name='HelpAndSupport' component={HelpAndSupport} />
               <Stack.Screen name='AboutUs' component={AboutUs} />

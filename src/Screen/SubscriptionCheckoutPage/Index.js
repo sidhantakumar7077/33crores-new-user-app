@@ -531,7 +531,7 @@ const Index = (props) => {
                 </View>
                 <TouchableOpacity onPress={() => setAddAddressModal(true)}>
                   <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.addressAddBtm}>
-                    <Text style={{ color: '#2f0707ff', fontSize: 15, fontWeight: '500', textTransform: 'capitalize' }}>ADD ADDRESS</Text>
+                    <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>Add Address</Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </View>

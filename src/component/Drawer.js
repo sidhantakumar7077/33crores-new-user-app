@@ -7,6 +7,7 @@ import Entypo from 'react-native-vector-icons/Entypo';
 import Feather from 'react-native-vector-icons/Feather';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import DeviceInfo from 'react-native-device-info';
 // import { base_url } from '../../App';
 
 const Drawer = ({ visible, onClose }) => {
@@ -14,12 +15,23 @@ const Drawer = ({ visible, onClose }) => {
     const navigation = useNavigation();
     const isFocused = useIsFocused();
     const [accessToken, setAccessToken] = useState(null);
+    const [appVersion, setAppVersion] = useState('');
 
     const getAccesstoken = async () => {
         var access_token = await AsyncStorage.getItem('storeAccesstoken');
         console.log("access_token=-=-", access_token);
         setAccessToken(access_token);
     }
+
+    // Fetch App Version
+    useEffect(() => {
+        const fetchVersion = async () => {
+            const version = await DeviceInfo.getVersion();
+            setAppVersion(version);
+        };
+
+        fetchVersion();
+    }, []);
 
     useEffect(() => {
         if (isFocused) {
@@ -135,7 +147,7 @@ const Drawer = ({ visible, onClose }) => {
 
                                 {/* Show current version */}
                                 <View style={styles.footerSection}>
-                                    <Text style={styles.versionLabel}>Version 1.0.0</Text>
+                                    <Text style={styles.versionLabel}>Version {appVersion}</Text>
                                 </View>
                             </LinearGradient>
                         </TouchableWithoutFeedback>

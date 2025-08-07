@@ -224,7 +224,7 @@ const Index = () => {
                   keyExtractor={(item, index) => index.toString()}
                   renderItem={({ item }) => (
                     <TouchableOpacity
-                      onPress={() => navigation.navigate("SubscriptionDetails", item)}
+                      onPress={() => navigation.navigate("SubscriptionOrderDetailsPage", item)}
                       // onPress={() => console.log("Item", item)}
                       style={{ flexDirection: 'row', backgroundColor: '#fff', padding: 15, marginBottom: 15, borderRadius: 15, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.5, shadowRadius: 10, elevation: 6, overflow: 'hidden' }}
                     >

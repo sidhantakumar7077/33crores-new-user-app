@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, ScrollView, Image, FlatList, Modal } from 'react-native'
 import LinearGradient from 'react-native-linear-gradient';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import DatePicker from 'react-native-date-picker';
@@ -11,6 +11,7 @@ import { base_url } from '../../../App';
 const Index = (props) => {
 
   const navigation = useNavigation();
+  const isFocused = useIsFocused();
   const [packageDetails, setPackageDetails] = useState(null);
 
   const [startDate, setStartDate] = useState(new Date(new Date().setDate(new Date().getDate() + 1)));
@@ -46,8 +47,11 @@ const Index = (props) => {
   };
 
   useEffect(() => {
-    setPackageDetails(props.route.params);
-  }, []);
+    if (isFocused) {
+      console.log("Package Details:", props.route.params);
+      setPackageDetails(props.route.params);
+    }
+  }, [isFocused]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -67,24 +71,13 @@ const Index = (props) => {
 
         <ScrollView style={{ flex: 1 }}>
           <View style={styles.card}>
-            {packageDetails?.flower_product?.product_image_url && (
-              <Image source={{ uri: packageDetails?.flower_product?.product_image_url }} style={styles.image} />
+            {packageDetails?.flower_products?.product_image_url && (
+              <Image source={{ uri: packageDetails?.flower_products?.product_image_url }} style={styles.image} />
             )}
-            <Text style={{ color: '#000', fontFamily: 'Montserrat-Bold', fontSize: 17 }}>Name: {packageDetails?.flower_product?.name}</Text>
-            {packageDetails?.flower_product?.category === "Subscription" ?
-              <Text style={styles.text}>Description : {packageDetails?.flower_product?.description}</Text>
-              :
-              <Text style={styles.text}>Flower Name : {packageDetails?.description}</Text>
-            }
-            {packageDetails?.flower_product?.category === "Subscription" ?
-              <Text style={styles.price}>Price: <Text style={{ fontSize: 16 }}>₹{packageDetails?.total_price}</Text></Text>
-              :
-              packageDetails?.order === null ?
-                <Text style={styles.price}>Price: <Text style={{ fontSize: 16 }}>{packageDetails?.flower_product?.immediate_price}</Text></Text>
-                :
-                <Text style={styles.price}>Price: <Text style={{ fontSize: 16 }}>₹{packageDetails?.order?.total_price}</Text></Text>
-            }
-            {packageDetails?.flower_product?.category === "Subscription" ?
+            <Text style={{ color: '#000', fontFamily: 'Montserrat-Bold', fontSize: 17 }}>Name: {packageDetails?.flower_products?.name}</Text>
+            <Text style={styles.text}>Description : {packageDetails?.flower_products?.description}</Text>
+            <Text style={styles.price}>Price: <Text style={{ fontSize: 16 }}>₹{packageDetails?.flower_products?.price}</Text></Text>
+            {packageDetails?.flower_products?.category === "Subscription" ?
               <Text style={[styles.text, { marginTop: 5 }]}>Date: <Text style={{ color: '#000' }}>{packageDetails?.subscription?.start_date} to {packageDetails?.subscription?.end_date}</Text></Text>
               :
               packageDetails?.date && <Text style={[styles.text, { marginTop: 5 }]}>Date: <Text style={{ color: '#000' }}>{packageDetails?.date}</Text></Text>
@@ -100,37 +93,35 @@ const Index = (props) => {
             </Text>
             <Text style={styles.text}>{packageDetails?.address?.country}</Text>
           </View>
-          {packageDetails?.flower_product.category === "Subscription" &&
-            <View style={styles.card}>
-              {packageDetails.subscription.status !== "paused" ?
-                <View>
-                  <Text style={styles.label}>Pause Start Time</Text>
-                  <TouchableOpacity onPress={() => setOpenStartDatePicker(true)}>
-                    <TextInput
-                      style={styles.input}
-                      value={startDate.toLocaleDateString()}
-                      editable={false}
-                    />
-                  </TouchableOpacity>
+          <View style={styles.card}>
+            {packageDetails.subscription.status !== "paused" ?
+              <View>
+                <Text style={styles.label}>Pause Start Time</Text>
+                <TouchableOpacity onPress={() => setOpenStartDatePicker(true)}>
+                  <TextInput
+                    style={styles.input}
+                    value={startDate.toLocaleDateString()}
+                    editable={false}
+                  />
+                </TouchableOpacity>
 
-                  <Text style={styles.label}>Pause End Time</Text>
-                  <TouchableOpacity onPress={() => setOpenEndDatePicker(true)}>
-                    <TextInput
-                      style={styles.input}
-                      value={endDate.toLocaleDateString()}
-                      editable={false}
-                    />
-                  </TouchableOpacity>
+                <Text style={styles.label}>Pause End Time</Text>
+                <TouchableOpacity onPress={() => setOpenEndDatePicker(true)}>
+                  <TextInput
+                    style={styles.input}
+                    value={endDate.toLocaleDateString()}
+                    editable={false}
+                  />
+                </TouchableOpacity>
 
-                  <TouchableOpacity style={styles.dateButton} onPress={submitPauseDates}>
-                    <Text style={styles.dateText}>Submit</Text>
-                  </TouchableOpacity>
-                </View>
-                :
-                <Text style={{ color: '#c9170a', fontSize: 17, fontFamily: 'Montserrat-ExtraBold' }}>Your subscription is paused from {moment(packageDetails.subscription.pause_start_date).format('DD-MM-YYYY')} to {moment(packageDetails.subscription.pause_end_date).format('DD-MM-YYYY')}</Text>
-              }
-            </View>
-          }
+                <TouchableOpacity style={styles.dateButton} onPress={submitPauseDates}>
+                  <Text style={styles.dateText}>Submit</Text>
+                </TouchableOpacity>
+              </View>
+              :
+              <Text style={{ color: '#c9170a', fontSize: 17, fontFamily: 'Montserrat-ExtraBold' }}>Your subscription is paused from {moment(packageDetails.subscription.pause_start_date).format('DD-MM-YYYY')} to {moment(packageDetails.subscription.pause_end_date).format('DD-MM-YYYY')}</Text>
+            }
+          </View>
           <DatePicker
             modal
             open={openStartDatePicker}

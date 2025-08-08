@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
     View,
     Text,
@@ -7,69 +7,39 @@ import {
     TouchableOpacity,
     SafeAreaView,
     Image,
-    BackHandler
+    BackHandler,
+    ActivityIndicator,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { useTab } from '../TabContext';
+import { base_url } from '../../../App';
 
-const CATEGORIES = [
-    {
-        id: '1',
-        name: 'Marigold (Genda)',
-        image: 'https://images.pexels.com/photos/1068791/pexels-photo-1068791.jpeg',
-        count: '15 varieties',
-        gradient: ['#FF6B35', '#F7931E'],
-        description: 'Sacred golden flowers for Lord Ganesha',
-    },
-    {
-        id: '2',
-        name: 'Jasmine (Jui)',
-        image: 'https://images.pexels.com/photos/56866/garden-rose-red-pink-56866.jpeg',
-        count: '8 varieties',
-        gradient: ['#8B5CF6', '#A855F7'],
-        description: 'Pure white flowers for Goddess Lakshmi',
-    },
-    {
-        id: '3',
-        name: 'Lotus (Padma)',
-        image: 'https://images.pexels.com/photos/68507/spring-flowers-flowers-collage-floral-68507.jpeg',
-        count: '6 varieties',
-        gradient: ['#10B981', '#059669'],
-        description: 'Divine flowers for Lord Vishnu',
-    },
-    {
-        id: '4',
-        name: 'Hibiscus (Japa)',
-        image: 'https://images.pexels.com/photos/33045/sunflower-sun-summer-yellow.jpg',
-        count: '10 varieties',
-        gradient: ['#F59E0B', '#D97706'],
-        description: 'Red flowers for Goddess Durga',
-    },
-    {
-        id: '5',
-        name: 'Rose (Gulab)',
-        image: 'https://images.pexels.com/photos/53141/orchids-purple-plant-flower-53141.jpeg',
-        count: '12 varieties',
-        gradient: ['#EF4444', '#DC2626'],
-        description: 'Fragrant flowers for all deities',
-    },
-    {
-        id: '6',
-        name: 'Tulsi Leaves',
-        image: 'https://images.pexels.com/photos/1128797/pexels-photo-1128797.jpeg',
-        count: '5 varieties',
-        gradient: ['#06B6D4', '#0891B2'],
-        description: 'Sacred leaves for Lord Krishna',
-    },
+const fallbackImages = [
+    'https://images.pexels.com/photos/1068791/pexels-photo-1068791.jpeg',
+    'https://images.pexels.com/photos/56866/garden-rose-red-pink-56866.jpeg',
+    'https://images.pexels.com/photos/68507/spring-flowers-flowers-collage-floral-68507.jpeg',
+    'https://images.pexels.com/photos/33045/sunflower-sun-summer-yellow.jpg',
+    'https://images.pexels.com/photos/53141/orchids-purple-plant-flower-53141.jpeg',
+    'https://images.pexels.com/photos/1128797/pexels-photo-1128797.jpeg',
+];
+
+const fallbackGradients = [
+    ['#FF6B35', '#F7931E'],
+    ['#8B5CF6', '#A855F7'],
+    ['#10B981', '#059669'],
+    ['#F59E0B', '#D97706'],
+    ['#EF4444', '#DC2626'],
+    ['#06B6D4', '#0891B2'],
 ];
 
 const Category = () => {
 
     const navigation = useNavigation();
     const { setActiveTab } = useTab();
-    const [selectedFilter, setSelectedFilter] = useState('all');
+    const [categories, setCategories] = useState([]);
+    const [loading, setLoading] = useState(true);
 
     useFocusEffect(
         useCallback(() => {
@@ -77,11 +47,28 @@ const Category = () => {
                 setActiveTab('home');
                 return false;
             };
-
             const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
             return () => backHandler.remove();
         }, [])
     );
+
+    useEffect(() => {
+        fetchFlowerList();
+    }, []);
+
+    const fetchFlowerList = async () => {
+        try {
+            const response = await fetch(`${base_url}api/flower-products`);
+            const result = await response.json();
+            if (result.status === 'success' && Array.isArray(result.data)) {
+                setCategories(result.data);
+            }
+        } catch (error) {
+            console.error('Error fetching flower list:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <SafeAreaView style={styles.container}>
@@ -98,37 +85,53 @@ const Category = () => {
                     </View>
                 </LinearGradient>
 
-                {/* Categories Grid */}
                 <ScrollView style={styles.categoriesContainer} showsVerticalScrollIndicator={false}>
                     <Text style={styles.sectionTitle}>🏷️ Sacred Flower Collections</Text>
-                    <View style={styles.categoriesGrid}>
-                        {CATEGORIES.map((category) => (
-                            <TouchableOpacity key={category.id} style={styles.categoryCard}>
-                                <Image source={{ uri: category.image }} style={styles.categoryImage} />
-                                <LinearGradient
-                                    colors={[...category.gradient, 'rgba(0,0,0,0.4)']}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={styles.categoryOverlay}
-                                >
-                                    <View style={styles.categoryContent}>
-                                        <View style={styles.categoryHeader}>
-                                            <Text style={styles.categoryName}>{category.name}</Text>
-                                            <View style={styles.categoryBadge}>
-                                                <Icon name="star" size={12} color="#FFFFFF" />
-                                                <Text style={styles.categoryCount}>{category.count}</Text>
+                    {loading ? (
+                        <ActivityIndicator size="large" color="#FF6B35" style={{ marginTop: 30 }} />
+                    ) : (
+                        <View style={styles.categoriesGrid}>
+                            {categories.map((category, index) => {
+                                const image = fallbackImages[index % fallbackImages.length];
+                                const gradient = fallbackGradients[index % fallbackGradients.length];
+
+                                return (
+                                    <TouchableOpacity key={index} style={styles.categoryCard}>
+                                        <Image source={{ uri: image }} style={styles.categoryImage} />
+                                        <LinearGradient
+                                            colors={[...gradient, 'rgba(0,0,0,0.4)']}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 1 }}
+                                            style={styles.categoryOverlay}
+                                        >
+                                            <View style={styles.categoryContent}>
+                                                <View style={styles.categoryHeader}>
+                                                    <Text style={styles.categoryName}>{category.name} ({category.odia_name})</Text>
+                                                    {category.flower_available === 'yes' && (
+                                                        <View style={styles.categoryBadge}>
+                                                            <Text style={styles.categoryCount}>🌼Mala Available</Text>
+                                                        </View>
+                                                    )}
+                                                </View>
+
+                                                {category.description && (
+                                                    <Text style={styles.categoryDescription}>
+                                                        <Icon name="leaf" size={12} color="#FFFFFF" />
+                                                        {" "}{category.description}
+                                                    </Text>
+                                                )}
+
+                                                <TouchableOpacity style={styles.exploreButton}>
+                                                    <Icon name="search" size={14} color="#FFFFFF" />
+                                                    <Text style={styles.exploreButtonText}>Explore</Text>
+                                                </TouchableOpacity>
                                             </View>
-                                        </View>
-                                        <Text style={styles.categoryDescription}>{category.description}</Text>
-                                        <TouchableOpacity style={styles.exploreButton}>
-                                            <Icon name="search" size={14} color="#FFFFFF" />
-                                            <Text style={styles.exploreButtonText}>Explore</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    )}
                 </ScrollView>
             </View>
         </SafeAreaView>
@@ -141,9 +144,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#F8FAFC'
-    },
-    scrollView: {
-        flex: 1
     },
     header: {
         paddingTop: 40,
@@ -161,9 +161,6 @@ const styles = StyleSheet.create({
     backIcon: {
         position: 'absolute',
         left: 0,
-    },
-    heroContent: {
-        // marginTop: 10
     },
     heroTitle: {
         fontSize: 28,
@@ -187,10 +184,12 @@ const styles = StyleSheet.create({
         color: '#FF6B35',
         marginBottom: 20,
         paddingHorizontal: 20,
+        paddingTop: 20,
     },
     categoriesGrid: {
         paddingHorizontal: 20,
         gap: 16,
+        marginBottom: 40,
     },
     categoryCard: {
         height: 160,
@@ -252,7 +251,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#FFFFFF',
         opacity: 0.9,
-        marginVertical: 8,
+        marginVertical: 4,
     },
     exploreButton: {
         flexDirection: 'row',

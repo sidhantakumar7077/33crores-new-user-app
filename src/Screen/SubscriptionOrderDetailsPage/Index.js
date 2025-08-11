@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, ScrollView, Image, FlatList, Modal } from 'react-native'
+import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, ScrollView, Image,TextInput, FlatList, Modal } from 'react-native'
 import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -86,15 +86,15 @@ const Index = (props) => {
 
           <View style={styles.card}>
             <Text style={styles.subtitle}>Address</Text>
-            <Text style={styles.text}>{packageDetails?.address?.address_type}</Text>
-            <Text style={styles.text}>{packageDetails?.address?.area}</Text>
+            <Text style={styles.text}>{packageDetails?.order?.address?.address_type}</Text>
+            <Text style={styles.text}>{packageDetails?.order?.address?.area}, { packageDetails?.order?.address?.apartment_name}</Text>
             <Text style={styles.text}>
-              {packageDetails?.address?.city}, {packageDetails?.address?.state}, {packageDetails?.address?.pincode}
+              {packageDetails?.order?.address?.city}, {packageDetails?.order?.address?.state}, {packageDetails?.order?.address?.pincode}
             </Text>
-            <Text style={styles.text}>{packageDetails?.address?.country}</Text>
+            <Text style={styles.text}>{packageDetails?.order?.address?.country}</Text>
           </View>
           <View style={styles.card}>
-            {packageDetails.subscription.status !== "paused" ?
+            {packageDetails?.subscription?.status !== "paused" ?
               <View>
                 <Text style={styles.label}>Pause Start Time</Text>
                 <TouchableOpacity onPress={() => setOpenStartDatePicker(true)}>
@@ -119,7 +119,7 @@ const Index = (props) => {
                 </TouchableOpacity>
               </View>
               :
-              <Text style={{ color: '#c9170a', fontSize: 17, fontFamily: 'Montserrat-ExtraBold' }}>Your subscription is paused from {moment(packageDetails.subscription.pause_start_date).format('DD-MM-YYYY')} to {moment(packageDetails.subscription.pause_end_date).format('DD-MM-YYYY')}</Text>
+              <Text style={{ color: '#c9170a', fontSize: 17, fontFamily: 'Montserrat-ExtraBold' }}>Your subscription is paused from {moment(packageDetails?.subscription?.pause_start_date).format('DD-MM-YYYY')} to {moment(packageDetails?.subscription?.pause_end_date).format('DD-MM-YYYY')}</Text>
             }
           </View>
           <DatePicker

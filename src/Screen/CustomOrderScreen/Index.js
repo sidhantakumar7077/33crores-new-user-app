@@ -327,17 +327,45 @@ const Index = () => {
       flowerUnit: null,
       flowerNameOpen: false,
       flowerUnitOpen: false,
+      garlandCount: '',
+      garlandSizeOpen: false,
+      garlandSize: null,
     },
   ]);
 
-  const handleAddMore = () => {
-    setFlowerDetails([...flowerDetails, {
-      flowerName: null,
-      flowerQuantity: '',
-      flowerUnit: null,
+  const [selectedType, setSelectedType] = useState('flower');
+
+  const handleTypeSwitch = (type) => {
+    setSelectedType(type);
+    // ensure nothing opens automatically
+    setFlowerDetails(prev => prev.map(item => ({
+      ...item,
       flowerNameOpen: false,
       flowerUnitOpen: false,
-    }]);
+      garlandSizeOpen: false,
+    })));
+  };
+
+  const garlandSizes = [
+    { label: 'Small', value: 'small' },
+    { label: 'Medium', value: 'medium' },
+    { label: 'Large', value: 'large' },
+  ];
+
+  const handleAddMore = () => {
+    setFlowerDetails(prev => ([
+      ...prev,
+      {
+        flowerNameOpen: false,
+        flowerName: null,
+        flowerQuantity: '',
+        flowerUnitOpen: false,
+        flowerUnit: null,
+        garlandCount: '',
+        garlandSizeOpen: false,
+        garlandSize: null,
+      }
+    ]));
   };
 
   const handleRemove = (index) => {
@@ -530,7 +558,7 @@ const Index = () => {
           </View>
           {/* Flower Details */}
           <View style={{ marginTop: 15, backgroundColor: '#fff', width: '100%', paddingHorizontal: 15, zIndex: 2000 }}>
-            {flowerDetails.map((flowerDetail, index) => (
+            {/* {flowerDetails.map((flowerDetail, index) => (
               <View key={index} style={{ width: '100%', padding: 10, marginVertical: 10, borderColor: '#7e7f80', borderWidth: 0.7, borderRadius: 7 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                   <View style={{ width: '30%', marginBottom: 15, zIndex: 2000, elevation: 2000 }}>
@@ -627,7 +655,249 @@ const Index = () => {
                   )}
                 </View>
               </View>
-            ))}
+            ))} */}
+            {/* Type Switch */}
+            <View style={styles.typeSwitchWrapper}>
+              <View style={styles.typeSwitch}>
+                {['flower', 'garland'].map((type) => {
+                  const isActive = selectedType === type;
+                  return (
+                    <TouchableOpacity
+                      key={type}
+                      activeOpacity={0.8}
+                      style={[styles.typePill, isActive ? styles.typePillActive : styles.typePillInactive]}
+                      onPress={() => handleTypeSwitch(type)}
+                    >
+                      {isActive ? (
+                        <LinearGradient
+                          colors={['#FF6B35', '#F7931E']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.typePillGradient}
+                        >
+                          <Image
+                            source={type === 'flower' ? require('../../assets/images/flower.png') : require('../../assets/images/garland.png')}
+                            style={{ width: 30, height: 30, marginRight: 8 }}
+                          />
+                          <Text style={styles.typePillTextActive}>
+                            {type === 'flower' ? 'Flower' : 'Garland'}
+                          </Text>
+                        </LinearGradient>
+                      ) : (
+                        <>
+                          <Image
+                            source={type === 'flower' ? require('../../assets/images/flower.png') : require('../../assets/images/garland.png')}
+                            style={{ width: 30, height: 30, marginRight: 8 }}
+                          />
+                          <Text style={styles.typePillText}> {type === 'flower' ? 'Flower' : 'Garland'} </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+            {/* Flower/Garland Details */}
+            <View style={{ marginTop: 12, paddingHorizontal: 12 }}>
+              {flowerDetails.map((flowerDetail, index) => (
+                <View key={index} style={styles.detailCard}>
+                  {/* Card Header */}
+                  <View style={styles.detailHeader}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <LinearGradient
+                        colors={['#1E293B', '#334155']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.detailIconWrap}
+                      >
+                        <Image
+                          source={selectedType === 'flower' ? require('../../assets/images/flower.png') : require('../../assets/images/garland.png')}
+                          style={{ width: 24, height: 24 }}
+                        />
+                      </LinearGradient>
+                      <Text style={styles.detailTitle}>
+                        {selectedType === 'flower' ? 'Flower' : 'Garland'}
+                      </Text>
+                    </View>
+
+                    <View style={{ flexDirection: 'row' }}>
+                      {index > 0 && (
+                        <TouchableOpacity onPress={() => handleRemove(index)} style={[styles.smallBtn, styles.removeBtn]}>
+                          <Text style={styles.smallBtnText}>Remove</Text>
+                        </TouchableOpacity>
+                      )}
+                      {index === flowerDetails.length - 1 && (
+                        <TouchableOpacity onPress={handleAddMore} style={[styles.smallBtn, { marginLeft: 8 }]}>
+                          <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.smallBtnGradient}>
+                            <Text style={styles.smallBtnText}>Add More</Text>
+                          </LinearGradient>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* Fields */}
+                  <View style={{ marginTop: 12 }}>
+
+                    {/* Row 1: Flower (full width) */}
+                    <View style={[styles.row, { gap: 0 }]}>
+                      <View style={[styles.col, { flex: 1, zIndex: 3000, elevation: 3000 }]}>
+                        <Text style={styles.label}>Flower</Text>
+                        <DropDownPicker
+                          open={flowerDetail.flowerNameOpen}
+                          value={flowerDetail.flowerName}
+                          items={flowerNames}
+                          setOpen={(open) => {
+                            setFlowerDetails(prev => {
+                              const draft = [...prev];
+                              draft[index].flowerNameOpen = open;
+                              return draft;
+                            });
+                          }}
+                          setValue={(next) => {
+                            setFlowerDetails(prev => {
+                              const draft = [...prev];
+                              const cur = draft[index].flowerName;
+                              draft[index].flowerName = typeof next === 'function' ? next(cur) : next;
+                              return draft;
+                            });
+                          }}
+                          placeholder="Select flower"
+                          listMode="MODAL"
+                          style={styles.ddInput}
+                          dropDownContainerStyle={styles.ddContainer}
+                          zIndex={3000}
+                          zIndexInverse={1000}
+                        />
+                      </View>
+                    </View>
+
+                    {/* Row 2: other fields */}
+                    {selectedType === 'flower' ? (
+                      // Flower mode: Quantity | Unit
+                      <View style={styles.row}>
+                        <View style={[styles.col, { flex: 1 }]}>
+                          <Text style={styles.label}>Quantity</Text>
+                          <TextInput
+                            style={styles.textInput}
+                            onChangeText={(text) => {
+                              setFlowerDetails(prev => {
+                                const draft = [...prev];
+                                draft[index].flowerQuantity = text;
+                                return draft;
+                              });
+                            }}
+                            value={flowerDetail.flowerQuantity}
+                            keyboardType="numeric"
+                            placeholder="e.g. 2"
+                            placeholderTextColor="#94a3b8"
+                          />
+                        </View>
+
+                        <View style={[styles.col, { flex: 1, zIndex: 2500, elevation: 2500 }]}>
+                          <Text style={styles.label}>Unit</Text>
+                          <DropDownPicker
+                            open={flowerDetail.flowerUnitOpen}
+                            value={flowerDetail.flowerUnit}
+                            items={flowerUnits}
+                            setOpen={(open) => {
+                              setFlowerDetails(prev => {
+                                const draft = [...prev];
+                                draft[index].flowerUnitOpen = open;
+                                return draft;
+                              });
+                            }}
+                            setValue={(next) => {
+                              setFlowerDetails(prev => {
+                                const draft = [...prev];
+                                const cur = draft[index].flowerUnit;
+                                draft[index].flowerUnit = typeof next === 'function' ? next(cur) : next;
+                                return draft;
+                              });
+                            }}
+                            placeholder="Select unit"
+                            listMode="MODAL"
+                            style={styles.ddInput}
+                            dropDownContainerStyle={styles.ddContainer}
+                            zIndex={2500}
+                            zIndexInverse={3000}
+                          />
+                        </View>
+                      </View>
+                    ) : (
+                      // Garland mode: Quantity | Flower Count | Size
+                      <View style={styles.row}>
+                        <View style={[styles.col, { flex: 1 }]}>
+                          <Text style={styles.label}>Quantity</Text>
+                          <TextInput
+                            style={styles.textInput}
+                            onChangeText={(text) => {
+                              setFlowerDetails(prev => {
+                                const draft = [...prev];
+                                draft[index].flowerQuantity = text;
+                                return draft;
+                              });
+                            }}
+                            value={flowerDetail.flowerQuantity}
+                            keyboardType="numeric"
+                            placeholder="e.g. 2"
+                            placeholderTextColor="#94a3b8"
+                          />
+                        </View>
+
+                        <View style={[styles.col, { flex: 1 }]}>
+                          <Text style={styles.label}>Flower Count</Text>
+                          <TextInput
+                            style={styles.textInput}
+                            onChangeText={(text) => {
+                              setFlowerDetails(prev => {
+                                const draft = [...prev];
+                                draft[index].garlandCount = text;
+                                return draft;
+                              });
+                            }}
+                            value={flowerDetail.garlandCount}
+                            keyboardType="numeric"
+                            placeholder="e.g. 50"
+                            placeholderTextColor="#94a3b8"
+                          />
+                        </View>
+
+                        <View style={[styles.col, { flex: 1, zIndex: 2000, elevation: 2000 }]}>
+                          <Text style={styles.label}>Size</Text>
+                          <DropDownPicker
+                            open={flowerDetail.garlandSizeOpen}
+                            value={flowerDetail.garlandSize}
+                            items={garlandSizes}
+                            setOpen={(open) => {
+                              setFlowerDetails(prev => {
+                                const draft = [...prev];
+                                draft[index].garlandSizeOpen = open;
+                                return draft;
+                              });
+                            }}
+                            setValue={(next) => {
+                              setFlowerDetails(prev => {
+                                const draft = [...prev];
+                                const cur = draft[index].garlandSize;
+                                draft[index].garlandSize = typeof next === 'function' ? next(cur) : next;
+                                return draft;
+                              });
+                            }}
+                            placeholder="Size"
+                            listMode="MODAL"
+                            style={styles.ddInput}
+                            dropDownContainerStyle={styles.ddContainer}
+                            zIndex={2000}
+                            zIndexInverse={2500}
+                          />
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              ))}
+            </View>
           </View>
           {/* Delivery Address And date & time */}
           <View style={styles.address}>
@@ -1319,5 +1589,147 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 7
+  },
+  // Segmented switch
+  typeSwitchWrapper: {
+    paddingHorizontal: 12,
+    marginTop: 12,
+  },
+  typeSwitch: {
+    backgroundColor: '#e2e8f0',
+    borderRadius: 14,
+    padding: 6,
+    flexDirection: 'row',
+  },
+  typePill: {
+    flex: 1,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+  },
+  typePillInactive: {
+    // subtle pressable area
+  },
+  typePillGradient: {
+    height: 40,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    width: '100%',
+  },
+  typePillText: {
+    color: '#64748b',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  typePillTextActive: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+
+  // Card
+  detailCard: {
+    width: '100%',
+    padding: 14,
+    marginVertical: 10,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  detailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  detailIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  detailTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+
+  // Grid
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginTop: 10,
+  },
+  col: {
+    // flex set inline
+  },
+
+  // Inputs
+  label: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 6,
+  },
+  textInput: {
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    height: 44,
+    fontSize: 15,
+    color: '#0f172a',
+    backgroundColor: '#f8fafc',
+  },
+
+  ddInput: {
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    marginTop: 0,
+    backgroundColor: '#f8fafc',
+    minHeight: 44,
+  },
+  ddContainer: {
+    borderColor: '#e2e8f0',
+  },
+
+  // Buttons
+  smallBtn: {
+    height: 36,
+    borderRadius: 8,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    // paddingHorizontal: 12,
+    // backgroundColor: '#10B981',
+  },
+  smallBtnGradient: {
+    height: '100%',
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  removeBtn: {
+    backgroundColor: '#ef4444',
+    paddingHorizontal: 12,
+  },
+  smallBtnText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
   },
 })

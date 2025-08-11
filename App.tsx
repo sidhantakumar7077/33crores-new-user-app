@@ -1,6 +1,7 @@
-import { StyleSheet, StatusBar, Platform, BackHandler, Linking, View, Text } from 'react-native'
+import { StyleSheet, StatusBar, Platform, BackHandler, Linking, View, Text, TouchableOpacity, ImageBackground } from 'react-native'
 import React, { useEffect, useState } from 'react'
 // import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import LinearGradient from 'react-native-linear-gradient';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -11,12 +12,16 @@ import { PERMISSIONS, request, RESULTS } from 'react-native-permissions';
 import { getMessaging, getToken, setBackgroundMessageHandler, requestPermission, AuthorizationStatus } from '@react-native-firebase/messaging';
 import Notification from './src/component/Notification';
 import { TabProvider } from './src/Screen/TabContext';
+import moment from 'moment';
 
 // SplashScreen
 import SplashScreen from './src/Screen/SplashScreen/Index'
 
 // No Internet Page
 import NoInternet from './src/Screen/NoInternet/Index'
+
+// Promotion Modal
+import PromotionGate from './src/component/PromotionGate';
 
 // Auth
 import Login from './src/Screen/Auth/Login'
@@ -178,6 +183,7 @@ const App = () => {
   return (
     <TabProvider>
       <NavigationContainer>
+        <PromotionGate baseUrl={base_url} onOpen={() => { }} onClose={() => { }} />
         <Notification />
         <StatusBar backgroundColor="#c9170a" barStyle="light-content" />
         <Stack.Navigator screenOptions={{ headerShown: false }}>

@@ -11,7 +11,9 @@ import {
     Modal,
     TextInput,
     StatusBar,
-    ToastAndroid
+    ToastAndroid,
+    Share,
+    Linking
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -252,6 +254,37 @@ const NewProfile = () => {
         }
     }
 
+    const [referralCode] = useState('BAPPA10');
+
+    const buildReferralMessage = () => {
+        const link = `${base_url}referral/${referralCode}`; // change to your deep link if needed
+        return (
+            `🪔 Join me on 33Crores!\n` +
+            `Use my referral code ${referralCode} to get special benefits on your first puja order.\n\n` +
+            `Install / Open: ${link}`
+        );
+    };
+
+    const handleInvite = async () => {
+        try {
+            await Share.share({ message: buildReferralMessage() });
+        } catch (e) {
+            console.log('Share error:', e);
+        }
+    };
+
+    const handleWhatsAppInvite = async () => {
+        const text = encodeURIComponent(buildReferralMessage());
+        const url = `whatsapp://send?text=${text}`;
+        const webUrl = `https://wa.me/?text=${text}`;
+        try {
+            const canOpen = await Linking.canOpenURL(url);
+            await Linking.openURL(canOpen ? url : webUrl);
+        } catch (e) {
+            console.log('WhatsApp open error:', e);
+        }
+    };
+
     useEffect(() => {
         if (isFocused) {
             getProfile();
@@ -332,6 +365,50 @@ const NewProfile = () => {
                                 <Icon name="chevron-right" size={16} color="#9CA3AF" />
                             </TouchableOpacity>
                         ))}
+                    </View>
+
+                    {/* Refer & Earn (below Address) */}
+                    <View style={styles.referralWrap}>
+                        <LinearGradient
+                            colors={['#FFEDD5', '#FED7AA', '#FDBA74']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.referralCard}
+                        >
+                            <View style={styles.refHeaderRow}>
+                                <View style={styles.refBadge}>
+                                    <Icon name="gift" size={12} color="#fff" />
+                                    <Text style={styles.refBadgeText}>Refer & Earn</Text>
+                                </View>
+                                <Icon name="hands-helping" size={18} color="#9A3412" />
+                            </View>
+
+                            <Text style={styles.refTitle}>Invite friends, earn rewards!</Text>
+                            <Text style={styles.refSubtitle}>
+                                Share your code and they’ll get a welcome benefit on their first puja order.
+                            </Text>
+
+                            <View style={styles.codeRow}>
+                                <Text style={styles.codeLabel}>Your Code</Text>
+                                <View style={styles.codePill}>
+                                    <Text style={styles.codeText}>{referralCode}</Text>
+                                </View>
+                            </View>
+
+                            <View style={styles.refActions}>
+                                <TouchableOpacity style={styles.inviteBtn} activeOpacity={0.9} onPress={handleInvite}>
+                                    <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.inviteGrad}>
+                                        <Icon name="share-alt" size={14} color="#fff" style={{ marginRight: 8 }} />
+                                        <Text style={styles.inviteText}>Invite</Text>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity style={styles.whatsBtn} activeOpacity={0.9} onPress={handleWhatsAppInvite}>
+                                    <Icon name="whatsapp" size={16} color="#16A34A" style={{ marginRight: 8 }} />
+                                    <Text style={styles.whatsText}>WhatsApp</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </LinearGradient>
                     </View>
 
                     {/* Premium Upgrade Card */}
@@ -766,4 +843,108 @@ const styles = StyleSheet.create({
         marginTop: 10,
         // fontWeight: '500'
     },
+
+    // Refer & earn style
+    referralWrap: {
+        paddingHorizontal: 20,
+        marginTop: 6,
+    },
+    referralCard: {
+        borderRadius: 20,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(251, 146, 60, 0.35)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.12,
+        shadowRadius: 16,
+        elevation: 8,
+    },
+    refHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    refBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#EA580C',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 999,
+    },
+    refBadgeText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: '700',
+        marginLeft: 6,
+        letterSpacing: 0.4,
+    },
+    refTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: '#7C2D12',
+        marginTop: 12,
+    },
+    refSubtitle: {
+        fontSize: 13,
+        color: '#9A3412',
+        marginTop: 6,
+        lineHeight: 18,
+    },
+    codeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 14,
+    },
+    codeLabel: {
+        fontSize: 12,
+        color: '#7C2D12',
+        fontWeight: '700',
+        marginRight: 10,
+    },
+    codePill: {
+        backgroundColor: 'rgba(255,255,255,0.85)',
+        borderWidth: 1,
+        borderColor: 'rgba(251, 146, 60, 0.5)',
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+    },
+    codeText: {
+        fontSize: 14,
+        fontWeight: '800',
+        color: '#9A3412',
+        letterSpacing: 1,
+    },
+    refActions: {
+        flexDirection: 'row',
+        gap: 10,
+        marginTop: 14,
+    },
+    inviteBtn: {
+        flex: 1,
+        height: 44,
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    inviteGrad: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'row',
+    },
+    inviteText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+    whatsBtn: {
+        height: 44,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(22, 163, 74, 0.35)',
+        paddingHorizontal: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'row',
+        backgroundColor: '#F0FDF4',
+    },
+    whatsText: { color: '#166534', fontWeight: '800', fontSize: 14 },
 });

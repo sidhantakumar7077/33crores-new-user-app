@@ -5,7 +5,6 @@ import {
     StyleSheet,
     ScrollView,
     TouchableOpacity,
-    SafeAreaView,
     Image,
     BackHandler,
     Modal,
@@ -292,7 +291,7 @@ const NewProfile = () => {
     }, [isFocused]);
 
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
             <ProfileImgMenu isVisible={profileImgMenu} onClose={() => setProfileImgMenu(false)} selectImage={selectImage} showProfileImage={viewProfileImage} removeProfilePhoto={removeProfilePhoto} />
             <ShowDP showProfileImage={showProfileImage} onClose={() => setShowProfileImage(false)} imageSource={imageSource} />
             <View style={{ flex: 1 }}>
@@ -315,7 +314,7 @@ const NewProfile = () => {
                         </Text>
                     </View>
                 </LinearGradient>
-                <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, marginBottom: 10 }}>
+                <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
                     {spinner ?
                         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 10 }}>
                             <Text style={{ color: '#ffcb44', fontSize: 17 }}>Loading...</Text>
@@ -574,7 +573,7 @@ const NewProfile = () => {
                     </ScrollView>
                 </View>
             </Modal>
-        </SafeAreaView>
+        </View>
     );
 };
 

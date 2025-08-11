@@ -5,7 +5,7 @@ import {
     TouchableOpacity,
     StyleSheet,
     BackHandler,
-    ToastAndroid
+    ToastAndroid,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';

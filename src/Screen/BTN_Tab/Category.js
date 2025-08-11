@@ -5,7 +5,6 @@ import {
     StyleSheet,
     ScrollView,
     TouchableOpacity,
-    SafeAreaView,
     Image,
     BackHandler,
     ActivityIndicator,
@@ -71,7 +70,7 @@ const Category = () => {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
             <View style={{ flex: 1 }}>
                 <LinearGradient colors={['#1E293B', '#334155', '#475569']} style={styles.header}>
                     <View style={styles.heroContent}>
@@ -134,7 +133,7 @@ const Category = () => {
                     )}
                 </ScrollView>
             </View>
-        </SafeAreaView>
+        </View>
     );
 };
 

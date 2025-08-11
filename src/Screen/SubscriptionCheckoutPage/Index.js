@@ -4,16 +4,17 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  SafeAreaView,
   Image,
   TouchableOpacity,
   TextInput,
-  SafeAreaView,
   FlatList,
   Modal,
   ActivityIndicator,
   Animated, Easing,
-  Linking
+  Linking,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import DropDownPicker from 'react-native-dropdown-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -34,6 +35,7 @@ const Index = (props) => {
 
   const navigation = useNavigation();
   const isFocused = useIsFocused();
+  const insets = useSafeAreaInsets();
   const [packageDetails, setPackageDetails] = useState({});
   const [dob, setDob] = useState(new Date(new Date().setDate(new Date().getDate() + 1)));
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
@@ -442,7 +444,7 @@ const Index = (props) => {
   }, [isFocused]);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
       <View style={styles.scrollView}>
         <LinearGradient colors={['#1E293B', '#334155', '#475569']} style={styles.header}>
           <View style={styles.heroContent}>
@@ -864,8 +866,10 @@ const Index = (props) => {
               {errors.activeAddressType && <Text style={styles.errorText}>{errors.activeAddressType}</Text>}
             </View>
           </ScrollView>
-          <TouchableOpacity onPress={saveAddress} style={styles.saveAddress}>
-            <Text style={{ color: '#000', fontSize: 17, fontWeight: '600' }}>Save Address</Text>
+          <TouchableOpacity onPress={saveAddress}>
+            <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.saveAddress}>
+              <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>Save Address</Text>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       </Modal>
@@ -931,7 +935,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    paddingBottom: 25
+    paddingBottom: 10
   },
   header: {
     padding: 20,
@@ -1119,7 +1123,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     height: 50,
     borderRadius: 10,
-    marginBottom: 15
+    marginBottom: 10
   },
   // fixedBtm
   fixedBtm: {

@@ -12,6 +12,7 @@ import {
   Modal,
   TextInput,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import DropDownPicker from 'react-native-dropdown-picker';
@@ -32,6 +33,7 @@ const Index = () => {
 
   const navigation = useNavigation();
   const isFocused = useIsFocused();
+  const insets = useSafeAreaInsets();
   const [spinner, setSpinner] = useState(false);
   const [allAddresses, setAllAddresses] = useState([]);
   const [addAddressModal, setAddAddressModal] = useState(false);
@@ -401,7 +403,7 @@ const Index = () => {
   }, [isFocused])
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
       <View style={styles.scrollView}>
         <LinearGradient colors={['#1E293B', '#334155', '#475569']} style={styles.header}>
           <View style={styles.heroContent}>
@@ -741,7 +743,7 @@ const Index = () => {
           </ScrollView>
           <TouchableOpacity onPress={saveAddress}>
             <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.saveAddress}>
-            <Text style={{ color: '#000', fontSize: 17, fontWeight: '600' }}>Save Address</Text>
+            <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>Save Address</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -992,7 +994,7 @@ const Index = () => {
           </ScrollView>
           <TouchableOpacity onPress={editAddress}>
             <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.saveAddress}>
-              <Text style={{ color: '#000', fontSize: 17, fontWeight: '600' }}>Edit Address</Text>
+              <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>Edit Address</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>

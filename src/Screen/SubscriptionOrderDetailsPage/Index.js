@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, ScrollView, Image,TextInput, FlatList, Modal } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -12,6 +13,7 @@ const Index = (props) => {
 
   const navigation = useNavigation();
   const isFocused = useIsFocused();
+  const insets = useSafeAreaInsets();
   const [packageDetails, setPackageDetails] = useState(null);
 
   const [startDate, setStartDate] = useState(new Date(new Date().setDate(new Date().getDate() + 1)));
@@ -54,7 +56,7 @@ const Index = (props) => {
   }, [isFocused]);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
       <View style={styles.mainView}>
         {/* Hero Header with Gradient */}
         <LinearGradient colors={['#1E293B', '#334155', '#475569']} style={styles.header}>
@@ -162,7 +164,7 @@ const styles = StyleSheet.create({
   },
   mainView: {
     flex: 1,
-    paddingBottom: 25
+    paddingBottom: 10
   },
   header: {
     padding: 20,

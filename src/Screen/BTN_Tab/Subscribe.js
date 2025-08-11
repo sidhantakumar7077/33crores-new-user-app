@@ -5,7 +5,6 @@ import {
     StyleSheet,
     ScrollView,
     TouchableOpacity,
-    SafeAreaView,
     Image,
     BackHandler,
 } from 'react-native';
@@ -96,7 +95,7 @@ export default function SubscriptionScreen() {
     }, [isFocused]);
 
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
             <View style={{ flex: 1 }}>
                 <LinearGradient colors={['#1E293B', '#334155', '#475569']} style={styles.header}>
                     <View style={styles.heroContent}>
@@ -182,7 +181,7 @@ export default function SubscriptionScreen() {
                     </ScrollView>
                 }
             </View>
-        </SafeAreaView>
+        </View>
     );
 }
 

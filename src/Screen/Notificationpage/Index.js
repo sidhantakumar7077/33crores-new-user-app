@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, ScrollView, Image, ActivityIndicator, FlatList, RefreshControl } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
@@ -11,6 +12,7 @@ const Index = () => {
 
   const navigation = useNavigation();
   const isFocused = useIsFocused();
+  const insets = useSafeAreaInsets();
   const [allNotifications, setAllNotifications] = useState([]);
   const [spinner, setSpinner] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -110,7 +112,7 @@ const Index = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
       <View style={styles.scrollView}>
         {/* Hero Header with Gradient */}
         <LinearGradient colors={['#1E293B', '#334155', '#475569']} style={styles.header}>
@@ -168,7 +170,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    paddingBottom: 25
+    paddingBottom: 10
   },
   header: {
     padding: 20,

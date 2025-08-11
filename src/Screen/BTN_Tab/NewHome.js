@@ -7,7 +7,6 @@ import {
     Image,
     TouchableOpacity,
     TextInput,
-    SafeAreaView,
     Dimensions,
     TouchableWithoutFeedback,
     Keyboard,
@@ -157,7 +156,7 @@ const NewHome = () => {
     }, [isFocused]);
 
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
             <Notification />
             <Drawer visible={isModalVisible} navigation={navigation} onClose={closeModal} />
             <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -434,7 +433,7 @@ const NewHome = () => {
                     </View>
                 </ScrollView>
             </TouchableWithoutFeedback>
-        </SafeAreaView>
+        </View>
     );
 };
 

@@ -6,7 +6,7 @@ import {
     Image,
     StyleSheet,
     ScrollView,
-    Animated, // ⬅️ added
+    Animated,
 } from 'react-native';
 import Modal from 'react-native-modal';
 import LinearGradient from 'react-native-linear-gradient';
@@ -21,13 +21,11 @@ const PromotionModal = ({
     primaryText = 'Book Now',
     secondaryText = 'Later',
 }) => {
-    if (!data) return null;
-    const { header, body, photo, start_date, end_date, status } = data || {};
-    const statusText = status ? String(status).toLowerCase() : null;
-
-    // 🔸 Pulse animation for primary CTA
+    // ✅ Always create hooks, regardless of props
     const pulseAnim = useRef(new Animated.Value(1)).current;
+
     useEffect(() => {
+        // run pulse only when the modal is visible
         if (!visible) {
             pulseAnim.setValue(1);
             return;
@@ -42,6 +40,12 @@ const PromotionModal = ({
         return () => loop.stop();
     }, [visible, pulseAnim]);
 
+    // ❇️ After hooks, you can safely early-return
+    if (!visible || !data) return null;
+
+    const { header, body, photo, start_date, end_date, status } = data;
+    const statusText = status ? String(status).toLowerCase() : null;
+
     return (
         <Modal
             isVisible={visible}
@@ -54,7 +58,7 @@ const PromotionModal = ({
             style={styles.modalWrap}
         >
             <LinearGradient colors={['#FFF7E6', '#FFDAB9']} style={styles.card}>
-                {/* Close Button */}
+                {/* Close */}
                 <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
                     <Icon name="times" size={18} color="#B91C1C" />
                 </TouchableOpacity>
@@ -104,11 +108,10 @@ const PromotionModal = ({
                         <Text style={styles.secondaryText}>{secondaryText}</Text>
                     </TouchableOpacity>
 
-                    {/* 🔥 Pulsing primary button (scale + glow) */}
+                    {/* Pulsing primary CTA */}
                     <Animated.View
                         style={[
                             { flex: 1, transform: [{ scale: pulseAnim }] },
-                            // soft glow
                             {
                                 shadowColor: '#F7931E',
                                 shadowOpacity: 0.6,
@@ -134,11 +137,7 @@ const PromotionModal = ({
 export default PromotionModal;
 
 const styles = StyleSheet.create({
-    modalWrap: {
-        justifyContent: 'center',
-        alignItems: 'center',
-        margin: 0,
-    },
+    modalWrap: { justifyContent: 'center', alignItems: 'center', margin: 0 },
     card: {
         width: '88%',
         borderRadius: 20,
@@ -162,17 +161,8 @@ const styles = StyleSheet.create({
         padding: 6,
         elevation: 3,
     },
-    imageWrap: {
-        borderRadius: 14,
-        overflow: 'hidden',
-        elevation: 4,
-        marginBottom: 12,
-    },
-    image: {
-        width: 200,
-        height: 120,
-        resizeMode: 'cover',
-    },
+    imageWrap: { borderRadius: 14, overflow: 'hidden', elevation: 4, marginBottom: 12 },
+    image: { width: 200, height: 120, resizeMode: 'cover' },
     statusChip: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -182,86 +172,17 @@ const styles = StyleSheet.create({
         borderRadius: 999,
         marginBottom: 8,
     },
-    statusText: {
-        color: '#fff',
-        marginLeft: 6,
-        fontSize: 12,
-        fontWeight: '700',
-        textTransform: 'capitalize',
-    },
-    header: {
-        fontSize: 20,
-        fontWeight: '800',
-        color: '#B91C1C',
-        textAlign: 'center',
-        marginBottom: 10,
-    },
-    bodyScroll: {
-        maxHeight: 140,
-        marginBottom: 12,
-    },
-    body: {
-        fontSize: 15,
-        color: '#374151',
-        textAlign: 'center',
-        lineHeight: 22,
-    },
-    datesRow: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-        justifyContent: 'center',
-        marginBottom: 14,
-    },
-    dateChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#FEF3C7',
-        paddingHorizontal: 10,
-        paddingVertical: 5,
-        borderRadius: 999,
-    },
-    dateText: {
-        marginLeft: 6,
-        color: '#B91C1C',
-        fontSize: 12,
-        fontWeight: '600',
-    },
-    actions: {
-        flexDirection: 'row',
-        gap: 10,
-        marginTop: 8,
-    },
-    secondaryBtn: {
-        flex: 1,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: 46,
-        backgroundColor: '#fff',
-    },
-    secondaryText: {
-        color: '#0f172a',
-        fontWeight: '700',
-        fontSize: 14,
-    },
-    primaryBtn: {
-        flex: 1,
-        height: 46,
-        borderRadius: 12,
-        overflow: 'hidden',
-    },
-    primaryGrad: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexDirection: 'row',
-    },
-    primaryText: {
-        color: '#fff',
-        fontWeight: '800',
-        fontSize: 14,
-    },
+    statusText: { color: '#fff', marginLeft: 6, fontSize: 12, fontWeight: '700', textTransform: 'capitalize' },
+    header: { fontSize: 20, fontWeight: '800', color: '#B91C1C', textAlign: 'center', marginBottom: 10 },
+    bodyScroll: { maxHeight: 140, marginBottom: 12 },
+    body: { fontSize: 15, color: '#374151', textAlign: 'center', lineHeight: 22 },
+    datesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginBottom: 14 },
+    dateChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
+    dateText: { marginLeft: 6, color: '#B91C1C', fontSize: 12, fontWeight: '600' },
+    actions: { flexDirection: 'row', gap: 10, marginTop: 8 },
+    secondaryBtn: { flex: 1, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center', height: 46, backgroundColor: '#fff' },
+    secondaryText: { color: '#0f172a', fontWeight: '700', fontSize: 14 },
+    primaryBtn: { flex: 1, height: 46, borderRadius: 12, overflow: 'hidden' },
+    primaryGrad: { flex: 1, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' },
+    primaryText: { color: '#fff', fontWeight: '800', fontSize: 14 },
 });

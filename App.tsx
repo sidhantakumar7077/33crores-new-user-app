@@ -48,6 +48,8 @@ import HelpAndSupport from './src/Screen/HelpAndSupport/Index'
 import AboutUs from './src/Screen/AboutUs/Index'
 import TermsAndConditions from './src/Screen/TermsAndConditions/Index'
 import PrivacyPolicy from './src/Screen/PrivacyPolicy/Index'
+// import ReferCodeScreen from './src/Screen/ReferCodeScreen/Index'
+import ReferralPage from './src/Screen/ReferralPage/Index'
 
 const Stack = createStackNavigator();
 
@@ -213,6 +215,8 @@ const App = () => {
               <Stack.Screen name='AboutUs' component={AboutUs} />
               <Stack.Screen name='TermsAndConditions' component={TermsAndConditions} />
               <Stack.Screen name='PrivacyPolicy' component={PrivacyPolicy} />
+              {/* <Stack.Screen name='ReferCodeScreen' component={ReferCodeScreen} /> */}
+              <Stack.Screen name='ReferralPage' component={ReferralPage} />
             </>
           )}
         </Stack.Navigator>

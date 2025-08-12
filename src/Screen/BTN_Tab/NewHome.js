@@ -69,6 +69,7 @@ const NewHome = () => {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const closeModal = () => setIsModalVisible(false);
     const [referralCode, setReferralCode] = useState('BAPPA10');
+    const [code, setCode] = useState('');
 
     const buildReferralMessage = () => {
         const link = `${base_url}referral/${referralCode}`; // adjust to your deep link
@@ -221,6 +222,45 @@ const NewHome = () => {
                         <QuickAction label="My Orders" icon="truck" colors={['#EF4444', '#DC2626']} onPress={() => navigation.navigate('MyOrder')} />
                     </View>
 
+                    {/* Enter Referral Code */}
+                    <LinearGradient colors={['#FFEDD5', '#FDBA74']} style={styles.card}>
+                        <View style={styles.headerRow}>
+                            <Icon name="gift" size={18} color="#9A3412" />
+                            <Text style={styles.title}>Have a Referral Code?</Text>
+                        </View>
+
+                        <Text style={styles.subtitle}>
+                            Enter your code to unlock rewards on your first Subscription.
+                        </Text>
+
+                        <View style={styles.row}>
+                            <View style={styles.inputRow}>
+                                <Icon name="ticket-alt" size={16} color="#9CA3AF" style={{ marginRight: 8 }} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Enter Code"
+                                    placeholderTextColor="#9CA3AF"
+                                    value={code}
+                                    onChangeText={(txt) => setCode(txt.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                                />
+                            </View>
+
+                            <TouchableOpacity
+                                activeOpacity={0.85}
+                                onPress={() => {
+                                    if (code.trim()) {
+                                        onApply && onApply(code.trim());
+                                    }
+                                }}
+                                style={styles.applyBtn}
+                            >
+                                <LinearGradient colors={['#FF6B35', '#F97316']} style={styles.applyGrad}>
+                                    <Text style={styles.applyText}>Apply</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </View>
+                    </LinearGradient>
+
                     {/* Premium Subscription Card */}
                     <View>
                         <FlatList
@@ -288,7 +328,10 @@ const NewHome = () => {
                                     <Icon name="gift" size={12} color="#fff" />
                                     <Text style={styles.refBadgeText}>Refer & Earn</Text>
                                 </View>
-                                <Icon name="hands-helping" size={18} color="#9A3412" />
+                                {/* <Icon name="hands-helping" size={18} color="#9A3412" /> */}
+                                <TouchableOpacity style={styles.seeStatus} onPress={() => navigation.navigate('ReferralPage')}>
+                                    <Text style={{ color: '#9A3412', fontWeight: '600' }}>See status</Text>
+                                </TouchableOpacity>
                             </View>
 
                             <Text style={styles.refTitle}>Invite friends, earn rewards!</Text>
@@ -965,6 +1008,12 @@ const styles = StyleSheet.create({
         marginLeft: 6,
         letterSpacing: 0.4,
     },
+    seeStatus: {
+        backgroundColor: '#F0FDF4',
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+    },
     refTitle: {
         fontSize: 18,
         fontWeight: '800',
@@ -1032,4 +1081,74 @@ const styles = StyleSheet.create({
         backgroundColor: '#F0FDF4',
     },
     whatsText: { color: '#166534', fontWeight: '800', fontSize: 14 },
+    // Enter Referral Code Style
+    card: {
+        borderRadius: 16,
+        padding: 16,
+        marginHorizontal: 20,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(251,146,60,0.4)',
+        shadowColor: '#000',
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 3,
+    },
+    headerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 6,
+        gap: 8,
+    },
+    title: {
+        fontSize: 16,
+        fontWeight: '500',
+        color: '#000',
+    },
+    subtitle: {
+        fontSize: 13,
+        color: '#000',
+        marginBottom: 12,
+    },
+    row: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    inputRow: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFF7ED',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(251,146,60,0.4)',
+        paddingHorizontal: 12,
+    },
+    input: {
+        flex: 1,
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#7C2D12',
+        paddingVertical: 10,
+        letterSpacing: 1,
+    },
+    applyBtn: {
+        height: 44,
+        borderRadius: 12,
+        overflow: 'hidden',
+        minWidth: 80,
+    },
+    applyGrad: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 12,
+    },
+    applyText: {
+        color: '#fff',
+        fontWeight: '800',
+        fontSize: 14,
+    },
 });

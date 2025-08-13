@@ -1,7 +1,6 @@
 import { StyleSheet, StatusBar, Platform, BackHandler, Linking, View, Text, TouchableOpacity, ImageBackground } from 'react-native'
 import React, { useEffect, useState } from 'react'
 // import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import LinearGradient from 'react-native-linear-gradient';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -63,6 +62,8 @@ const App = () => {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [latestVersion, setLatestVersion] = useState('');
+
+  const [showPromotion, setShowPromotion] = useState(false);
 
   useEffect(() => {
     const checkForUpdates = async () => {
@@ -138,10 +139,22 @@ const App = () => {
 
   // Splash Screen Show timer
   useEffect(() => {
-    setTimeout(() => {
-      setShowSplash(false);
-    }, 5000)
+    const t = setTimeout(() => setShowSplash(false), 5000);
+    return () => clearTimeout(t);
   }, []);
+
+  // CHANGED: Decide to show promo AFTER splash, ONLY when online and logged in
+  useEffect(() => {
+    const maybeShowPromo = async () => {
+      if (showSplash) return;        // still showing splash
+      if (!isConnected) return;      // no internet
+      if (!accessToken) return;      // only for logged-in users
+
+      // Always show promo
+      setShowPromotion(true);
+    };
+    maybeShowPromo();
+  }, [showSplash, isConnected, accessToken]); // CHANGED
 
   // Request Notification Permission
   const askNotificationPermissionOnce = async () => {
@@ -185,7 +198,7 @@ const App = () => {
   return (
     <TabProvider>
       <NavigationContainer>
-        <PromotionGate baseUrl={base_url} onOpen={() => { }} onClose={() => { }} />
+        {showPromotion && <PromotionGate baseUrl={base_url} onOpen={() => { }} onClose={() => { }} />}
         <Notification />
         <StatusBar backgroundColor="#c9170a" barStyle="light-content" />
         <Stack.Navigator screenOptions={{ headerShown: false }}>

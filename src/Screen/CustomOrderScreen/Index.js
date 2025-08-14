@@ -36,10 +36,12 @@ const Index = () => {
   const navigation = useNavigation();
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
+
   const [spinner, setSpinner] = useState(false);
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
   const openDatePicker = () => { setDatePickerVisibility(true) };
   const closeDatePicker = () => { setDatePickerVisibility(false) };
+
   const [dob, setDob] = useState(new Date());
   const [deliveryTime, setDeliveryTime] = useState(new Date(new Date().getTime() + 2 * 60 * 60 * 1000));
   const [openTimePicker, setOpenTimePicker] = useState(false);
@@ -47,13 +49,16 @@ const Index = () => {
   const [addressError, setAddressError] = useState('');
   const [addressErrorMessageVisible, setAddressErrorMessageVisible] = useState(false);
   const [addAddressModal, setAddAddressModal] = useState(false);
+
   const [displayedAddresses, setDisplayedAddresses] = useState([]);
   const [selectedOption, setSelectedOption] = useState('');
   const [allAddresses, setAllAddresses] = useState([]);
   const [showAllAddresses, setShowAllAddresses] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
   const [flowerRequestModalVisible, setFlowerRequestModalVisible] = useState(false);
   const closeFlowerRequestModal = () => { setFlowerRequestModalVisible(false) };
+
   const [errorModal, setErrorModal] = useState(false);
   const closeErrorModal = () => { setErrorModal(false); }
   const [errormasg, setErrormasg] = useState(null);
@@ -61,16 +66,19 @@ const Index = () => {
 
   const [isFocus, setIsFocus] = useState(false);
   const [seletedAddress, setSeletedAddress] = useState(null);
+
   const options = [
     { label: 'Individual', value: 'individual' },
     { label: 'Apartment', value: 'apartment' },
     { label: 'Business', value: 'business' },
     { label: 'Temple', value: 'temple' },
   ];
+
   const [plotFlatNumber, setPlotFlatNumber] = useState("");
   const [localityOpen, setLocalityOpen] = useState(false);
   const [localityValue, setLocalityValue] = useState(null);
   const [localityList, setLocalityList] = useState([]);
+
   const [apartmentOpen, setApartmentOpen] = useState(false);
   const [apartmentValue, setApartmentValue] = useState(null);
   const [apartmentList, setApartmentList] = useState([]);
@@ -81,6 +89,7 @@ const Index = () => {
   const [pincode, setPincode] = useState("");
   const [activeAddressType, setActiveAddressType] = useState(null);
   const [errors, setErrors] = useState({});
+
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -110,7 +119,6 @@ const Index = () => {
 
   const handleAddressChange = (option) => {
     setSelectedOption(option);
-    // console.log("Address Id", option);
   };
 
   const getAllAddress = async () => {
@@ -126,11 +134,9 @@ const Index = () => {
       });
       const responseData = await response.json();
       if (responseData.success === 200) {
-        // console.log("getAllAddress-------", responseData);
         setAllAddresses(responseData.addressData);
         if (responseData.addressData.length === 1 && responseData.addressData[0].default === 0) {
-          handleDefaultAddress(responseData.addressData[0].id);
-          // console.log("0 Index Address Id", responseData.addressData[0].id);
+          // handleDefaultAddress(responseData.addressData[0].id);
         }
       }
     } catch (error) {
@@ -165,11 +171,10 @@ const Index = () => {
       if (responseData.success === 200) {
         const localityData = responseData.data.map((item) => ({
           label: item.locality_name,
-          value: String(item.unique_code),  // Ensure value is a string for consistency
-          pincode: item.pincode, // Include pincode in the object
-          apartment: item.apartment || [], // Include apartment list in the object
+          value: String(item.unique_code),
+          pincode: item.pincode,
+          apartment: item.apartment || [],
         }));
-        // console.log('Fetched Locality Data:', localityData); // Debug: Check the fetched data
         setLocalityList(localityData);
       }
     } catch (error) {
@@ -178,22 +183,15 @@ const Index = () => {
   };
 
   const handleLocalitySelect = (value) => {
-    setLocalityValue(value); // Update selected locality value
-
-    // Find the selected locality from localityList
+    setLocalityValue(value);
     const selectedLocality = localityList.find(locality => String(locality.value) === String(value));
     if (selectedLocality) {
-      // Update pincode and apartment list
       setPincode(selectedLocality.pincode);
-
-      // Map apartment list to dropdown-compatible format
       const apartments = selectedLocality.apartment.map(apartment => ({
         label: apartment.apartment_name,
         value: apartment.apartment_name,
       }));
       setApartmentList(apartments);
-
-      // Reset apartment selection if locality changes
       setApartmentValue(null);
     } else {
       console.log('Locality not found in list.');
@@ -202,50 +200,50 @@ const Index = () => {
 
   const validateFields = () => {
     let valid = true;
-    let errors = {};
+    let errorsObj = {};
 
     if (seletedAddress === null) {
-      errors.residential = "Please select residential type";
+      errorsObj.residential = "Please select residential type";
       valid = false;
     }
     if (plotFlatNumber === "") {
-      errors.plotFlatNumber = "Plot/Flat Number is required";
+      errorsObj.plotFlatNumber = "Plot/Flat Number is required";
       valid = false;
     }
     if (localityValue === null) {
-      errors.locality = "Locality is required";
+      errorsObj.locality = "Locality is required";
       valid = false;
     }
     if (apartmentValue === null && newApartment === "") {
-      errors.apartment = "Apartment is required";
+      errorsObj.apartment = "Apartment is required";
       valid = false;
     }
     if (landmark === "") {
-      errors.landmark = "Landmark is required";
+      errorsObj.landmark = "Landmark is required";
       valid = false;
     }
     if (city === "") {
-      errors.city = "City is required";
+      errorsObj.city = "City is required";
       valid = false;
     }
     if (state === "") {
-      errors.state = "State is required";
+      errorsObj.state = "State is required";
       valid = false;
     }
     if (pincode === "") {
-      errors.pincode = "Pincode is required";
+      errorsObj.pincode = "Pincode is required";
       valid = false;
     }
     if (pincode.length !== 6) {
-      errors.pincode = "Pincode must be 6 digits";
+      errorsObj.pincode = "Pincode must be 6 digits";
       valid = false;
     }
     if (activeAddressType === null) {
-      errors.activeAddressType = "Please select address type";
+      errorsObj.activeAddressType = "Please select address type";
       valid = false;
     }
 
-    setErrors(errors);
+    setErrors(errorsObj);
     return valid;
   };
 
@@ -253,20 +251,6 @@ const Index = () => {
     if (!validateFields()) return;
     const apartment = apartmentValue && apartmentValue !== 'add_new' ? apartmentValue : newApartment;
     const access_token = await AsyncStorage.getItem('storeAccesstoken');
-    // let addressData = JSON.stringify({
-    //     country: "India",
-    //     state: state,
-    //     city: city,
-    //     pincode: pincode,
-    //     address_type: activeAddressType,
-    //     locality: localityValue,
-    //     apartment_name: apartmentValue,
-    //     place_category: String(seletedAddress),
-    //     apartment_flat_plot: apartment,
-    //     landmark: landmark
-    // });
-    // console.log("addressData", addressData);
-    // return;
     try {
       const response = await fetch(base_url + 'api/saveaddress', {
         method: 'POST',
@@ -290,10 +274,8 @@ const Index = () => {
       });
 
       const responseData = await response.json();
-      // console.log("responseData", responseData);
 
       if (responseData.success === 200) {
-        // console.log("Address saved successfully");
         setAddAddressModal(false);
         getAllAddress();
         closeAddAddressModal();
@@ -307,7 +289,6 @@ const Index = () => {
   };
 
   useEffect(() => {
-    // When 'allAddresses' changes, update 'displayedAddresses' with the first address
     if (allAddresses.length > 0) {
       setDisplayedAddresses(allAddresses.slice(0, 1));
     }
@@ -322,65 +303,60 @@ const Index = () => {
     }
   };
 
-  const [flowerDetails, setFlowerDetails] = useState([
-    {
-      flowerName: null,
-      flowerQuantity: '',
-      flowerUnit: null,
-      flowerNameOpen: false,
-      flowerUnitOpen: false,
-      garlandCount: '',
-      garlandSizeOpen: false,
-      garlandSize: null,
-    },
-  ]);
-
-  const [selectedType, setSelectedType] = useState('flower');
-
-  const handleTypeSwitch = (type) => {
-    setSelectedType(type);
-    // ensure nothing opens automatically
-    setFlowerDetails(prev => prev.map(item => ({
-      ...item,
-      flowerNameOpen: false,
-      flowerUnitOpen: false,
-      garlandSizeOpen: false,
-    })));
+  // === NEW: Simple validators and helpers ===
+  const isNonEmpty = (v) => v !== undefined && v !== null && String(v).trim() !== '';
+  const toNumberOrNull = (v) => {
+    if (v === null || v === undefined) return null;
+    const n = parseFloat(String(v).replace(',', '.'));
+    return Number.isFinite(n) ? n : null;
   };
 
+  // === NEW: Master data ===
+  const [flowerNames, setFlowerNames] = useState([]);
+  const [flowerUnits, setFlowerUnits] = useState([]);
   const garlandSizes = [
     { label: 'Small', value: 'small' },
     { label: 'Medium', value: 'medium' },
     { label: 'Large', value: 'large' },
   ];
 
-  const handleAddMore = () => {
-    setFlowerDetails(prev => ([
-      ...prev,
-      {
-        flowerNameOpen: false,
-        flowerName: null,
-        flowerQuantity: '',
-        flowerUnitOpen: false,
-        flowerUnit: null,
-        garlandCount: '',
-        garlandSizeOpen: false,
-        garlandSize: null,
-      }
-    ]));
+  const [selectedType, setSelectedType] = useState('flower');
+  const handleTypeSwitch = (type) => {
+    setSelectedType(type);
+    // Close dropdowns just in case
+    setFlowerInput(prev => ({ ...prev, flowerNameOpen: false, flowerUnitOpen: false }));
+    setGarlandInput(prev => ({ ...prev, garlandNameOpen: false, garlandSizeOpen: false }));
   };
 
-  const handleRemove = (index) => {
-    if (index > 0) {
-      const newFlowerDetails = [...flowerDetails];
-      newFlowerDetails.splice(index, 1);
-      setFlowerDetails(newFlowerDetails);
-    }
-  };
+  // === NEW: Single entry inputs + saved tables ===
 
-  const [flowerNames, setFlowerNames] = useState([]);
-  const [flowerUnits, setFlowerUnits] = useState([]);
+  // Flower input (single row)
+  const [flowerInput, setFlowerInput] = useState({
+    flowerNameOpen: false,
+    flowerUnitOpen: false,
+    flowerName: null,
+    flowerQuantity: '',
+    flowerUnit: null,
+  });
 
+  // Saved flower rows
+  const [savedFlowers, setSavedFlowers] = useState([]);
+
+  // Garland input (single row)
+  const [garlandInput, setGarlandInput] = useState({
+    garlandNameOpen: false,
+    garlandSizeOpen: false,
+    garlandName: null,
+    garlandQuantity: '', // number of garlands
+    radioChoice: null, // 'count' | 'size'
+    garlandCount: '', // only if radioChoice === 'count'
+    garlandSize: null, // only if radioChoice === 'size'
+  });
+
+  // Saved garland rows
+  const [savedGarlands, setSavedGarlands] = useState([]);
+
+  // fetch units
   const getUnitList = async () => {
     const access_token = await AsyncStorage.getItem('storeAccesstoken');
     try {
@@ -394,7 +370,6 @@ const Index = () => {
       });
       const responseData = await response.json();
       if (response.ok) {
-        // console.log("Units fetched successfully", responseData);
         const units = responseData.data.map(unit => ({
           label: unit.unit_name,
           value: unit.unit_name
@@ -408,6 +383,7 @@ const Index = () => {
     }
   };
 
+  // fetch products
   const getFlowerList = async () => {
     await fetch(base_url + 'api/products', {
       method: 'GET',
@@ -417,13 +393,12 @@ const Index = () => {
       },
     }).then(response => response.json()).then(response => {
       if (response.status === 200) {
-        // console.log("Flower List", response.data);
         const flowers = response.data.filter(product => product.category === "Flower");
-        const flowerNames = flowers.map(flower => ({
+        const flowerNamesMap = flowers.map(flower => ({
           label: flower.name,
           value: flower.name
         }));
-        setFlowerNames(flowerNames);
+        setFlowerNames(flowerNamesMap);
       } else {
         console.error('Failed to fetch packages:', response.message);
       }
@@ -432,6 +407,7 @@ const Index = () => {
     });
   };
 
+  // fetch immediate product (for product_id)
   const getRequestFlowerData = async () => {
     setSpinner(true);
     await fetch(base_url + 'api/products', {
@@ -442,16 +418,13 @@ const Index = () => {
       },
     }).then(response => response.json()).then(response => {
       if (response.status === 200) {
-        // console.log("object", response.data.find(item => item.category === "Immediateproduct"));
-        setFlowerRequest(response.data.find(item => item.category === "Immediateproduct"));
+        setFlowerRequest(response.data.find(item => item.category === "Immediateproduct") || {});
         setSpinner(false);
       } else {
-        // console.error('Failed to fetch packages:', response.message);
         setSpinner(false);
       }
       setSpinner(false);
     }).catch((error) => {
-      // console.error('Error:', error);
       setSpinner(false);
     });
   };
@@ -459,11 +432,107 @@ const Index = () => {
   const displayErrorMessage = (message) => {
     setAddressError(message);
     setAddressErrorMessageVisible(true);
-
     setTimeout(() => {
       setAddressErrorMessageVisible(false);
       setAddressError('');
-    }, 10000); // 10 seconds
+    }, 10000);
+  };
+
+  // === NEW: validators for enabling save buttons ===
+  const isFlowerInputValid = () => {
+    return isNonEmpty(flowerInput.flowerName) &&
+      isNonEmpty(flowerInput.flowerUnit) &&
+      toNumberOrNull(flowerInput.flowerQuantity) !== null;
+  };
+
+  const isGarlandInputValid = () => {
+    const qtyOK = toNumberOrNull(garlandInput.garlandQuantity) !== null;
+    const basicOK = isNonEmpty(garlandInput.garlandName) && qtyOK && isNonEmpty(garlandInput.radioChoice);
+    if (!basicOK) return false;
+    if (garlandInput.radioChoice === 'count') {
+      return toNumberOrNull(garlandInput.garlandCount) !== null;
+    }
+    if (garlandInput.radioChoice === 'size') {
+      return isNonEmpty(garlandInput.garlandSize);
+    }
+    return false;
+  };
+
+  // === NEW: Save handlers ===
+  const handleSaveFlower = () => {
+    if (!isFlowerInputValid()) return;
+    const row = {
+      type: 'flower',
+      flower_name: String(flowerInput.flowerName).trim(),
+      flower_unit: String(flowerInput.flowerUnit).trim(),
+      flower_quantity: toNumberOrNull(flowerInput.flowerQuantity),
+    };
+    setSavedFlowers(prev => [...prev, row]);
+    // Reset the input
+    setFlowerInput({
+      flowerNameOpen: false,
+      flowerUnitOpen: false,
+      flowerName: null,
+      flowerQuantity: '',
+      flowerUnit: null,
+    });
+  };
+
+  const handleSaveGarland = () => {
+    if (!isGarlandInputValid()) return;
+    const base = {
+      type: 'garland',
+      garland_name: String(garlandInput.garlandName).trim(),
+      garland_quantity: toNumberOrNull(garlandInput.garlandQuantity), // number of garlands
+    };
+    let row = base;
+    if (garlandInput.radioChoice === 'count') {
+      row = { ...base, flower_count: toNumberOrNull(garlandInput.garlandCount), garland_size: null };
+    } else {
+      row = { ...base, flower_count: null, garland_size: String(garlandInput.garlandSize).trim() };
+    }
+
+    setSavedGarlands(prev => [...prev, row]);
+    // Reset the input
+    setGarlandInput({
+      garlandNameOpen: false,
+      garlandSizeOpen: false,
+      garlandName: null,
+      garlandQuantity: '',
+      radioChoice: null,
+      garlandCount: '',
+      garlandSize: null,
+    });
+  };
+
+  // === Build payload from saved tables ===
+  const buildPayloadForApi = () => {
+    const items = [
+      ...savedFlowers.map((f, idx) => ({
+        type: 'flower',
+        flower_name: f.flower_name,
+        flower_unit: f.flower_unit,
+        flower_quantity: f.flower_quantity,
+        // __row__: `F${idx + 1}`,
+      })),
+      ...savedGarlands.map((g, idx) => ({
+        type: 'garland',
+        garland_name: g.garland_name,
+        garland_quantity: g.garland_quantity,
+        flower_count: g.flower_count ?? null,
+        garland_size: g.garland_size ?? null,
+        // __row__: `G${idx + 1}`,
+      }))
+    ];
+
+    return {
+      product_id: flowerRequest?.product_id,
+      address_id: selectedOption,
+      suggestion: suggestions || '',
+      date: moment(dob).format('YYYY-MM-DD'),
+      time: moment(deliveryTime).format('HH:mm'),
+      items,
+    };
   };
 
   const handleAnyFlowerBuy = async () => {
@@ -471,50 +540,48 @@ const Index = () => {
     setIsLoading(true);
 
     try {
-      if (flowerDetails.some(detail => !detail.flowerName || !detail.flowerQuantity || !detail.flowerUnit)) {
-        displayErrorMessage("Please fill in all flower details");
-        setIsLoading(false);
-        return;
-      }
-      if (selectedOption === "") {
+      if (!selectedOption) {
         displayErrorMessage("Please Select Your Address");
         setIsLoading(false);
         return;
       }
+      if (!flowerRequest?.product_id) {
+        displayErrorMessage("Missing product id");
+        setIsLoading(false);
+        return;
+      }
+
+      const payload = buildPayloadForApi();
+
+      if (!payload.items.length) {
+        displayErrorMessage("Please save at least one Flower or Garland entry");
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('Payload to API:', JSON.stringify(payload));
+      // return; // Uncomment this to dry-run
 
       const response = await fetch(base_url + 'api/flower-requests', {
         method: 'POST',
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${access_token}`
+          ...(access_token ? { Authorization: `Bearer ${access_token}` } : {}),
         },
-        body: JSON.stringify({
-          product_id: flowerRequest.product_id,
-          address_id: selectedOption,
-          suggestion: suggestions,
-          date: moment(dob).format('YYYY-MM-DD'),
-          time: moment(deliveryTime).format('hh:mm A'),
-          flower_name: flowerDetails.map(detail => detail.flowerName),
-          flower_unit: flowerDetails.map(detail => detail.flowerUnit),
-          flower_quantity: flowerDetails.map(detail => detail.flowerQuantity)
-        }),
+        body: JSON.stringify(payload),
       });
 
       const responseData = await response.json();
       if (response.ok) {
-        console.log("Booking successfully", responseData);
         setFlowerRequestModalVisible(true);
       } else {
         setErrorModal(true);
-        setErrormasg(responseData.message);
-        // console.log("responseData", responseData);
+        setErrormasg(responseData?.message || 'Something went wrong');
       }
     } catch (error) {
-      // Handle any errors, either from Razorpay or fetch
       setErrorModal(true);
-      setErrormasg(error);
-      // console.log("Error", error);
+      setErrormasg(error?.message || String(error));
     } finally {
       setIsLoading(false);
     }
@@ -529,6 +596,55 @@ const Index = () => {
       getAllLocality();
     }
   }, [isFocused]);
+
+  // === Renderers for saved tables ===
+  const renderFlowerTable = () => {
+    if (!savedFlowers.length) return null;
+    return (
+      <View style={styles.tableCard}>
+        <Text style={styles.tableTitle}>Saved Flowers</Text>
+        <View style={styles.tableHeaderRow}>
+          {/* <Text style={[styles.tableCell, styles.th]}>#</Text> */}
+          <Text style={[styles.tableCell, styles.th, { flex: 2 }]}>Flower</Text>
+          <Text style={[styles.tableCell, styles.th]}>Qty</Text>
+          <Text style={[styles.tableCell, styles.th]}>Unit</Text>
+        </View>
+        {savedFlowers.map((row, idx) => (
+          <View key={`sf-${idx}`} style={styles.tableDataRow}>
+            {/* <Text style={styles.tableCell}>{idx + 1}</Text> */}
+            <Text style={[styles.tableCell, { flex: 2 }]}>{row.flower_name}</Text>
+            <Text style={styles.tableCell}>{row.flower_quantity}</Text>
+            <Text style={styles.tableCell}>{row.flower_unit}</Text>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
+  const renderGarlandTable = () => {
+    if (!savedGarlands.length) return null;
+    return (
+      <View style={styles.tableCard}>
+        <Text style={styles.tableTitle}>Saved Garlands</Text>
+        <View style={styles.tableHeaderRow}>
+          {/* <Text style={[styles.tableCell, styles.th]}>#</Text> */}
+          <Text style={[styles.tableCell, styles.th, { flex: 2 }]}>Flower</Text>
+          <Text style={[styles.tableCell, styles.th]}>No. of Garlands</Text>
+          <Text style={[styles.tableCell, styles.th]}>Flower Count</Text>
+          <Text style={[styles.tableCell, styles.th]}>Size</Text>
+        </View>
+        {savedGarlands.map((row, idx) => (
+          <View key={`sg-${idx}`} style={styles.tableDataRow}>
+            {/* <Text style={styles.tableCell}>{idx + 1}</Text> */}
+            <Text style={[styles.tableCell, { flex: 2 }]}>{row.garland_name}</Text>
+            <Text style={styles.tableCell}>{row.garland_quantity}</Text>
+            <Text style={styles.tableCell}>{row.flower_count ?? '-'}</Text>
+            <Text style={styles.tableCell}>{row.garland_size ?? '-'}</Text>
+          </View>
+        ))}
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
@@ -545,6 +661,7 @@ const Index = () => {
             </Text>
           </View>
         </LinearGradient>
+
         <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, marginBottom: 50 }}>
           {/* Product Details */}
           <View style={styles.productDetails}>
@@ -558,106 +675,9 @@ const Index = () => {
               <Text style={{ color: '#000', fontSize: 14, fontWeight: '400', textTransform: 'capitalize', marginTop: 5 }}>Price :  {flowerRequest.immediate_price}</Text>
             </View>
           </View>
-          {/* Flower Details */}
+
+          {/* ===================== Flower / Garland Section (REWRITTEN) ===================== */}
           <View style={{ marginTop: 15, backgroundColor: '#fff', width: '100%', paddingHorizontal: 15, zIndex: 2000 }}>
-            {/* {flowerDetails.map((flowerDetail, index) => (
-              <View key={index} style={{ width: '100%', padding: 10, marginVertical: 10, borderColor: '#7e7f80', borderWidth: 0.7, borderRadius: 7 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <View style={{ width: '30%', marginBottom: 15, zIndex: 2000, elevation: 2000 }}>
-                    <Text style={styles.label}>Flower</Text>
-                    <View style={{ zIndex: 2000, elevation: 2000 }}>
-                      <DropDownPicker
-                        open={flowerDetail.flowerNameOpen}
-                        value={flowerDetail.flowerName}
-                        items={flowerNames}
-                        setOpen={(open) => {
-                          setFlowerDetails(prevDetails => {
-                            const newDetails = [...prevDetails];
-                            newDetails[index].flowerNameOpen = open;
-                            return newDetails;
-                          });
-                        }}
-                        setValue={(callback) => {
-                          setFlowerDetails(prevDetails => {
-                            const newDetails = [...prevDetails];
-                            newDetails[index].flowerName = callback(newDetails[index].flowerName);
-                            return newDetails;
-                          });
-                        }}
-                        placeholder="Flower"
-                        listMode="MODAL"
-                        style={{ borderColor: '#edeff1', borderRadius: 5, marginTop: 5 }}
-                        dropDownContainerStyle={{ borderColor: '#edeff1' }}
-                        zIndex={2000}
-                        zIndexInverse={1000}
-                      />
-                    </View>
-                  </View>
-                  <View style={{ width: '25%', marginBottom: 15, zIndex: 1500, elevation: 1500 }}>
-                    <Text style={styles.label}>Quantity</Text>
-                    <TextInput
-                      style={{ borderColor: '#edeff1', borderRadius: 5, borderWidth: 1, padding: 10, fontSize: 15, color: '#000', marginTop: 3 }}
-                      onChangeText={(text) => {
-                        setFlowerDetails(prevDetails => {
-                          const newDetails = [...prevDetails];
-                          newDetails[index].flowerQuantity = text;
-                          return newDetails;
-                        });
-                      }}
-                      value={flowerDetail.flowerQuantity}
-                      keyboardType="numeric"
-                      placeholder="Quantity"
-                      placeholderTextColor="#888888"
-                      underlineColorAndroid='transparent'
-                    />
-                  </View>
-                  <View style={{ width: '40%', zIndex: 1000, elevation: 1000 }}>
-                    <Text style={styles.label}>Select Unit</Text>
-                    <View style={{ zIndex: 1000, elevation: 1000 }}>
-                      <DropDownPicker
-                        open={flowerDetail.flowerUnitOpen}
-                        value={flowerDetail.flowerUnit}
-                        items={flowerUnits}
-                        setOpen={(open) => {
-                          setFlowerDetails(prevDetails => {
-                            const newDetails = [...prevDetails];
-                            newDetails[index].flowerUnitOpen = open;
-                            return newDetails;
-                          });
-                        }}
-                        setValue={(callback) => {
-                          setFlowerDetails(prevDetails => {
-                            const newDetails = [...prevDetails];
-                            newDetails[index].flowerUnit = callback(newDetails[index].flowerUnit);
-                            return newDetails;
-                          });
-                        }}
-                        placeholder="Unit"
-                        listMode="MODAL"
-                        style={{ borderColor: '#edeff1', borderRadius: 5, marginTop: 5 }}
-                        dropDownContainerStyle={{ borderColor: '#edeff1' }}
-                        zIndex={1000}
-                        zIndexInverse={2000}
-                      />
-                    </View>
-                  </View>
-                </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', width: '100%' }}>
-                  {index === flowerDetails.length - 1 && (
-                    <TouchableOpacity onPress={handleAddMore} style={{ backgroundColor: '#28a745', borderRadius: 5, alignItems: 'center', width: 100, height: 46, alignItems: 'center', justifyContent: 'center' }}>
-                      <LinearGradient colors={['#FF6B35', '#F7931E']} style={{ width: '100%', height: '100%', borderRadius: 5, alignItems: 'center', justifyContent: 'center' }}>
-                        <Text style={{ color: '#fff', fontSize: 16 }}>Add More</Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  )}
-                  {index > 0 && (
-                    <TouchableOpacity onPress={() => handleRemove(index)} style={{ backgroundColor: '#dc3545', borderRadius: 5, alignItems: 'center', width: 100, height: 46, alignItems: 'center', justifyContent: 'center', marginLeft: 8 }}>
-                      <Text style={{ color: '#fff', fontSize: 16 }}>Remove</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-            ))} */}
             {/* Type Switch */}
             <View style={styles.typeSwitchWrapper}>
               <View style={styles.typeSwitch}>
@@ -699,11 +719,12 @@ const Index = () => {
                 })}
               </View>
             </View>
-            {/* Flower/Garland Details */}
+
+            {/* Inputs */}
             <View style={{ marginTop: 12, paddingHorizontal: 12 }}>
-              {flowerDetails.map((flowerDetail, index) => (
-                <View key={index} style={styles.detailCard}>
-                  {/* Card Header */}
+              {selectedType === 'flower' ? (
+                <View style={styles.detailCard}>
+                  {/* Header */}
                   <View style={styles.detailHeader}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       <LinearGradient
@@ -712,57 +733,27 @@ const Index = () => {
                         end={{ x: 1, y: 1 }}
                         style={styles.detailIconWrap}
                       >
-                        <Image
-                          source={selectedType === 'flower' ? require('../../assets/images/flower.png') : require('../../assets/images/garland.png')}
-                          style={{ width: 24, height: 24 }}
-                        />
+                        <Image source={require('../../assets/images/flower.png')} style={{ width: 24, height: 24 }} />
                       </LinearGradient>
-                      <Text style={styles.detailTitle}>
-                        {selectedType === 'flower' ? 'Flower' : 'Garland'}
-                      </Text>
-                    </View>
-
-                    <View style={{ flexDirection: 'row' }}>
-                      {index > 0 && (
-                        <TouchableOpacity onPress={() => handleRemove(index)} style={[styles.smallBtn, styles.removeBtn]}>
-                          <Text style={styles.smallBtnText}>Remove</Text>
-                        </TouchableOpacity>
-                      )}
-                      {index === flowerDetails.length - 1 && (
-                        <TouchableOpacity onPress={handleAddMore} style={[styles.smallBtn, { marginLeft: 8 }]}>
-                          <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.smallBtnGradient}>
-                            <Text style={styles.smallBtnText}>Add More</Text>
-                          </LinearGradient>
-                        </TouchableOpacity>
-                      )}
+                      <Text style={styles.detailTitle}>Flower</Text>
                     </View>
                   </View>
 
-                  {/* Fields */}
+                  {/* Fields: Flower, Quantity, Unit */}
                   <View style={{ marginTop: 12 }}>
-
-                    {/* Row 1: Flower (full width) */}
-                    <View style={[styles.row, { gap: 0 }]}>
+                    {/* Flower & Quantity in one row */}
+                    <View style={styles.row}>
                       <View style={[styles.col, { flex: 1, zIndex: 3000, elevation: 3000 }]}>
-                        <Text style={styles.label}>Flower</Text>
+                        <Text style={styles.inputLabel}>Flower</Text>
                         <DropDownPicker
-                          open={flowerDetail.flowerNameOpen}
-                          value={flowerDetail.flowerName}
+                          open={flowerInput.flowerNameOpen}
+                          value={flowerInput.flowerName}
                           items={flowerNames}
-                          setOpen={(open) => {
-                            setFlowerDetails(prev => {
-                              const draft = [...prev];
-                              draft[index].flowerNameOpen = open;
-                              return draft;
-                            });
-                          }}
+                          setOpen={(open) => setFlowerInput(prev => ({ ...prev, flowerNameOpen: open }))}
                           setValue={(next) => {
-                            setFlowerDetails(prev => {
-                              const draft = [...prev];
-                              const cur = draft[index].flowerName;
-                              draft[index].flowerName = typeof next === 'function' ? next(cur) : next;
-                              return draft;
-                            });
+                            const cur = flowerInput.flowerName;
+                            const val = typeof next === 'function' ? next(cur) : next;
+                            setFlowerInput(prev => ({ ...prev, flowerName: val }));
                           }}
                           placeholder="Select flower"
                           listMode="MODAL"
@@ -772,121 +763,168 @@ const Index = () => {
                           zIndexInverse={1000}
                         />
                       </View>
+
+                      <View style={[styles.col, { flex: 1 }]}>
+                        <Text style={styles.inputLabel}>Quantity</Text>
+                        <TextInput
+                          style={styles.textInput}
+                          onChangeText={(text) => setFlowerInput(prev => ({ ...prev, flowerQuantity: text }))}
+                          value={flowerInput.flowerQuantity}
+                          keyboardType="numeric"
+                          placeholder="e.g. 2"
+                          placeholderTextColor="#94a3b8"
+                        />
+                      </View>
                     </View>
 
-                    {/* Row 2: other fields */}
-                    {selectedType === 'flower' ? (
-                      // Flower mode: Quantity | Unit
-                      <View style={styles.row}>
-                        <View style={[styles.col, { flex: 1 }]}>
-                          <Text style={styles.label}>Quantity</Text>
-                          <TextInput
-                            style={styles.textInput}
-                            onChangeText={(text) => {
-                              setFlowerDetails(prev => {
-                                const draft = [...prev];
-                                draft[index].flowerQuantity = text;
-                                return draft;
-                              });
-                            }}
-                            value={flowerDetail.flowerQuantity}
-                            keyboardType="numeric"
-                            placeholder="e.g. 2"
-                            placeholderTextColor="#94a3b8"
-                          />
-                        </View>
-
-                        <View style={[styles.col, { flex: 1, zIndex: 2500, elevation: 2500 }]}>
-                          <Text style={styles.label}>Unit</Text>
-                          <DropDownPicker
-                            open={flowerDetail.flowerUnitOpen}
-                            value={flowerDetail.flowerUnit}
-                            items={flowerUnits}
-                            setOpen={(open) => {
-                              setFlowerDetails(prev => {
-                                const draft = [...prev];
-                                draft[index].flowerUnitOpen = open;
-                                return draft;
-                              });
-                            }}
-                            setValue={(next) => {
-                              setFlowerDetails(prev => {
-                                const draft = [...prev];
-                                const cur = draft[index].flowerUnit;
-                                draft[index].flowerUnit = typeof next === 'function' ? next(cur) : next;
-                                return draft;
-                              });
-                            }}
-                            placeholder="Select unit"
-                            listMode="MODAL"
-                            style={styles.ddInput}
-                            dropDownContainerStyle={styles.ddContainer}
-                            zIndex={2500}
-                            zIndexInverse={3000}
-                          />
-                        </View>
+                    {/* Unit & Save Button in one row */}
+                    <View style={styles.row}>
+                      <View style={[styles.col, { flex: 1, zIndex: 2500, elevation: 2500 }]}>
+                        <Text style={styles.inputLabel}>Unit</Text>
+                        <DropDownPicker
+                          open={flowerInput.flowerUnitOpen}
+                          value={flowerInput.flowerUnit}
+                          items={flowerUnits}
+                          setOpen={(open) => setFlowerInput(prev => ({ ...prev, flowerUnitOpen: open }))}
+                          setValue={(next) => {
+                            const cur = flowerInput.flowerUnit;
+                            const val = typeof next === 'function' ? next(cur) : next;
+                            setFlowerInput(prev => ({ ...prev, flowerUnit: val }));
+                          }}
+                          placeholder="Select unit"
+                          listMode="MODAL"
+                          style={styles.ddInput}
+                          dropDownContainerStyle={styles.ddContainer}
+                          zIndex={2500}
+                          zIndexInverse={3000}
+                        />
                       </View>
-                    ) : (
-                      // Garland mode: Quantity | Flower Count | Size
-                      <View style={styles.row}>
-                        <View style={[styles.col, { flex: 1 }]}>
-                          <Text style={styles.label}>Quantity</Text>
-                          <TextInput
-                            style={styles.textInput}
-                            onChangeText={(text) => {
-                              setFlowerDetails(prev => {
-                                const draft = [...prev];
-                                draft[index].flowerQuantity = text;
-                                return draft;
-                              });
-                            }}
-                            value={flowerDetail.flowerQuantity}
-                            keyboardType="numeric"
-                            placeholder="e.g. 2"
-                            placeholderTextColor="#94a3b8"
-                          />
-                        </View>
 
+                      {/* fixed width save column to avoid being pushed off-screen */}
+                      <View style={[styles.col, { width: 140, alignSelf: 'flex-end' }]}>
+                        <TouchableOpacity
+                          disabled={!isFlowerInputValid()}
+                          onPress={handleSaveFlower}
+                          style={[styles.saveRowBtn, !isFlowerInputValid() && { opacity: 0.5 }]}
+                        >
+                          <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.smallBtnGradient}>
+                            <Text style={styles.smallBtnText}>Save</Text>
+                          </LinearGradient>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.detailCard}>
+                  {/* Header */}
+                  <View style={styles.detailHeader}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <LinearGradient
+                        colors={['#1E293B', '#334155']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.detailIconWrap}
+                      >
+                        <Image source={require('../../assets/images/garland.png')} style={{ width: 24, height: 24 }} />
+                      </LinearGradient>
+                      <Text style={styles.detailTitle}>Garland</Text>
+                    </View>
+                  </View>
+
+                  {/* Fields */}
+                  <View style={{ marginTop: 12 }}>
+                    {/* Garland (Flower name) */}
+                    <View style={styles.row}>
+                      <View style={[styles.col, { flex: 1.2, zIndex: 3000, elevation: 3000 }]}>
+                        <Text style={styles.inputLabel}>Flower</Text>
+                        <DropDownPicker
+                          open={garlandInput.garlandNameOpen}
+                          value={garlandInput.garlandName}
+                          items={flowerNames} // reuse same list
+                          setOpen={(open) => setGarlandInput(prev => ({ ...prev, garlandNameOpen: open }))}
+                          setValue={(next) => {
+                            const cur = garlandInput.garlandName;
+                            const val = typeof next === 'function' ? next(cur) : next;
+                            setGarlandInput(prev => ({ ...prev, garlandName: val }));
+                          }}
+                          placeholder="Select flower"
+                          listMode="MODAL"
+                          style={styles.ddInput}
+                          dropDownContainerStyle={styles.ddContainer}
+                          zIndex={3000}
+                          zIndexInverse={1000}
+                        />
+                      </View>
+                      {/* Number of Garlands */}
+                      <View style={[styles.col, { flex: 0.8 }]}>
+                        <Text style={styles.inputLabel}>No. of Garlands</Text>
+                        <TextInput
+                          style={styles.textInput}
+                          onChangeText={(text) => setGarlandInput(prev => ({ ...prev, garlandQuantity: text }))}
+                          value={garlandInput.garlandQuantity}
+                          keyboardType="numeric"
+                          placeholder="e.g. 2"
+                          placeholderTextColor="#94a3b8"
+                        />
+                      </View>
+                    </View>
+
+                    {/* Radio: Flower Count or Garland Size */}
+                    <View style={[styles.row, { marginTop: 12 }]}>
+                      <TouchableOpacity
+                        onPress={() => setGarlandInput(prev => ({ ...prev, radioChoice: 'count' }))}
+                        style={[styles.radioPill, garlandInput.radioChoice === 'count' && styles.radioPillActive]}
+                      >
+                        <View style={[styles.radioCircle, garlandInput.radioChoice === 'count' && styles.radioCircleActive]}>
+                          {garlandInput.radioChoice === 'count' && <View style={styles.radioDot} />}
+                        </View>
+                        <Text style={[styles.radioText, garlandInput.radioChoice === 'count' && styles.radioTextActive]}>Flower Count</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        onPress={() => setGarlandInput(prev => ({ ...prev, radioChoice: 'size' }))}
+                        style={[styles.radioPill, garlandInput.radioChoice === 'size' && styles.radioPillActive]}
+                      >
+                        <View style={[styles.radioCircle, garlandInput.radioChoice === 'size' && styles.radioCircleActive]}>
+                          {garlandInput.radioChoice === 'size' && <View style={styles.radioDot} />}
+                        </View>
+                        <Text style={[styles.radioText, garlandInput.radioChoice === 'size' && styles.radioTextActive]}>Garland Size</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Conditional Field */}
+                    {garlandInput.radioChoice === 'count' && (
+                      <View style={[styles.row, { marginTop: 10 }]}>
                         <View style={[styles.col, { flex: 1 }]}>
-                          <Text style={styles.label}>Flower Count</Text>
+                          <Text style={styles.inputLabel}>Flower Count</Text>
                           <TextInput
                             style={styles.textInput}
-                            onChangeText={(text) => {
-                              setFlowerDetails(prev => {
-                                const draft = [...prev];
-                                draft[index].garlandCount = text;
-                                return draft;
-                              });
-                            }}
-                            value={flowerDetail.garlandCount}
+                            onChangeText={(text) => setGarlandInput(prev => ({ ...prev, garlandCount: text }))}
+                            value={garlandInput.garlandCount}
                             keyboardType="numeric"
                             placeholder="e.g. 50"
                             placeholderTextColor="#94a3b8"
                           />
                         </View>
+                      </View>
+                    )}
 
+                    {garlandInput.radioChoice === 'size' && (
+                      <View style={[styles.row, { marginTop: 10 }]}>
                         <View style={[styles.col, { flex: 1, zIndex: 2000, elevation: 2000 }]}>
-                          <Text style={styles.label}>Size</Text>
+                          <Text style={styles.inputLabel}>Size</Text>
                           <DropDownPicker
-                            open={flowerDetail.garlandSizeOpen}
-                            value={flowerDetail.garlandSize}
+                            open={garlandInput.garlandSizeOpen}
+                            value={garlandInput.garlandSize}
                             items={garlandSizes}
-                            setOpen={(open) => {
-                              setFlowerDetails(prev => {
-                                const draft = [...prev];
-                                draft[index].garlandSizeOpen = open;
-                                return draft;
-                              });
-                            }}
+                            setOpen={(open) => setGarlandInput(prev => ({ ...prev, garlandSizeOpen: open }))}
                             setValue={(next) => {
-                              setFlowerDetails(prev => {
-                                const draft = [...prev];
-                                const cur = draft[index].garlandSize;
-                                draft[index].garlandSize = typeof next === 'function' ? next(cur) : next;
-                                return draft;
-                              });
+                              const cur = garlandInput.garlandSize;
+                              const val = typeof next === 'function' ? next(cur) : next;
+                              setGarlandInput(prev => ({ ...prev, garlandSize: val }));
                             }}
-                            placeholder="Size"
+                            placeholder="Select size"
                             listMode="MODAL"
                             style={styles.ddInput}
                             dropDownContainerStyle={styles.ddContainer}
@@ -896,11 +934,32 @@ const Index = () => {
                         </View>
                       </View>
                     )}
+
+                    {/* Save Button */}
+                    <TouchableOpacity
+                      disabled={!isGarlandInputValid()}
+                      onPress={handleSaveGarland}
+                      style={[styles.saveRowBtn, !isGarlandInputValid() && { opacity: 0.5 }]}
+                    >
+                      <LinearGradient
+                        colors={['#FF6B35', '#F7931E']}
+                        style={styles.smallBtnGradient}
+                      >
+                        <Text style={styles.smallBtnText}>Save</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
                   </View>
                 </View>
-              ))}
+              )}
+
+              {/* Saved table */}
+              {renderFlowerTable()}
+              {/* Saved table */}
+              {renderGarlandTable()}
             </View>
           </View>
+          {/* ===================== END REWRITTEN SECTION ===================== */}
+
           {/* Delivery Address And date & time */}
           <View style={styles.address}>
             <View style={{ width: '100%', marginBottom: 5 }}>
@@ -1018,6 +1077,7 @@ const Index = () => {
             </View>
           </View>
         </ScrollView>
+
         {isLoading ? (
           <ActivityIndicator size="large" color="#c80100" />
         ) : (
@@ -1128,6 +1188,7 @@ const Index = () => {
               ))}
               {errors.residential && <Text style={styles.errorText}>{errors.residential}</Text>}
             </View>
+
             <View style={{ width: '90%', alignSelf: 'center', marginBottom: 20, zIndex: localityOpen ? 10 : 1 }}>
               <Text style={styles.inputLable}>Locality</Text>
               <View style={styles.card}>
@@ -1147,11 +1208,11 @@ const Index = () => {
                   listMode="MODAL"
                   searchable={true}
                   searchPlaceholder="Locality..."
-                // autoScroll={true}
                 />
               </View>
               {errors.locality && <Text style={styles.errorText}>{errors.locality}</Text>}
             </View>
+
             <View style={{ width: '90%', alignSelf: 'center', marginBottom: 20, zIndex: localityOpen ? 10 : 1 }}>
               <Text style={styles.inputLable}>Apartment</Text>
               {apartmentList.length > 0 ?
@@ -1163,7 +1224,7 @@ const Index = () => {
                     value={apartmentValue}
                     items={[
                       ...apartmentList,
-                      { label: 'Add Your Apartment', value: 'add_new' }, // Special "Other" option
+                      { label: 'Add Your Apartment', value: 'add_new' },
                     ]}
                     setOpen={setApartmentOpen}
                     setValue={(callback) => {
@@ -1175,7 +1236,6 @@ const Index = () => {
                     listMode="MODAL"
                     searchable={true}
                     searchPlaceholder="Apartment..."
-                  // autoScroll={true}
                   />
                 </View>
                 :
@@ -1205,6 +1265,7 @@ const Index = () => {
               )}
               {errors.apartment && <Text style={styles.errorText}>{errors.apartment}</Text>}
             </View>
+
             <View style={{ width: '90%', alignSelf: 'center', marginBottom: 20 }}>
               <Text style={styles.inputLable}>Plot / Flat  Number</Text>
               <View style={styles.card}>
@@ -1219,6 +1280,7 @@ const Index = () => {
               </View>
               {errors.plotFlatNumber && <Text style={styles.errorText}>{errors.plotFlatNumber}</Text>}
             </View>
+
             <View style={{ width: '90%', alignSelf: 'center', marginBottom: 20 }}>
               <Text style={styles.inputLable}>LandMark</Text>
               <View style={styles.card}>
@@ -1233,6 +1295,7 @@ const Index = () => {
               </View>
               {errors.landmark && <Text style={styles.errorText}>{errors.landmark}</Text>}
             </View>
+
             <View style={{ width: '90%', alignSelf: 'center', marginBottom: 20 }}>
               <Text style={styles.inputLable}>Town/City</Text>
               <View style={styles.card}>
@@ -1247,6 +1310,7 @@ const Index = () => {
               </View>
               {errors.city && <Text style={styles.errorText}>{errors.city}</Text>}
             </View>
+
             <View style={{ width: '90%', alignSelf: 'center', marginBottom: 20 }}>
               <Text style={styles.inputLable}>State</Text>
               <View style={styles.card}>
@@ -1261,15 +1325,16 @@ const Index = () => {
               </View>
               {errors.state && <Text style={styles.errorText}>{errors.state}</Text>}
             </View>
+
             <View style={{ width: '90%', alignSelf: 'center', marginBottom: 20 }}>
               <Text style={styles.inputLable}>Pincode</Text>
               <View style={[styles.card, { backgroundColor: '#ebe8e8' }]}>
                 <TextInput
                   style={styles.inputs}
                   onChangeText={setPincode}
-                  value={pincode} // This should reflect the updated pincode
+                  value={pincode}
                   maxLength={6}
-                  editable={false} // Disable editing of pincode
+                  editable={false}
                   keyboardType="number-pad"
                   placeholder="Enter Your Pincode"
                   placeholderTextColor="#424242"
@@ -1278,6 +1343,7 @@ const Index = () => {
               </View>
               {errors.pincode && <Text style={styles.errorText}>{errors.pincode}</Text>}
             </View>
+
             <View style={{ width: '90%', alignSelf: 'center', marginBottom: 20 }}>
               <Text style={styles.inputLable}>Type of address</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', height: 40, marginTop: 5 }}>
@@ -1383,9 +1449,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
   },
-  heroContent: {
-    // marginTop: 10,
-  },
+  heroContent: {},
   heroTitle: {
     fontSize: 28,
     fontWeight: '800',
@@ -1425,6 +1489,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
+
   // Address And date & time styles
   address: {
     marginTop: 15,
@@ -1446,6 +1511,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 6
   },
+
   // Buy Now Button
   fixedBtm: {
     backgroundColor: '#28a745',
@@ -1460,6 +1526,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0
   },
+
   // Address Modal styles
   modalContainer: {
     backgroundColor: '#f5f5f5',
@@ -1525,6 +1592,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 15
   },
+
   // Success Modal styles
   pModalContainer: {
     flex: 1,
@@ -1592,6 +1660,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 7
   },
+  btnText: {
+    color: '#fff',
+    fontWeight: '700'
+  },
+
   // Segmented switch
   typeSwitchWrapper: {
     paddingHorizontal: 12,
@@ -1611,9 +1684,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexDirection: 'row',
   },
-  typePillInactive: {
-    // subtle pressable area
-  },
+  typePillInactive: {},
   typePillGradient: {
     height: 40,
     borderRadius: 10,
@@ -1675,12 +1746,10 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 10,
   },
-  col: {
-    // flex set inline
-  },
+  col: {},
 
   // Inputs
-  label: {
+  inputLabel: {
     fontSize: 13,
     fontWeight: '700',
     color: '#334155',
@@ -1708,15 +1777,14 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
   },
 
-  // Buttons
-  smallBtn: {
-    height: 36,
+  // Save row button
+  saveRowBtn: {
+    height: 44,
     borderRadius: 8,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    // paddingHorizontal: 12,
-    // backgroundColor: '#10B981',
+    marginTop: 25,
   },
   smallBtnGradient: {
     height: '100%',
@@ -1725,13 +1793,93 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 12,
   },
-  removeBtn: {
-    backgroundColor: '#ef4444',
-    paddingHorizontal: 12,
-  },
   smallBtnText: {
     color: '#fff',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
   },
-})
+
+  // Radio pills
+  radioPill: {
+    flex: 1,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    paddingHorizontal: 10,
+  },
+  radioPillActive: {
+    borderColor: '#FF6B35',
+    backgroundColor: '#fff7ed',
+  },
+  radioCircle: {
+    height: 18,
+    width: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: '#cbd5e1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  radioCircleActive: {
+    borderColor: '#FF6B35',
+  },
+  radioDot: {
+    height: 8,
+    width: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF6B35',
+  },
+  radioText: {
+    color: '#334155',
+    fontWeight: '600',
+  },
+  radioTextActive: {
+    color: '#FF6B35',
+  },
+
+  // Table card
+  tableCard: {
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  tableTitle: {
+    padding: 12,
+    fontWeight: '700',
+    fontSize: 14,
+    color: '#0f172a',
+    backgroundColor: '#f8fafc',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  tableHeaderRow: {
+    flexDirection: 'row',
+    backgroundColor: '#f1f5f9',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  tableDataRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  tableCell: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    fontSize: 13,
+    color: '#0f172a',
+  },
+  th: {
+    fontWeight: '700',
+    color: '#334155',
+  },
+});

@@ -45,7 +45,7 @@ const Index = () => {
                 'Authorization': 'Bearer ' + access_token
             },
         }).then(response => response.json()).then(response => {
-            if (response.success === 200) {
+            if (response.success) {
                 // console.log("object", response.data);
                 setRequested_orderList(response.data.requested_orders);
                 setSpinner(false);

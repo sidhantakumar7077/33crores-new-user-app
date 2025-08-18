@@ -13,53 +13,29 @@ import {
     FlatList,
     Share,
     Linking,
-    Platform
+    Platform,
+    ToastAndroid,
+    ActivityIndicator,
+    RefreshControl
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { base_url } from '../../../App';
 import { useTab } from '../TabContext';
 import Drawer from '../../component/Drawer'
 import Notification from '../../component/Notification';
+import moment from 'moment';
 
 const { width } = Dimensions.get('window');
-
-const UPCOMING_FESTIVALS = [
-    {
-        id: '1',
-        name: 'Durga Puja',
-        date: 'Oct 15-19, 2024',
-        daysLeft: 12,
-        description: 'Special marigold and hibiscus arrangements',
-        color: '#FF6B35',
-        gradient: ['#FF6B35', '#F7931E', '#FBBF24'],
-    },
-    {
-        id: '2',
-        name: 'Diwali',
-        date: 'Nov 1, 2024',
-        daysLeft: 25,
-        description: 'Premium flower decorations and diyas',
-        color: '#8B5CF6',
-        gradient: ['#8B5CF6', '#A855F7', '#C084FC'],
-    },
-    {
-        id: '3',
-        name: 'Kali Puja',
-        date: 'Nov 1, 2024',
-        daysLeft: 25,
-        description: 'Red hibiscus and special offerings',
-        color: '#10B981',
-        gradient: ['#10B981', '#059669', '#047857'],
-    },
-];
 
 const NewHome = () => {
 
     const navigation = useNavigation();
     const isFocused = useIsFocused();
     const [spinner, setSpinner] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
     const [allPackages, setAllPackages] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeIndex, setActiveIndex] = useState(0);
@@ -68,8 +44,35 @@ const NewHome = () => {
     const { setActiveTab } = useTab();
     const [isModalVisible, setIsModalVisible] = useState(false);
     const closeModal = () => setIsModalVisible(false);
-    const [referralCode, setReferralCode] = useState('BAPPA10');
+    const [referralCode, setReferralCode] = useState(null);
     const [code, setCode] = useState('');
+    const [isReferCodeApply, setIsReferCodeApply] = useState('no');
+    const [referCodeSpinner, setReferCodeSpinner] = useState(false);
+    // --- Festivals state ---
+    const [festivals, setFestivals] = useState([]);
+    const [festivalsLoading, setFestivalsLoading] = useState(false);
+    const [festivalsError, setFestivalsError] = useState(null);
+
+    // simple rotating gradients for cards
+    const FESTIVAL_GRADIENTS = [
+        ['#FF6B35', '#F7931E'],
+        ['#60A5FA', '#3B82F6'],
+        ['#34D399', '#10B981'],
+        ['#F472B6', '#EC4899'],
+    ];
+    const pickGradient = (i) => FESTIVAL_GRADIENTS[i % FESTIVAL_GRADIENTS.length];
+
+    const onRefresh = React.useCallback(() => {
+        setRefreshing(true);
+        setTimeout(async () => {
+            setRefreshing(false);
+            await getAllPackages();
+            await getOfferDetails();
+            await getUpcomingFestivals();
+            await getReferralCode();
+            console.log("Refreshing Successful");
+        }, 2000);
+    }, []);
 
     const buildReferralMessage = () => {
         const link = `${base_url}referral/${referralCode}`; // adjust to your deep link
@@ -149,10 +152,132 @@ const NewHome = () => {
         });
     };
 
+    const claimReferralCode = async () => {
+        const access_token = await AsyncStorage.getItem('storeAccesstoken');
+        setReferCodeSpinner(true);
+
+        if (code.trim() === '') {
+            ToastAndroid.show("Please enter a referral code", ToastAndroid.SHORT);
+            setReferCodeSpinner(false);
+            return;
+        }
+
+        const res = await fetch(`${base_url}api/referrals/claim`, {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${access_token}`
+            },
+            body: JSON.stringify({ referral_code: code }),
+        });
+
+        // Try to parse response (even on non-2xx)
+        let data = {};
+        try { data = await res.json(); } catch (_) { }
+
+        // Normalize success check (handle either HTTP 2xx or API {success:200}/{status:200})
+        const ok = res.ok || data?.success === true;
+
+        if (ok) {
+            // Handle successful referral code claim
+            console.log("Referral code claimed successfully:", data);
+            ToastAndroid.show("Referral code claimed successfully", ToastAndroid.SHORT);
+            setCode('');
+            setReferCodeSpinner(false);
+            // setIsReferCodeApply('yes');
+            // await AsyncStorage.setItem('isReferCodeApply', JSON.stringify('yes'));
+        } else {
+            // Handle failed referral code claim
+            const msg = data?.message || 'Invalid or expired referral code.';
+            ToastAndroid.show(msg, ToastAndroid.SHORT);
+            setReferCodeSpinner(false);
+        }
+    };
+
+    const getUpcomingFestivals = async () => {
+        setFestivalsLoading(true);
+        setFestivalsError(null);
+
+        try {
+            const res = await fetch(base_url + 'api/festivals', {
+                method: 'GET',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            const json = await res.json();
+
+            if (!res.ok || !json?.success) {
+                throw new Error(json?.message || 'Failed to load festivals');
+            }
+
+            const today = moment().startOf('day');
+
+            // Normalize, keep only today and future dates, sort by date asc
+            const normalized = (json.data || [])
+                .map((f, idx) => {
+                    const date = moment(f.festival_date, 'YYYY-MM-DD', true);
+                    const daysLeft = date.isValid() ? Math.max(0, date.diff(today, 'days')) : null;
+
+                    return {
+                        id: String(f.id),
+                        name: f.festival_name,
+                        date: date.isValid() ? date.format('DD MMM YYYY') : f.festival_date,
+                        rawDate: f.festival_date,
+                        daysLeft,
+                        description: f.description || '',
+                        gradient: pickGradient(idx),
+                        packages: f.packages || [],
+                        package_price: f.package_price,
+                        related_flower: f.related_flower,
+                        festival_image: f.festival_image,
+                    };
+                })
+                .filter(it => it.daysLeft !== null && it.daysLeft >= 0)
+                .sort((a, b) => moment(a.rawDate).diff(moment(b.rawDate)));
+
+            setFestivals(normalized); // or .slice(0, 3) if you only want first 3
+        } catch (e) {
+            setFestivalsError(String(e.message || e));
+        } finally {
+            setFestivalsLoading(false);
+        }
+    };
+
+    const getReferralCode = async () => {
+        try {
+            const raw = await AsyncStorage.getItem('userData');
+            const user = raw ? JSON.parse(raw) : null;
+            const code = user?.referral_code ?? null;
+            setReferralCode(code);
+        } catch (e) {
+            console.log("Error reading referral code:", e);
+            setReferralCode(null);
+        }
+    };
+
     useEffect(() => {
         if (isFocused) {
-            getAllPackages();
-            getOfferDetails();
+            const fetchData = async () => {
+                await getAllPackages();
+                await getOfferDetails();
+                await getUpcomingFestivals();
+                await getReferralCode();
+
+                try {
+                    const storedStatus = await AsyncStorage.getItem('isReferCodeApply');
+                    const codeStatus = storedStatus ? JSON.parse(storedStatus) : null;
+                    setIsReferCodeApply(codeStatus);
+                    console.log("Referral code status:", codeStatus);
+                } catch (err) {
+                    console.error('Error reading referral code status', err);
+                }
+            };
+
+            fetchData();
         }
     }, [isFocused]);
 
@@ -161,7 +286,7 @@ const NewHome = () => {
             <Notification />
             <Drawer visible={isModalVisible} navigation={navigation} onClose={closeModal} />
             <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+                <ScrollView style={styles.scrollView} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />} showsVerticalScrollIndicator={false}>
                     {/* Hero Header with Gradient */}
                     <LinearGradient colors={['#1E293B', '#334155', '#475569']} style={styles.header}>
                         <View style={styles.heroContent}>
@@ -223,43 +348,45 @@ const NewHome = () => {
                     </View>
 
                     {/* Enter Referral Code */}
-                    <LinearGradient colors={['#FFEDD5', '#FDBA74']} style={styles.card}>
-                        <View style={styles.headerRow}>
-                            <Icon name="gift" size={18} color="#9A3412" />
-                            <Text style={styles.title}>Have a Referral Code?</Text>
-                        </View>
-
-                        <Text style={styles.subtitle}>
-                            Enter your code to unlock rewards on your first Subscription.
-                        </Text>
-
-                        <View style={styles.row}>
-                            <View style={styles.inputRow}>
-                                <Icon name="ticket-alt" size={16} color="#9CA3AF" style={{ marginRight: 8 }} />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Enter Code"
-                                    placeholderTextColor="#9CA3AF"
-                                    value={code}
-                                    onChangeText={(txt) => setCode(txt.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
-                                />
+                    {isReferCodeApply === 'no' && (
+                        <LinearGradient colors={['#FFEDD5', '#FDBA74']} style={styles.card}>
+                            <View style={styles.headerRow}>
+                                <Icon name="gift" size={18} color="#9A3412" />
+                                <Text style={styles.title}>Have a Referral Code?</Text>
                             </View>
 
-                            <TouchableOpacity
-                                activeOpacity={0.85}
-                                onPress={() => {
-                                    if (code.trim()) {
-                                        onApply && onApply(code.trim());
-                                    }
-                                }}
-                                style={styles.applyBtn}
-                            >
-                                <LinearGradient colors={['#FF6B35', '#F97316']} style={styles.applyGrad}>
-                                    <Text style={styles.applyText}>Apply</Text>
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        </View>
-                    </LinearGradient>
+                            <Text style={styles.subtitle}>
+                                Enter your code to unlock rewards on your first Subscription.
+                            </Text>
+
+                            <View style={styles.row}>
+                                <View style={styles.inputRow}>
+                                    <Icon name="ticket-alt" size={16} color="#9CA3AF" style={{ marginRight: 8 }} />
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Enter Code"
+                                        placeholderTextColor="#9CA3AF"
+                                        value={code}
+                                        onChangeText={(txt) => setCode(txt.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                                    />
+                                </View>
+
+                                <TouchableOpacity
+                                    activeOpacity={0.85}
+                                    onPress={() => claimReferralCode()}
+                                    style={styles.applyBtn}
+                                >
+                                    <LinearGradient colors={['#FF6B35', '#F97316']} style={styles.applyGrad}>
+                                        {referCodeSpinner ?
+                                            <ActivityIndicator size="small" color="#fff" />
+                                            :
+                                            <Text style={styles.applyText}>Apply</Text>
+                                        }
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </View>
+                        </LinearGradient>
+                    )}
 
                     {/* Premium Subscription Card */}
                     <View>
@@ -365,46 +492,76 @@ const NewHome = () => {
                     {/* Upcoming Festivals Card */}
                     <View style={styles.festivalsContainer}>
                         <View style={styles.festivalsHeader}>
-                            <Text style={styles.sectionTitle}>Festival Calendar</Text>
+                            <Text style={styles.sectionTitle}>Upcoming Festivals</Text>
                         </View>
 
-                        <View style={styles.festivalsGrid}>
-                            {UPCOMING_FESTIVALS.map((festival, index) => (
-                                <TouchableOpacity key={festival.id} style={[styles.festivalCard, index === 1 && styles.middleCard]}>
-                                    <View style={styles.festivalImageContainer}>
-                                        <LinearGradient
-                                            colors={festival.gradient}
-                                            style={styles.festivalImageGradient}
-                                        >
-                                            <Text style={styles.festivalEmoji}>
-                                                {festival.id === '1' ? '🌺' : festival.id === '2' ? '🪔' : '🌸'}
-                                            </Text>
-                                        </LinearGradient>
-                                        <View style={styles.countdownBadge}>
-                                            <Text style={styles.countdownNumber}>{festival.daysLeft}</Text>
-                                            <Text style={styles.countdownLabel}>days</Text>
-                                        </View>
-                                    </View>
+                        {festivalsLoading && (
+                            <ActivityIndicator size="small" color="#c9170a" style={{ marginTop: 8 }} />
+                        )}
 
-                                    <View style={styles.festivalInfo}>
-                                        <Text style={styles.festivalName}>{festival.name}</Text>
-                                        <Text style={styles.festivalDate}>{festival.date}</Text>
-                                        <Text style={styles.festivalDescription} numberOfLines={2}>
-                                            {festival.description}
-                                        </Text>
+                        {!festivalsLoading && festivalsError && (
+                            <Text style={{ color: '#ef4444', marginTop: 8 }}>
+                                {String(festivalsError)}
+                            </Text>
+                        )}
 
-                                        <TouchableOpacity style={styles.orderButton}>
+                        {!festivalsLoading && !festivalsError && festivals.length === 0 && (
+                            <Text style={{ color: '#64748b', marginTop: 8 }}>
+                                No upcoming festivals.
+                            </Text>
+                        )}
+
+                        {!festivalsLoading && !festivalsError && festivals.length > 0 && (
+                            <View style={styles.festivalsGrid}>
+                                {festivals.map((festival, index) => (
+                                    <TouchableOpacity
+                                        key={festival.id}
+                                        style={[styles.festivalCard, index === 1 && styles.middleCard]}
+                                    >
+                                        <View style={styles.festivalImageContainer}>
                                             <LinearGradient
-                                                colors={['#FF6B35', '#F7931E']}
-                                                style={styles.orderButtonGradient}
+                                                colors={festival.gradient}
+                                                style={styles.festivalImageGradient}
                                             >
-                                                <Text style={styles.orderButtonText}>Order Now</Text>
+                                                <Text style={styles.festivalEmoji}>
+                                                    {/* {index === 0 ? '🌺' : index === 1 ? '🪔' : '🌸'} */}
+                                                    {festival.festival_image ?
+                                                        <Image
+                                                            source={{ uri: festival.festival_image }}
+                                                            style={{ width: 65, height: 65 }}
+                                                            resizeMode="contain"
+                                                        />
+                                                        :
+                                                        '🪔'
+                                                    }
+                                                </Text>
                                             </LinearGradient>
-                                        </TouchableOpacity>
-                                    </View>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
+
+                                            <View style={styles.countdownBadge}>
+                                                <Text style={styles.countdownNumber}>{festival.daysLeft}</Text>
+                                                <Text style={styles.countdownLabel}>days</Text>
+                                            </View>
+                                        </View>
+
+                                        <View style={styles.festivalInfo}>
+                                            <Text style={styles.festivalName}>{festival.name}</Text>
+                                            <Text style={styles.festivalDate}>{festival.date}</Text>
+                                            <Text style={styles.festivalDescription} numberOfLines={2}>
+                                                {festival.description}
+                                            </Text>
+                                            {/* <TouchableOpacity style={styles.orderButton}>
+                                                <LinearGradient
+                                                    colors={['#FF6B35', '#F7931E']}
+                                                    style={styles.orderButtonGradient}
+                                                >
+                                                    <Text style={styles.orderButtonText}>Order Now</Text>
+                                                </LinearGradient>
+                                            </TouchableOpacity> */}
+                                        </View>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        )}
                     </View>
 
                     {/* Special Offers */}
@@ -467,7 +624,7 @@ const NewHome = () => {
                                             colors={['#FF6B35', '#F7931E']}
                                             style={styles.grabOfferGradient}
                                         >
-                                            <Text style={styles.grabOfferText}>🎯 Grab This Offer</Text>
+                                            <Text style={styles.grabOfferText}>🎯 Offer Active soon</Text>
                                         </LinearGradient>
                                     </TouchableOpacity>
                                 </View>

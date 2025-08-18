@@ -893,7 +893,7 @@ const Index = (props) => {
               <Text style={{ color: '#fff', fontSize: 16, fontWeight: '500', textAlign: 'center', marginTop: 5 }}>9776888887</Text>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={() => navigation.replace('MyOrder')} style={styles.pModalButton}>
+          <TouchableOpacity onPress={() => navigation.replace('SubscriptionOrderHistory')} style={styles.pModalButton}>
             <Text style={styles.pModalButtonText}>Order Details</Text>
           </TouchableOpacity>
         </View>

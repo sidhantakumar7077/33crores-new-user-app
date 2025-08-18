@@ -141,7 +141,7 @@ const Index = () => {
         'Authorization': 'Bearer ' + access_token
       },
     }).then(response => response.json()).then(response => {
-      if (response.success === 200) {
+      if (response.success) {
         // console.log("object", response.data);
         setSubscriptionList(response.data.subscriptions_order);
         setSpinner(false);

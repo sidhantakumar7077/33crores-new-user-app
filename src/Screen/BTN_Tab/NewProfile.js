@@ -253,7 +253,19 @@ const NewProfile = () => {
         }
     }
 
-    const [referralCode] = useState('BAPPA10');
+    const [referralCode, setReferralCode] = useState(null);
+
+    const getReferralCode = async () => {
+        try {
+            const raw = await AsyncStorage.getItem('userData');
+            const user = raw ? JSON.parse(raw) : null;
+            const code = user?.referral_code ?? null;
+            setReferralCode(code);
+        } catch (e) {
+            console.log("Error reading referral code:", e);
+            setReferralCode(null);
+        }
+    };
 
     const buildReferralMessage = () => {
         const link = `${base_url}referral/${referralCode}`; // change to your deep link if needed
@@ -287,6 +299,7 @@ const NewProfile = () => {
     useEffect(() => {
         if (isFocused) {
             getProfile();
+            getReferralCode();
         }
     }, [isFocused]);
 
@@ -379,7 +392,10 @@ const NewProfile = () => {
                                     <Icon name="gift" size={12} color="#fff" />
                                     <Text style={styles.refBadgeText}>Refer & Earn</Text>
                                 </View>
-                                <Icon name="hands-helping" size={18} color="#9A3412" />
+                                {/* <Icon name="hands-helping" size={18} color="#9A3412" /> */}
+                                <TouchableOpacity style={styles.seeStatus} onPress={() => navigation.navigate('ReferralPage')}>
+                                    <Text style={{ color: '#9A3412', fontWeight: '600' }}>See status</Text>
+                                </TouchableOpacity>
                             </View>
 
                             <Text style={styles.refTitle}>Invite friends, earn rewards!</Text>
@@ -884,6 +900,12 @@ const styles = StyleSheet.create({
         fontWeight: '800',
         color: '#7C2D12',
         marginTop: 12,
+    },
+    seeStatus: {
+        backgroundColor: '#F0FDF4',
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
     },
     refSubtitle: {
         fontSize: 13,

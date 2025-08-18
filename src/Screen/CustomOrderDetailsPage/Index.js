@@ -16,6 +16,7 @@ const Index = (props) => {
   const insets = useSafeAreaInsets();
   const [packageDetails, setPackageDetails] = useState(null);
   const [flowerList, setFlowerList] = useState([]);
+  const [garlandList, setGarlandList] = useState([]);
   const [errorModal, setErrorModal] = useState(false);
   const closeErrorModal = () => { setErrorModal(false); }
   const [errormasg, setErrormasg] = useState(null);
@@ -76,8 +77,14 @@ const Index = (props) => {
   useEffect(() => {
     // console.log("object", props.route.params);
     setPackageDetails(props.route.params);
-    setFlowerList(props.route.params.flower_request_items);
-  }, []);
+
+    const items = Array.isArray(props?.route?.params?.flower_request_items)
+      ? props.route.params.flower_request_items
+      : [];
+
+    setFlowerList(items.filter(it => it?.type === 'flower'));
+    setGarlandList(items.filter(it => it?.type === 'garland'));
+  }, [props?.route?.params?.flower_request_items]);
 
   return (
     <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
@@ -168,27 +175,74 @@ const Index = (props) => {
             </View>
           </View>
 
-          <View style={styles.card}>
-            <Text style={styles.subtitle}>Flower List</Text>
-            <FlatList
-              data={flowerList}
-              scrollEnabled={false}
-              keyExtractor={(item, index) => index.toString()}
-              renderItem={({ item }) => (
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 }}>
-                  <View style={{ width: '100%', flexDirection: 'row', justifyContent: 'space-around', backgroundColor: '#fae6e6', marginVertical: 2, padding: 5, borderRadius: 5 }}>
-                    <View style={{ width: '50%' }}>
-                      <Text style={{ color: '#000', fontSize: 14, fontWeight: 'bold' }}>{item.flower_name}</Text>
-                    </View>
-                    <View style={{ width: '50%', alignItems: 'flex-end' }}>
-                      <Text style={{ color: '#000', fontSize: 14 }}>{item.flower_quantity} {item.flower_unit}</Text>
+          {flowerList.length > 0 &&
+            <View style={styles.card}>
+              <Text style={styles.subtitle}>Flower List</Text>
+              <FlatList
+                data={flowerList}
+                scrollEnabled={false}
+                keyExtractor={(item, index) => String(item?.id ?? index)}
+                renderItem={({ item }) => (
+                  <View style={{ marginBottom: 5 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#fae6e6', marginVertical: 2, padding: 8, borderRadius: 6 }}>
+                      <Text style={{ color: '#000', fontSize: 14, fontWeight: 'bold', width: '50%' }}>
+                        {item?.flower_name}
+                      </Text>
+                      <Text style={{ color: '#000', fontSize: 14, textAlign: 'right', width: '50%' }}>
+                        {item?.flower_quantity} {item?.flower_unit}
+                      </Text>
                     </View>
                   </View>
+                )}
+              />
+            </View>
+          }
 
-                </View>
-              )}
-            />
-          </View>
+          {garlandList.length > 0 &&
+            <View style={[styles.card, { marginTop: 10 }]}>
+              <Text style={styles.subtitle}>Garland List</Text>
+              <FlatList
+                data={garlandList}
+                scrollEnabled={false}
+                keyExtractor={(item, index) => String(item?.id ?? index)}
+                renderItem={({ item }) => {
+                  const qty = item?.garland_quantity ?? '—';
+                  const size = item?.garland_size ?? '—';
+                  const count = (item?.flower_count ?? '—');
+
+                  return (
+                    <View style={styles.garlandRow}>
+                      <View style={styles.garlandAvatar}>
+                        <Icon name="leaf" size={14} color="#166534" />
+                      </View>
+
+                      <View style={{ flex: 1 }}>
+                        <View style={styles.garlandTop}>
+                          <Text style={styles.garlandName}>{item?.garland_name || 'Unknown'}</Text>
+                          <Text style={styles.garlandStatus}>Garland</Text>
+                        </View>
+
+                        <View style={styles.badgeRow}>
+                          <View style={[styles.badge, styles.badgeQty]}>
+                            <Text style={styles.badgeText}>Qty: {qty}</Text>
+                          </View>
+
+                          <View style={[styles.badge, styles.badgeSize]}>
+                            <Text style={styles.badgeText}>Size: {size}</Text>
+                          </View>
+
+                          <View style={[styles.badge, styles.badgeCount]}>
+                            <Text style={styles.badgeText}>Flower Count: {count}</Text>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                }}
+              />
+            </View>
+          }
+
           {packageDetails?.address &&
             <View style={styles.card}>
               <Text style={styles.subtitle}>Address</Text>
@@ -297,6 +351,71 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 10,
     color: '#495057',
+  },
+  garlandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+    marginBottom: 10,
+  },
+  garlandAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: 'rgba(22,163,74,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  garlandTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  garlandName: {
+    color: '#0f172a',
+    fontWeight: '800',
+    fontSize: 14
+  },
+  garlandStatus: {
+    color: '#16A34A',
+    fontWeight: '700',
+    fontSize: 12
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0f172a'
+  },
+  badgeQty: {
+    backgroundColor: '#DBEAFE',
+    borderColor: 'rgba(59,130,246,0.35)',
+  },
+  badgeSize: {
+    backgroundColor: '#FEF3C7',
+    borderColor: 'rgba(245,158,11,0.35)',
+  },
+  badgeCount: {
+    backgroundColor: '#DCFCE7',
+    borderColor: 'rgba(22,163,74,0.35)',
   },
   text: {
     fontSize: 16,

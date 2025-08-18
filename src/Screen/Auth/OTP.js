@@ -97,7 +97,10 @@ const OTP = (props) => {
             });
             const data = await response.json();
             if (response.ok) {
+                console.log("OTP verified successfully", data.user.referral_code);
                 await AsyncStorage.setItem('storeAccesstoken', data.token);
+                await AsyncStorage.setItem('isReferCodeApply', JSON.stringify(data.user.code_status));
+                await AsyncStorage.setItem('userData', JSON.stringify(data.user));
                 navigation.navigate('BTN_Layout');
             } else {
                 setErrorMessage(data.message || 'Failed to Login. Please try again.');

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import {
     View,
     Text,
@@ -9,6 +9,8 @@ import {
     Linking,
     RefreshControl,
     ToastAndroid,
+    ActivityIndicator,
+    FlatList
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/FontAwesome5';
@@ -16,6 +18,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import moment from 'moment';
 import { base_url } from '../../../App';
 
 const Index = () => {
@@ -27,46 +30,35 @@ const Index = () => {
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
 
-    // You can seed from props if you like; we set after fetch
-    const [referralCode, setReferralCode] = useState('BAPPA10');
-    const [summary, setSummary] = useState(null);
+    const [referralCode, setReferralCode] = useState(null);
+    const [summary, setSummary] = useState({
+        used_count: 0,
+        completed_count: 0,
+    });
 
-    const [activeTab, setActiveTab] = useState('used'); // 'used' | 'completed'
+    const [activeTab, setActiveTab] = useState('used');
     const [usedList, setUsedList] = useState([]);
     const [completedList, setCompletedList] = useState([]);
+    const [offer_details, setOffer_details] = useState({});
+
+    const prettyDate = (v) => {
+        const m = moment(v, [moment.ISO_8601, 'YYYY-MM-DD HH:mm:ss', 'YYYY-MM-DD'], true);
+        return m.isValid() ? m.format('DD MMM YYYY') : (v ?? '');
+    };
 
     const fetchReferralSummary = async () => {
         try {
             setLoading(true);
 
-            await new Promise(res => setTimeout(res, 800));
-
-            const mockData = {
-                referral_code: 'BAPPA10',
-                used_count: 2,
-                completed_count: 2,
-                reward_text: '₹50 off on first order',
-                used_list: [
-                    { name: 'Ravi Kumar', phone: '9876543210', date: '2025-08-01' },
-                    { name: 'Priya Sharma', phone: '9123456780', date: '2025-08-05' },
-                ],
-                completed_list: [
-                    { name: 'Amit Verma', phone: '9988776655', date: '2025-08-03', status: 'Completed' },
-                    { name: 'Neha Singh', phone: '9001122334', date: '2025-08-06', status: 'Completed' },
-                ],
-            };
-
-            setSummary(mockData);
-            setReferralCode(mockData.referral_code);
-            setUsedList(mockData.used_list);
-            setCompletedList(mockData.completed_list);
-
-            return; // stop here if using mock
-            // === REMOVE ABOVE WHEN USING REAL API ===
+            // Pull referral code from saved user first (no extra API needed for the code)
+            const rawUser = await AsyncStorage.getItem('userData');
+            const u = rawUser ? JSON.parse(rawUser) : null;
+            if (u?.referral_code) setReferralCode(u.referral_code);
 
             const token = await AsyncStorage.getItem('storeAccesstoken');
 
-            const res = await fetch(`${base_url}api/referral/summary`, {
+            // Your Postman shows: GET /api/referrals/stats
+            const res = await fetch(`${base_url}api/referrals/stats`, {
                 method: 'GET',
                 headers: {
                     Accept: 'application/json',
@@ -77,26 +69,41 @@ const Index = () => {
 
             const json = await res.json();
 
-            if (json?.success && json?.data) {
-                const d = json.data;
-                setSummary(d);
-                if (d.referral_code) setReferralCode(d.referral_code);
-
-                // Be defensive about key names
-                const used =
-                    Array.isArray(d.used_list) ? d.used_list :
-                        Array.isArray(d.used) ? d.used :
-                            [];
-                const completed =
-                    Array.isArray(d.completed_list) ? d.completed_list :
-                        Array.isArray(d.completed) ? d.completed :
-                            [];
-
-                setUsedList(used);
-                setCompletedList(completed);
-            } else {
-                console.log('Referral summary unexpected:', json);
+            if (!json?.success) {
+                console.log('Unexpected response:', json);
+                return;
             }
+
+            // Normalize backend -> UI
+            const rb = json?.refer_data?.referred_by ?? {};
+            const od = json?.offer_details ?? {};
+
+            const used = Array.isArray(rb.referrers_list)
+                ? rb.referrers_list.map((x) => ({
+                    name: x?.name || null,
+                    phone: x?.mobile_number || null, // UI expects "phone"
+                    status: x?.status || null,
+                    date: prettyDate(x?.created_at),
+                }))
+                : [];
+
+            const completed = Array.isArray(rb.referrers_completed_list)
+                ? rb.referrers_completed_list.map((x) => ({
+                    name: x?.name || null,
+                    phone: x?.mobile_number || null,
+                    status: 'Completed',
+                    date: prettyDate(x?.created_at),
+                }))
+                : [];
+
+            const used_count = Number(rb.referrers_count) || used.length;
+            const completed_count = Number(rb.referrers_completed_count) || completed.length;
+
+            setUsedList(used);
+            setCompletedList(completed);
+            setSummary({ used_count, completed_count });
+            // console.log("Offer Details:", od);
+            setOffer_details(od || {});
         } catch (e) {
             console.log('Referral summary error:', e);
         } finally {
@@ -104,8 +111,41 @@ const Index = () => {
         }
     };
 
+    const rows = useMemo(() => {
+        const refers = Array.isArray(offer_details?.no_of_refer) ? offer_details.no_of_refer : [];
+        const benefits = Array.isArray(offer_details?.benefit) ? offer_details.benefit : [];
+        const len = Math.min(refers.length, benefits.length);
+        const out = [];
+        for (let i = 0; i < len; i++) {
+            out.push({
+                id: `${offer_details?.id || 'offer'}-${i}`,
+                referCount: refers[i],
+                benefitText: benefits[i],
+            });
+        }
+        return out;
+    }, [offer_details]);
+
+    const handleClaim = (item) => {
+        const completed = Number(summary?.completed_count) || 0;
+        const need = Number(item?.referCount || 0);
+        const itemDisabled = completed < need;
+        if (itemDisabled) return;
+
+        if (typeof onClaimPress === 'function') {
+            onClaimPress(item, offer_details);
+        } else {
+            ToastAndroid.show(
+                `Claim tapped: Refer ${need} ${need === 1 ? 'user' : 'users'} → ${item.benefitText}`,
+                ToastAndroid.SHORT
+            );
+        }
+    };
+
     useEffect(() => {
-        if (isFocused) fetchReferralSummary();
+        if (isFocused) {
+            fetchReferralSummary();
+        }
     }, [isFocused]);
 
     const onRefresh = useCallback(async () => {
@@ -114,12 +154,16 @@ const Index = () => {
         setRefreshing(false);
     }, []);
 
-    const buildReferralMessage = (isReminder = false, userName = '', codeOverride = null) => {
-        const code = codeOverride || summary?.referral_code || referralCode;
-        const link = `${base_url}referral/${code}`;
+    // 1) Build the exact message we need for each action
+    const buildReferralMessage = (
+        mode = 'invite',                // 'invite'
+        userName = '',                  // used only for 'remind'
+        codeOverride = null
+    ) => {
+        const code = (codeOverride || referralCode || '').trim();
+        const link = 'https://play.google.com/store/apps/details?id=com.thirtythreecroresapp&hl=en';
 
-        if (isReminder) {
-            // Message for someone who already used the code but hasn’t subscribed yet
+        if (mode === 'remind') {
             return (
                 `🙏 Hi ${userName || 'friend'},\n` +
                 `You’ve already used my referral code *${code}* on 33Crores.\n` +
@@ -128,24 +172,29 @@ const Index = () => {
             );
         }
 
-        // Default invite message
+        // default: invite
         return (
+            `🙏 Namaste\n` +
             `🪔 Join me on 33Crores!\n` +
             `Use my referral code *${code}* to get special benefits on your first puja order.\n\n` +
             `Install / Open: ${link}`
         );
     };
 
+    // 2) Share sheet for INVITE
     const handleInvite = async () => {
         try {
-            await Share.share({ message: buildReferralMessage() });
+            const message = buildReferralMessage('invite');
+            await Share.share({ message });
         } catch (e) {
             console.log('Share error:', e);
         }
     };
 
+    // 3) WhatsApp for INVITE
     const handleWhatsAppInvite = async () => {
-        const text = encodeURIComponent(buildReferralMessage());
+        const message = buildReferralMessage('invite');
+        const text = encodeURIComponent(message);
         const url = `whatsapp://send?text=${text}`;
         const webUrl = `https://wa.me/?text=${text}`;
         try {
@@ -156,23 +205,17 @@ const Index = () => {
         }
     };
 
-    const copyCode = () => {
-        Clipboard.setString(referralCode);
-        ToastAndroid.show('Referral code copied', ToastAndroid.SHORT);
-    };
-
+    // 4) WhatsApp for REMIND (per-user)
     const remindUser = async (person) => {
-        const code = summary?.referral_code || referralCode;
-        const msg =
-            `🙏 Namaste ${person?.name || ''}\n` +
-            `Use my referral code *${code}* on 33Crores to start your subscription.\n` +
-            `We both get the benefit when you complete your first order. 😊`;
-        const encoded = encodeURIComponent(msg);
+        const message = buildReferralMessage('remind', person?.name || '');
+        const encoded = encodeURIComponent(message);
 
-        // Assuming India numbers; tweak as needed
-        const phone = person?.phone ? `91${String(person.phone).replace(/\D/g, '')}` : '';
-        const waUrl = `whatsapp://send?phone=${phone ? `+${phone}` : ''}&text=${encoded}`;
-        const waWeb = `https://wa.me/${phone}?text=${encoded}`;
+        // If your numbers are stored without country code, prefix with 91 (IN)
+        const digits = String(person?.phone || '').replace(/\D/g, '');
+        const phoneWithCC = digits ? `91${digits}` : '';
+
+        const waUrl = `whatsapp://send?${phoneWithCC ? `phone=+${phoneWithCC}&` : ''}text=${encoded}`;
+        const waWeb = `https://wa.me/${phoneWithCC}?text=${encoded}`;
 
         try {
             const canOpen = await Linking.canOpenURL(waUrl);
@@ -180,6 +223,15 @@ const Index = () => {
         } catch {
             ToastAndroid.show('Could not open WhatsApp', ToastAndroid.SHORT);
         }
+    };
+
+    const copyCode = () => {
+        if (!referralCode) {
+            ToastAndroid.show('No referral code found', ToastAndroid.SHORT);
+            return;
+        }
+        Clipboard.setString(referralCode);
+        ToastAndroid.show('Referral code copied', ToastAndroid.SHORT);
     };
 
     return (
@@ -204,28 +256,6 @@ const Index = () => {
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
                 contentContainerStyle={{ paddingBottom: 10 }}
             >
-                {/* Code card */}
-                <View style={styles.codeWrap}>
-                    <LinearGradient colors={['#F1F5F9', '#FFFFFF']} style={styles.codeCard}>
-                        <View style={styles.yourCodeRow}>
-                            <Text style={styles.yourCodeLabel}>Your Referral Code</Text>
-                            <TouchableOpacity onPress={copyCode} style={styles.copyBtn}>
-                                <Icon name="copy" size={12} color="#0f172a" />
-                                <Text style={styles.copyText}>Copy</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        <View style={styles.codeBadge}>
-                            <Icon name="ticket-alt" size={14} color="#fff" style={{ marginRight: 8 }} />
-                            <Text style={styles.codeBadgeText}>{referralCode}</Text>
-                        </View>
-
-                        {!!summary?.reward_text && (
-                            <Text style={styles.rewardHint}>Reward: {summary.reward_text}</Text>
-                        )}
-                    </LinearGradient>
-                </View>
-
                 {/* Refer & Earn promo card */}
                 <View style={styles.referralWrap}>
                     <LinearGradient
@@ -250,8 +280,12 @@ const Index = () => {
                         <View style={styles.codeRow}>
                             <Text style={styles.codeLabel}>Your Code</Text>
                             <View style={styles.codePill}>
-                                <Text style={styles.codeText}>{referralCode}</Text>
+                                <Text style={styles.codeText}>{referralCode ?? '—'}</Text>
                             </View>
+                            <TouchableOpacity onPress={copyCode} style={styles.copyBtn}>
+                                <Icon name="copy" size={12} color="#0f172a" />
+                                <Text style={styles.copyText}>Copy</Text>
+                            </TouchableOpacity>
                         </View>
 
                         <View style={styles.refActions}>
@@ -268,6 +302,80 @@ const Index = () => {
                             </TouchableOpacity>
                         </View>
                     </LinearGradient>
+                </View>
+
+                <View style={styles.section}>
+                    {/* Header */}
+                    <Text style={styles.title}>{offer_details?.offer_name || 'Offer'}</Text>
+
+                    {/* List */}
+                    <FlatList
+                        data={rows}
+                        keyExtractor={(item) => item.id}
+                        scrollEnabled={false}
+                        ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+                        renderItem={({ item }) => {
+                            const need = Number(item?.referCount || 0);
+                            const completed = Number(summary?.completed_count || 0);
+                            const isActive = ((offer_details?.status || '').toLowerCase() === 'active');
+                            const unlocked = isActive && completed >= need;
+                            const pct = need > 0 ? Math.min(1, completed / need) : 0;
+                            const subWord = need === 1 ? 'subscription' : 'subscriptions';
+                            const remaining = Math.max(0, need - completed);
+                            const remainingWord = remaining === 1 ? 'subscription' : 'subscriptions';
+
+                            return (
+                                <View style={styles.rowCard}>
+                                    <View style={styles.rowLeft}>
+                                        {/* requirement chip */}
+                                        <LinearGradient colors={['#FFE7D1', '#FED7AA']} style={styles.requireChip}>
+                                            <Text style={styles.requireChipText}>
+                                                Refer {need} {need === 1 ? 'friend' : 'friends'}
+                                            </Text>
+                                        </LinearGradient>
+
+                                        {/* NEW sentence */}
+                                        <Text style={styles.benefitText}>
+                                            Unlock <Text style={styles.benefitStrong}>{item.benefitText}</Text> after{' '}
+                                            {need} successful {subWord} using your referral code.
+                                        </Text>
+
+                                        {/* progress */}
+                                        <View style={styles.progressWrap}>
+                                            <View style={styles.progressTrack}>
+                                                <View style={[styles.progressFill, { width: `${pct * 100}%` }]} />
+                                            </View>
+                                            <Text style={styles.progressLabel}>{completed}/{need}</Text>
+                                        </View>
+
+                                        {/* status hint */}
+                                        <Text style={[styles.statusText, unlocked ? styles.statusOk : styles.statusWait]}>
+                                            {unlocked
+                                                ? 'Requirement met — ready to claim'
+                                                : `Need ${remaining} more ${remainingWord}`}
+                                        </Text>
+                                    </View>
+
+                                    {/* CTA */}
+                                    <TouchableOpacity
+                                        activeOpacity={0.9}
+                                        onPress={() => handleClaim(item)}
+                                        disabled={!unlocked}
+                                        style={[styles.claimBtn, !unlocked && { opacity: 0.6 }]}
+                                    >
+                                        <LinearGradient
+                                            colors={unlocked ? ['#FF6B35', '#F7931E'] : ['#CBD5E1', '#94A3B8']}
+                                            style={styles.claimGrad}
+                                        >
+                                            <Text style={[styles.claimText, !unlocked && { color: '#1F2937' }]}>
+                                                {unlocked ? 'Claim' : 'Locked'}
+                                            </Text>
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                </View>
+                            );
+                        }}
+                    />
                 </View>
 
                 {/* Tabs */}
@@ -295,57 +403,58 @@ const Index = () => {
                     </View>
                 </View>
 
-                {/* Lists */}
-                <View style={{ paddingHorizontal: 20, marginTop: 10 }}>
-                    {(activeTab === 'used' ? usedList : completedList).length === 0 ? (
-                        <View style={styles.emptyBox}>
-                            <Text style={styles.emptyText}>
-                                {activeTab === 'used'
-                                    ? 'No one has used your code yet.'
-                                    : 'No completed benefits yet.'}
-                            </Text>
-                        </View>
-                    ) : (
-                        (activeTab === 'used' ? usedList : completedList).map((p, idx) => (
-                            <View key={`${activeTab}-${idx}`} style={styles.personRow}>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.personName}>{p?.name || 'Unknown'}</Text>
-                                    <Text style={styles.personPhone}>{p?.phone || '—'}</Text>
+                {/* Loader for list fetch */}
+                {loading && (
+                    <View style={{ paddingTop: 12 }}>
+                        <ActivityIndicator size="small" color="#c9170a" />
+                    </View>
+                )}
 
-                                    {activeTab === 'completed' && (
+                {/* Lists */}
+                {!loading && (
+                    <View style={{ paddingHorizontal: 20, marginTop: 10 }}>
+                        {(activeTab === 'used' ? usedList : completedList).length === 0 ? (
+                            <View style={styles.emptyBox}>
+                                <Text style={styles.emptyText}>
+                                    {activeTab === 'used'
+                                        ? 'No one has used your code yet.'
+                                        : 'No completed benefits yet.'}
+                                </Text>
+                            </View>
+                        ) : (
+                            (activeTab === 'used' ? usedList : completedList).map((p, idx) => (
+                                <View key={`${activeTab}-${idx}`} style={styles.personRow}>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.personName}>{p?.name || 'Unknown'}</Text>
+                                        <Text style={styles.personPhone}>{p?.phone || '—'}</Text>
+
                                         <View style={styles.completedRow}>
                                             <View style={styles.completedDot} />
                                             <Text style={styles.completedText}>
-                                                {p?.status ? String(p.status) : 'Completed'}
+                                                {activeTab === 'used' ? 'Used' : 'Completed'}
                                                 {p?.date ? ` • ${p.date}` : ''}
                                             </Text>
                                         </View>
+                                    </View>
+
+                                    {activeTab === 'used' ? (
+                                        <TouchableOpacity style={styles.remindBtn} onPress={() => remindUser(p)}>
+                                            <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.remindGrad}>
+                                                <Icon name="bell" size={12} color="#fff" style={{ marginRight: 6 }} />
+                                                <Text style={styles.remindText}>Remind</Text>
+                                            </LinearGradient>
+                                        </TouchableOpacity>
+                                    ) : (
+                                        <View style={styles.completedBadge}>
+                                            <Icon name="check" size={10} color="#16A34A" />
+                                            <Text style={styles.completedBadgeText}>Done</Text>
+                                        </View>
                                     )}
                                 </View>
-
-                                {activeTab === 'used' ? (
-                                    <TouchableOpacity
-                                        style={styles.remindBtn}
-                                        onPress={() => remindUser(p)}
-                                    >
-                                        <LinearGradient
-                                            colors={['#FF6B35', '#F7931E']}
-                                            style={styles.remindGrad}
-                                        >
-                                            <Icon name="bell" size={12} color="#fff" style={{ marginRight: 6 }} />
-                                            <Text style={styles.remindText}>Remind</Text>
-                                        </LinearGradient>
-                                    </TouchableOpacity>
-                                ) : (
-                                    <View style={styles.completedBadge}>
-                                        <Icon name="check" size={10} color="#16A34A" />
-                                        <Text style={styles.completedBadgeText}>Done</Text>
-                                    </View>
-                                )}
-                            </View>
-                        ))
-                    )}
-                </View>
+                            ))
+                        )}
+                    </View>
+                )}
             </ScrollView>
         </View>
     );
@@ -363,48 +472,42 @@ const styles = StyleSheet.create({
         borderBottomRightRadius: 24,
     },
     headerRow: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
         marginBottom: 10,
     },
     headerIcon: {
-        width: 36, height: 36, borderRadius: 18,
-        backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center',
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     headerTitle: { fontSize: 22, fontWeight: '800', color: '#fff' },
     headerSubtitle: { fontSize: 14, color: '#fff', opacity: 0.9, textAlign: 'center' },
 
-    codeWrap: { paddingHorizontal: 20, marginTop: 16 },
-    codeCard: {
-        borderRadius: 18, padding: 16,
-        borderWidth: 1, borderColor: '#E2E8F0',
-    },
-    yourCodeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    yourCodeLabel: { color: '#0f172a', fontWeight: '800', fontSize: 14 },
-    copyBtn: {
-        flexDirection: 'row', alignItems: 'center',
-        backgroundColor: '#E2E8F0', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999,
-    },
-    copyText: { color: '#0f172a', fontSize: 12, fontWeight: '700', marginLeft: 6 },
-    codeBadge: {
-        marginTop: 12, alignSelf: 'center',
-        backgroundColor: '#EA580C', borderRadius: 12,
-        paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center',
-    },
-    codeBadgeText: { color: '#fff', fontWeight: '900', fontSize: 16, letterSpacing: 1 },
-    rewardHint: { marginTop: 10, textAlign: 'center', color: '#334155', fontSize: 12 },
-
-    // Refer & Earn card
     referralWrap: { paddingHorizontal: 20, marginTop: 18, marginBottom: 6 },
     referralCard: {
-        borderRadius: 24, padding: 18,
-        borderWidth: 1, borderColor: 'rgba(251, 146, 60, 0.35)',
-        shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.12, shadowRadius: 16, elevation: 8,
+        borderRadius: 24,
+        padding: 18,
+        borderWidth: 1,
+        borderColor: 'rgba(251, 146, 60, 0.35)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.12,
+        shadowRadius: 16,
+        elevation: 8,
     },
     refHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     refBadge: {
-        flexDirection: 'row', alignItems: 'center',
-        backgroundColor: '#EA580C', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#EA580C',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 999,
     },
     refBadgeText: { color: '#fff', fontSize: 12, fontWeight: '700', marginLeft: 6, letterSpacing: 0.4 },
     refTitle: { fontSize: 18, fontWeight: '800', color: '#7C2D12', marginTop: 12 },
@@ -412,17 +515,29 @@ const styles = StyleSheet.create({
     codeRow: { flexDirection: 'row', alignItems: 'center', marginTop: 14 },
     codeLabel: { fontSize: 12, color: '#7C2D12', fontWeight: '700', marginRight: 10 },
     codePill: {
-        backgroundColor: 'rgba(255,255,255,0.8)', borderWidth: 1, borderColor: 'rgba(251,146,60,0.5)',
-        borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6,
+        backgroundColor: 'rgba(255,255,255,0.8)',
+        borderWidth: 1,
+        borderColor: 'rgba(251,146,60,0.5)',
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
     },
     codeText: { fontSize: 14, fontWeight: '800', color: '#9A3412', letterSpacing: 1 },
+    copyBtn: { flexDirection: 'row', alignItems: 'center', marginLeft: 20, backgroundColor: '#E2E8F0', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, },
     refActions: { flexDirection: 'row', gap: 10, marginTop: 14 },
+    copyText: { color: '#0f172a', fontSize: 12, fontWeight: '700', marginLeft: 6 },
     inviteBtn: { flex: 1, height: 44, borderRadius: 12, overflow: 'hidden' },
     inviteGrad: { flex: 1, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' },
     inviteText: { color: '#fff', fontWeight: '800', fontSize: 14 },
     whatsBtn: {
-        height: 44, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(22,163,74,0.35)',
-        paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', flexDirection: 'row',
+        height: 44,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(22,163,74,0.35)',
+        paddingHorizontal: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'row',
         backgroundColor: '#F0FDF4',
     },
     whatsText: { color: '#166534', fontWeight: '800', fontSize: 14 },
@@ -505,4 +620,118 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
     },
     remindText: { color: '#fff', fontWeight: '800', fontSize: 12 },
+
+    // Offer Details
+    section: {
+        marginTop: 16,
+        marginHorizontal: 20,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 14,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    title: {
+        fontSize: 16,
+        fontWeight: '800',
+        color: '#0f172a',
+        marginBottom: 10,
+    },
+    rowCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        borderRadius: 14,
+        paddingVertical: 12,
+        paddingHorizontal: 12,
+    },
+
+    rowLeft: {
+        flex: 1,
+        paddingRight: 12,
+    },
+
+    requireChip: {
+        alignSelf: 'flex-start',
+        borderRadius: 999,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderWidth: 1,
+        borderColor: 'rgba(251,146,60,0.45)',
+    },
+
+    requireChipText: {
+        color: '#000',
+        fontWeight: '800',
+        fontSize: 12,
+        letterSpacing: 0.3,
+    },
+
+    benefitText: {
+        marginTop: 8,
+        color: '#0F172A',
+        fontSize: 14,
+    },
+
+    benefitStrong: {
+        fontWeight: '800',
+    },
+
+    progressWrap: {
+        marginTop: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+
+    progressTrack: {
+        flex: 1,
+        height: 8,
+        backgroundColor: '#E2E8F0',
+        borderRadius: 999,
+        overflow: 'hidden',
+    },
+
+    progressFill: {
+        height: '100%',
+        borderRadius: 999,
+        backgroundColor: '#F7931E',
+    },
+
+    progressLabel: {
+        marginLeft: 8,
+        color: '#475569',
+        fontSize: 12,
+        width: 48,
+        textAlign: 'right',
+        fontWeight: '700',
+    },
+
+    statusText: {
+        marginTop: 6,
+        fontSize: 12,
+    },
+
+    statusOk: { color: '#16A34A', fontWeight: '700' },
+    statusWait: { color: '#DC2626', fontWeight: '700' },
+
+    claimBtn: {
+        borderRadius: 999,
+        overflow: 'hidden',
+    },
+
+    claimGrad: {
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 999,
+    },
+
+    claimText: {
+        color: '#FFFFFF',
+        fontWeight: '800',
+        fontSize: 12,
+    },
 });

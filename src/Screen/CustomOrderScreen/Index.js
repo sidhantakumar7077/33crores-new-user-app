@@ -505,6 +505,14 @@ const Index = () => {
     });
   };
 
+  const removeFlowerAt = (index) => {
+    setSavedFlowers((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removeGarlandAt = (index) => {
+    setSavedGarlands((prev) => prev.filter((_, i) => i !== index));
+  };
+
   // === Build payload from saved tables ===
   const buildPayloadForApi = () => {
     const items = [
@@ -604,17 +612,27 @@ const Index = () => {
       <View style={styles.tableCard}>
         <Text style={styles.tableTitle}>Saved Flowers</Text>
         <View style={styles.tableHeaderRow}>
-          {/* <Text style={[styles.tableCell, styles.th]}>#</Text> */}
           <Text style={[styles.tableCell, styles.th, { flex: 2 }]}>Flower</Text>
           <Text style={[styles.tableCell, styles.th]}>Qty</Text>
           <Text style={[styles.tableCell, styles.th]}>Unit</Text>
+          <View style={[styles.tableCell, styles.actionCellHeader]}>
+            <Feather name="trash-2" size={14} color="#64748B" />
+          </View>
         </View>
         {savedFlowers.map((row, idx) => (
           <View key={`sf-${idx}`} style={styles.tableDataRow}>
-            {/* <Text style={styles.tableCell}>{idx + 1}</Text> */}
             <Text style={[styles.tableCell, { flex: 2 }]}>{row.flower_name}</Text>
             <Text style={styles.tableCell}>{row.flower_quantity}</Text>
             <Text style={styles.tableCell}>{row.flower_unit}</Text>
+            <View style={[styles.tableCell, styles.actionCell]}>
+              <TouchableOpacity
+                onPress={() => removeFlowerAt(idx)}
+                style={styles.iconBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Feather name="trash-2" size={16} color="#DC2626" />
+              </TouchableOpacity>
+            </View>
           </View>
         ))}
       </View>
@@ -632,6 +650,9 @@ const Index = () => {
           <Text style={[styles.tableCell, styles.th]}>No. of Garlands</Text>
           <Text style={[styles.tableCell, styles.th]}>Flower Count</Text>
           <Text style={[styles.tableCell, styles.th]}>Size</Text>
+          <View style={[styles.tableCell, styles.actionCellHeader]}>
+            <Feather name="trash-2" size={14} color="#64748B" />
+          </View>
         </View>
         {savedGarlands.map((row, idx) => (
           <View key={`sg-${idx}`} style={styles.tableDataRow}>
@@ -640,6 +661,15 @@ const Index = () => {
             <Text style={styles.tableCell}>{row.garland_quantity}</Text>
             <Text style={styles.tableCell}>{row.flower_count ?? '-'}</Text>
             <Text style={styles.tableCell}>{row.garland_size ?? '-'}</Text>
+            <View style={[styles.tableCell, styles.actionCell]}>
+              <TouchableOpacity
+                onPress={() => removeGarlandAt(idx)}
+                style={styles.iconBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Feather name="trash-2" size={16} color="#DC2626" />
+              </TouchableOpacity>
+            </View>
           </View>
         ))}
       </View>
@@ -1881,5 +1911,25 @@ const styles = StyleSheet.create({
   th: {
     fontWeight: '700',
     color: '#334155',
+  },
+  actionCellHeader: {
+    flex: 0,
+    width: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionCell: {
+    flex: 0,
+    width: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FEF2F2', // subtle red tint
   },
 });

@@ -12,7 +12,8 @@ import {
     StatusBar,
     ToastAndroid,
     Share,
-    Linking
+    Linking,
+    RefreshControl
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -40,6 +41,7 @@ const NewProfile = () => {
 
     const navigation = useNavigation();
     const isFocused = useIsFocused();
+    const [refreshing, setRefreshing] = useState(false);
     const { setActiveTab } = useTab();
     const [spinner, setSpinner] = useState(false);
     const [profileDetails, setProfileDetails] = useState({});
@@ -64,6 +66,16 @@ const NewProfile = () => {
     const [updateProfileError, setUpdateProfileError] = useState('');
     const [profileImgMenu, setProfileImgMenu] = useState(false);
     const [showProfileImage, setShowProfileImage] = useState(false);
+
+    const onRefresh = React.useCallback(() => {
+        setRefreshing(true);
+        setTimeout(async () => {
+            setRefreshing(false);
+            await getProfile();
+            await getReferralCode();
+            console.log("Refreshing Successful");
+        }, 2000);
+    }, []);
 
     const getProfile = async () => {
         var access_token = await AsyncStorage.getItem('storeAccesstoken');
@@ -327,7 +339,7 @@ const NewProfile = () => {
                         </Text>
                     </View>
                 </LinearGradient>
-                <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+                <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />} style={{ flex: 1 }}>
                     {spinner ?
                         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 10 }}>
                             <Text style={{ color: '#ffcb44', fontSize: 17 }}>Loading...</Text>

@@ -232,12 +232,12 @@ const Index = () => {
                     >
                       <Image source={{ uri: item.flower_products.product_image_url }} style={{ width: 90, height: 90, borderRadius: 12, borderWidth: 1, borderColor: '#eee' }} />
                       <View style={{ flex: 1, marginLeft: 15 }}>
-                        <Text style={{ color: '#333', fontSize: 18, fontWeight: 'bold' }}>{item.flower_products.name}</Text>
+                        <Text style={{ color: '#111827', fontSize: 16, fontWeight: '600' }}>{item.flower_products.name}</Text>
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                          <Text style={{ color: '#ff6347', fontSize: 16, fontWeight: '600' }}>₹{item.flower_products.price}</Text>
-                          <Text style={{ color: '#888', fontSize: 14, marginLeft: 8 }}>({item.flower_products.duration} Month)</Text>
+                          <Text style={{ color: '#ff6347', fontSize: 14, fontWeight: '500' }}>₹{item.flower_products.price}</Text>
+                          <Text style={{ color: '#6B7280', fontSize: 14, marginLeft: 8 }}>({item.flower_products.duration} Month)</Text>
                         </View>
-                        <Text style={{ color: '#666', fontSize: 14 }}>Order Id: <Text style={{ color: '#000' }}>{item.order_id}</Text></Text>
+                        <Text style={{ color: '#666', fontSize: 13 }}>Order Id: <Text style={{ color: '#000' }}>{item.order_id}</Text></Text>
                         {item?.status === "pending" && (
                           <Text style={{ color: '#000', fontSize: 15, fontWeight: 'bold' }}>
                             Your subscription will start on {moment(item.start_date).format('MMM Do YYYY')}

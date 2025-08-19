@@ -20,6 +20,7 @@ const PromotionModal = ({
     onSecondaryPress,
     primaryText = 'Book Now',
     secondaryText = 'Later',
+    closeText = 'Close'
 }) => {
     // ✅ Always create hooks, regardless of props
     const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -102,13 +103,33 @@ const PromotionModal = ({
                     )}
                 </View>
 
+                {/* Single pulsing primary button */}
+                <View style={styles.actionsSingle}>
+                    <Animated.View
+                        style={[
+                            { transform: [{ scale: pulseAnim }] }, // removed flex
+                            styles.primaryShadow,
+                        ]}
+                    >
+                        <TouchableOpacity
+                            style={styles.primaryBtn}
+                            activeOpacity={0.9}
+                            onPress={onClose}
+                        >
+                            <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.primaryGrad}>
+                                <Icon name="times" size={12} color="#fff" style={{ marginRight: 6 }} />
+                                <Text style={styles.primaryText}>{closeText}</Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    </Animated.View>
+                </View>
+
                 {/* Actions */}
-                <View style={styles.actions}>
+                {/* <View style={styles.actions}>
                     <TouchableOpacity style={styles.secondaryBtn} onPress={onSecondaryPress || onClose}>
                         <Text style={styles.secondaryText}>{secondaryText}</Text>
                     </TouchableOpacity>
 
-                    {/* Pulsing primary CTA */}
                     <Animated.View
                         style={[
                             { flex: 1, transform: [{ scale: pulseAnim }] },
@@ -128,7 +149,7 @@ const PromotionModal = ({
                             </LinearGradient>
                         </TouchableOpacity>
                     </Animated.View>
-                </View>
+                </View> */}
             </LinearGradient>
         </Modal>
     );
@@ -182,7 +203,26 @@ const styles = StyleSheet.create({
     actions: { flexDirection: 'row', gap: 10, marginTop: 8 },
     secondaryBtn: { flex: 1, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center', height: 46, backgroundColor: '#fff' },
     secondaryText: { color: '#0f172a', fontWeight: '700', fontSize: 14 },
-    primaryBtn: { flex: 1, height: 46, borderRadius: 12, overflow: 'hidden' },
+    // primaryBtn: { flex: 1, height: 46, borderRadius: 12, overflow: 'hidden' },
+    // primaryGrad: { flex: 1, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' },
+    // primaryText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+
+
+    // Single action row
+    actionsSingle: { width: '100%', alignItems: 'center', marginTop: 8 },
+    primaryShadow: {
+        shadowColor: '#F7931E',
+        shadowOpacity: 0.6,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 6,
+    },
+    primaryBtn: {
+        width: 160,          // ← small width
+        height: 40,          // ← small height
+        borderRadius: 999,   // pill shape
+        overflow: 'hidden',
+    },
     primaryGrad: { flex: 1, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' },
-    primaryText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+    primaryText: { color: '#fff', fontWeight: '800', fontSize: 13 },
 });

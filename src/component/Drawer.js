@@ -52,7 +52,7 @@ const Drawer = ({ visible, onClose }) => {
     const goToNotifications = () => {
         if (accessToken) {
             onClose();
-            navigation.navigate('Notification');
+            navigation.navigate('Notificationpage');
         } else {
             onClose();
             navigation.navigate('Login');

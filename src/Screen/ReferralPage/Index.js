@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     View,
     Text,
@@ -10,7 +10,7 @@ import {
     RefreshControl,
     ToastAndroid,
     ActivityIndicator,
-    FlatList
+    FlatList,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/FontAwesome5';
@@ -20,9 +20,9 @@ import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import moment from 'moment';
 import { base_url } from '../../../App';
+import { all } from 'axios';
 
 const Index = () => {
-
     const insets = useSafeAreaInsets();
     const navigation = useNavigation();
     const isFocused = useIsFocused();
@@ -31,33 +31,33 @@ const Index = () => {
     const [refreshing, setRefreshing] = useState(false);
 
     const [referralCode, setReferralCode] = useState(null);
-    const [summary, setSummary] = useState({
-        used_count: 0,
-        completed_count: 0,
-    });
+    const [summary, setSummary] = useState({ used_count: 0, completed_count: 0 });
 
     const [activeTab, setActiveTab] = useState('used');
     const [usedList, setUsedList] = useState([]);
     const [completedList, setCompletedList] = useState([]);
-    const [offer_details, setOffer_details] = useState({});
+    const [offer_details, setOffer_details] = useState({}); // NEW shape with referData[]
+
+    // Claiming spinner state
+    const [claimingId, setClaimingId] = useState(null);
 
     const prettyDate = (v) => {
         const m = moment(v, [moment.ISO_8601, 'YYYY-MM-DD HH:mm:ss', 'YYYY-MM-DD'], true);
         return m.isValid() ? m.format('DD MMM YYYY') : (v ?? '');
     };
 
+    // -------- Fetch Stats (includes offer_details.referData) --------
     const fetchReferralSummary = async () => {
         try {
             setLoading(true);
 
-            // Pull referral code from saved user first (no extra API needed for the code)
+            // referral code from user data
             const rawUser = await AsyncStorage.getItem('userData');
             const u = rawUser ? JSON.parse(rawUser) : null;
             if (u?.referral_code) setReferralCode(u.referral_code);
 
             const token = await AsyncStorage.getItem('storeAccesstoken');
 
-            // Your Postman shows: GET /api/referrals/stats
             const res = await fetch(`${base_url}api/referrals/stats`, {
                 method: 'GET',
                 headers: {
@@ -68,20 +68,15 @@ const Index = () => {
             });
 
             const json = await res.json();
+            if (!json?.success) return;
 
-            if (!json?.success) {
-                console.log('Unexpected response:', json);
-                return;
-            }
-
-            // Normalize backend -> UI
             const rb = json?.refer_data?.referred_by ?? {};
             const od = json?.offer_details ?? {};
 
             const used = Array.isArray(rb.referrers_list)
                 ? rb.referrers_list.map((x) => ({
                     name: x?.name || null,
-                    phone: x?.mobile_number || null, // UI expects "phone"
+                    phone: x?.mobile_number || null,
                     status: x?.status || null,
                     date: prettyDate(x?.created_at),
                 }))
@@ -102,7 +97,6 @@ const Index = () => {
             setUsedList(used);
             setCompletedList(completed);
             setSummary({ used_count, completed_count });
-            // console.log("Offer Details:", od);
             setOffer_details(od || {});
         } catch (e) {
             console.log('Referral summary error:', e);
@@ -111,37 +105,100 @@ const Index = () => {
         }
     };
 
-    const rows = useMemo(() => {
-        const refers = Array.isArray(offer_details?.no_of_refer) ? offer_details.no_of_refer : [];
-        const benefits = Array.isArray(offer_details?.benefit) ? offer_details.benefit : [];
-        const len = Math.min(refers.length, benefits.length);
-        const out = [];
-        for (let i = 0; i < len; i++) {
-            out.push({
-                id: `${offer_details?.id || 'offer'}-${i}`,
-                referCount: refers[i],
-                benefitText: benefits[i],
-            });
-        }
-        return out;
+    // -------- Build tier rows from offer_details.referData --------
+    // Build ALL tiers from server (keep their server status)
+    const allTiers = useMemo(() => {
+        const referData = Array.isArray(offer_details?.referData) ? offer_details.referData : [];
+        const offerId = offer_details?.offer_id || offer_details?.id || 'offer';
+        return referData.map((it, idx) => ({
+            id: `${offerId}-${idx}-${String(it?.no_of_refer)}-${String(it?.benefit)}`,
+            referCount: it?.no_of_refer ?? 0,
+            benefitText: it?.benefit ?? '',
+            serverStatus: String(it?.status || '').toLowerCase(), // 'claimed' | 'active' | etc
+        }));
     }, [offer_details]);
+
+    // Show ONLY non-claimed tiers in the referral offer section
+    const rows = useMemo(() => {
+        // return allTiers.filter(t => t.serverStatus !== 'claimed');
+        return allTiers;
+    }, [allTiers]);
+
+    // -------- Claim API --------
+    const saveOfferClaim = async (row) => {
+        const token = await AsyncStorage.getItem('storeAccesstoken');
+
+        const offerId =
+            (offer_details?.offer_id && String(offer_details.offer_id)) ||
+            (offer_details?.id != null && String(offer_details.id)) ||
+            '';
+
+        if (!offerId) {
+            ToastAndroid.show('Missing offer id', ToastAndroid.SHORT);
+            return;
+        }
+
+        const payload = {
+            offer_id: offerId,
+            refer: String(row.referCount),
+            benefit: row.benefitText,
+        };
+
+        try {
+            setClaimingId(row.id);
+
+            const res = await fetch(`${base_url}api/refer/offer-claim/save`, {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify(payload),
+            });
+
+            const json = await res.json();
+
+            if (res.ok && json?.success) {
+                ToastAndroid.show(json?.message || 'Offer claimed successfully', ToastAndroid.SHORT);
+                // Re-fetch to reflect server "claimed" status and update history
+                await fetchReferralSummary();
+            } else {
+                ToastAndroid.show(json?.message || 'Could not claim this offer', ToastAndroid.SHORT);
+            }
+        } catch (e) {
+            ToastAndroid.show('Network error while claiming', ToastAndroid.SHORT);
+        } finally {
+            setClaimingId(null);
+        }
+    };
 
     const handleClaim = (item) => {
         const completed = Number(summary?.completed_count) || 0;
         const need = Number(item?.referCount || 0);
-        const itemDisabled = completed < need;
-        if (itemDisabled) return;
+        const isActive = (offer_details?.status || '').toLowerCase() === 'active';
+        const unlocked = isActive && completed >= need;
 
-        if (typeof onClaimPress === 'function') {
-            onClaimPress(item, offer_details);
-        } else {
-            ToastAndroid.show(
-                `Claim tapped: Refer ${need} ${need === 1 ? 'user' : 'users'} → ${item.benefitText}`,
-                ToastAndroid.SHORT
-            );
-        }
+        const isClaimedFromServer = item.serverStatus === 'claimed';
+
+        if (!unlocked || isClaimedFromServer || claimingId === item.id) return;
+        saveOfferClaim(item);
     };
 
+    // -------- History derived ONLY from server (no AsyncStorage) --------
+    const claimHistory = useMemo(() => {
+        const claimed = allTiers.filter(r => r.serverStatus === 'claimed');
+        const dateForAll = offer_details?.updated_at || offer_details?.created_at || new Date().toISOString();
+        return claimed.map((r) => ({
+            id: r.id,
+            refer: String(r.referCount),
+            benefit: String(r.benefitText),
+            date: dateForAll,
+            offer_name: offer_details?.offer_name || 'Offer',
+        }));
+    }, [allTiers, offer_details]);
+
+    // -------- Lifecycle --------
     useEffect(() => {
         if (isFocused) {
             fetchReferralSummary();
@@ -154,12 +211,8 @@ const Index = () => {
         setRefreshing(false);
     }, []);
 
-    // 1) Build the exact message we need for each action
-    const buildReferralMessage = (
-        mode = 'invite',                // 'invite'
-        userName = '',                  // used only for 'remind'
-        codeOverride = null
-    ) => {
+    // -------- Share / Copy / Remind --------
+    const buildReferralMessage = (mode = 'invite', userName = '', codeOverride = null) => {
         const code = (codeOverride || referralCode || '').trim();
         const link = 'https://play.google.com/store/apps/details?id=com.thirtythreecroresapp&hl=en';
 
@@ -172,7 +225,6 @@ const Index = () => {
             );
         }
 
-        // default: invite
         return (
             `🙏 Namaste\n` +
             `🪔 Join me on 33Crores!\n` +
@@ -181,17 +233,13 @@ const Index = () => {
         );
     };
 
-    // 2) Share sheet for INVITE
     const handleInvite = async () => {
         try {
             const message = buildReferralMessage('invite');
             await Share.share({ message });
-        } catch (e) {
-            console.log('Share error:', e);
-        }
+        } catch { }
     };
 
-    // 3) WhatsApp for INVITE
     const handleWhatsAppInvite = async () => {
         const message = buildReferralMessage('invite');
         const text = encodeURIComponent(message);
@@ -200,23 +248,16 @@ const Index = () => {
         try {
             const canOpen = await Linking.canOpenURL(url);
             await Linking.openURL(canOpen ? url : webUrl);
-        } catch (e) {
-            console.log('WhatsApp error:', e);
-        }
+        } catch { }
     };
 
-    // 4) WhatsApp for REMIND (per-user)
     const remindUser = async (person) => {
         const message = buildReferralMessage('remind', person?.name || '');
         const encoded = encodeURIComponent(message);
-
-        // If your numbers are stored without country code, prefix with 91 (IN)
         const digits = String(person?.phone || '').replace(/\D/g, '');
         const phoneWithCC = digits ? `91${digits}` : '';
-
         const waUrl = `whatsapp://send?${phoneWithCC ? `phone=+${phoneWithCC}&` : ''}text=${encoded}`;
         const waWeb = `https://wa.me/${phoneWithCC}?text=${encoded}`;
-
         try {
             const canOpen = await Linking.canOpenURL(waUrl);
             await Linking.openURL(canOpen ? waUrl : waWeb);
@@ -234,6 +275,7 @@ const Index = () => {
         ToastAndroid.show('Referral code copied', ToastAndroid.SHORT);
     };
 
+    // ---------------- UI ----------------
     return (
         <View style={[styles.container, { paddingBottom: insets.bottom }]}>
             {/* Header */}
@@ -245,9 +287,7 @@ const Index = () => {
                     <Text style={styles.headerTitle}>Refer & Earn</Text>
                     <View style={styles.headerIcon} />
                 </View>
-                <Text style={styles.headerSubtitle}>
-                    Share your blessings—invite friends and earn rewards.
-                </Text>
+                <Text style={styles.headerSubtitle}>Share your blessings—invite friends and earn rewards.</Text>
             </LinearGradient>
 
             <ScrollView
@@ -304,11 +344,10 @@ const Index = () => {
                     </LinearGradient>
                 </View>
 
+                {/* Offer tiers (from referData) */}
                 <View style={styles.section}>
-                    {/* Header */}
                     <Text style={styles.title}>{offer_details?.offer_name || 'Offer'}</Text>
 
-                    {/* List */}
                     <FlatList
                         data={rows}
                         keyExtractor={(item) => item.id}
@@ -317,9 +356,13 @@ const Index = () => {
                         renderItem={({ item }) => {
                             const need = Number(item?.referCount || 0);
                             const completed = Number(summary?.completed_count || 0);
-                            const isActive = ((offer_details?.status || '').toLowerCase() === 'active');
+                            const isActive = (offer_details?.status || '').toLowerCase() === 'active';
                             const unlocked = isActive && completed >= need;
                             const pct = need > 0 ? Math.min(1, completed / need) : 0;
+
+                            const isClaimed = item.serverStatus === 'claimed';
+                            const isClaiming = claimingId === item.id;
+
                             const subWord = need === 1 ? 'subscription' : 'subscriptions';
                             const remaining = Math.max(0, need - completed);
                             const remainingWord = remaining === 1 ? 'subscription' : 'subscriptions';
@@ -327,48 +370,54 @@ const Index = () => {
                             return (
                                 <View style={styles.rowCard}>
                                     <View style={styles.rowLeft}>
-                                        {/* requirement chip */}
                                         <LinearGradient colors={['#FFE7D1', '#FED7AA']} style={styles.requireChip}>
                                             <Text style={styles.requireChipText}>
                                                 Refer {need} {need === 1 ? 'friend' : 'friends'}
                                             </Text>
                                         </LinearGradient>
 
-                                        {/* NEW sentence */}
                                         <Text style={styles.benefitText}>
-                                            Unlock <Text style={styles.benefitStrong}>{item.benefitText}</Text> after{' '}
-                                            {need} successful {subWord} using your referral code.
+                                            Unlock <Text style={styles.benefitStrong}>{item.benefitText}</Text> after {need} successful {subWord}{' '}
+                                            using your referral code.
                                         </Text>
 
-                                        {/* progress */}
                                         <View style={styles.progressWrap}>
                                             <View style={styles.progressTrack}>
                                                 <View style={[styles.progressFill, { width: `${pct * 100}%` }]} />
                                             </View>
-                                            <Text style={styles.progressLabel}>{completed}/{need}</Text>
+                                            <Text style={styles.progressLabel}>
+                                                {Math.min(completed, need)}/{need}
+                                            </Text>
                                         </View>
 
-                                        {/* status hint */}
                                         <Text style={[styles.statusText, unlocked ? styles.statusOk : styles.statusWait]}>
-                                            {unlocked
-                                                ? 'Requirement met — ready to claim'
-                                                : `Need ${remaining} more ${remainingWord}`}
+                                            {unlocked ? 'Requirement met — ready to claim' : `Need ${remaining} more ${remainingWord}`}
                                         </Text>
                                     </View>
 
-                                    {/* CTA */}
                                     <TouchableOpacity
                                         activeOpacity={0.9}
                                         onPress={() => handleClaim(item)}
-                                        disabled={!unlocked}
-                                        style={[styles.claimBtn, !unlocked && { opacity: 0.6 }]}
+                                        disabled={!unlocked || isClaimed || isClaiming}
+                                        style={[styles.claimBtn, (!unlocked || isClaimed || isClaiming) && { opacity: 0.6 }]}
                                     >
                                         <LinearGradient
-                                            colors={unlocked ? ['#FF6B35', '#F7931E'] : ['#CBD5E1', '#94A3B8']}
+                                            colors={
+                                                isClaimed
+                                                    ? ['#A7F3D0', '#6EE7B7'] // claimed
+                                                    : unlocked
+                                                        ? ['#FF6B35', '#F7931E'] // active
+                                                        : ['#CBD5E1', '#94A3B8'] // locked
+                                            }
                                             style={styles.claimGrad}
                                         >
-                                            <Text style={[styles.claimText, !unlocked && { color: '#1F2937' }]}>
-                                                {unlocked ? 'Claim' : 'Locked'}
+                                            <Text
+                                                style={[
+                                                    styles.claimText,
+                                                    (!unlocked || isClaimed || isClaiming) && { color: isClaimed ? '#065F46' : '#1F2937' },
+                                                ]}
+                                            >
+                                                {isClaimed ? 'Claimed' : isClaiming ? 'Claiming…' : 'Claim'}
                                             </Text>
                                         </LinearGradient>
                                     </TouchableOpacity>
@@ -378,23 +427,52 @@ const Index = () => {
                     />
                 </View>
 
-                {/* Tabs */}
+                {/* Claim History (from server only) */}
+                {/* <View style={styles.section}>
+                    <Text style={styles.title}>Claim History</Text>
+                    {claimHistory.length === 0 ? (
+                        <View style={styles.emptyBox}>
+                            <Text style={styles.emptyText}>No claims yet.</Text>
+                        </View>
+                    ) : (
+                        <FlatList
+                            data={claimHistory}
+                            keyExtractor={(item) => item.id}
+                            scrollEnabled={false}
+                            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+                            renderItem={({ item }) => (
+                                <View style={styles.historyRow}>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.historyBenefit}>{item.benefit}</Text>
+                                        <Text style={styles.historyMeta}>
+                                            For refer {item.refer} • {item.offer_name}
+                                        </Text>
+                                        <Text style={styles.historyDate}>{prettyDate(item.date)}</Text>
+                                    </View>
+                                    <View style={styles.historyBadge}>
+                                        <Icon name="check" size={10} color="#16A34A" />
+                                        <Text style={styles.historyBadgeText}>Claimed</Text>
+                                    </View>
+                                </View>
+                            )}
+                        />
+                    )}
+                </View> */}
+
+                {/* Used / Completed tabs */}
                 <View style={styles.tabsWrap}>
                     <View style={styles.tabsPill}>
                         {['used', 'completed'].map((key) => {
-                            const isActive = activeTab === key;
-                            const count =
-                                key === 'used'
-                                    ? (summary?.used_count ?? usedList.length)
-                                    : (summary?.completed_count ?? completedList.length);
+                            const isActiveTab = activeTab === key;
+                            const count = key === 'used' ? summary?.used_count ?? usedList.length : summary?.completed_count ?? completedList.length;
                             return (
                                 <TouchableOpacity
                                     key={key}
-                                    style={[styles.tabBtn, isActive ? styles.tabBtnActive : null]}
+                                    style={[styles.tabBtn, isActiveTab ? styles.tabBtnActive : null]}
                                     onPress={() => setActiveTab(key)}
                                     activeOpacity={0.9}
                                 >
-                                    <Text style={[styles.tabText, isActive ? styles.tabTextActive : null]}>
+                                    <Text style={[styles.tabText, isActiveTab ? styles.tabTextActive : null]}>
                                         {key === 'used' ? `Used (${count})` : `Completed (${count})`}
                                     </Text>
                                 </TouchableOpacity>
@@ -403,7 +481,7 @@ const Index = () => {
                     </View>
                 </View>
 
-                {/* Loader for list fetch */}
+                {/* Loader */}
                 {loading && (
                     <View style={{ paddingTop: 12 }}>
                         <ActivityIndicator size="small" color="#c9170a" />
@@ -416,9 +494,7 @@ const Index = () => {
                         {(activeTab === 'used' ? usedList : completedList).length === 0 ? (
                             <View style={styles.emptyBox}>
                                 <Text style={styles.emptyText}>
-                                    {activeTab === 'used'
-                                        ? 'No one has used your code yet.'
-                                        : 'No completed benefits yet.'}
+                                    {activeTab === 'used' ? 'No one has used your code yet.' : 'No completed benefits yet.'}
                                 </Text>
                             </View>
                         ) : (
@@ -523,7 +599,15 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
     },
     codeText: { fontSize: 14, fontWeight: '800', color: '#9A3412', letterSpacing: 1 },
-    copyBtn: { flexDirection: 'row', alignItems: 'center', marginLeft: 20, backgroundColor: '#E2E8F0', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, },
+    copyBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginLeft: 20,
+        backgroundColor: '#E2E8F0',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 999,
+    },
     refActions: { flexDirection: 'row', gap: 10, marginTop: 14 },
     copyText: { color: '#0f172a', fontSize: 12, fontWeight: '700', marginLeft: 6 },
     inviteBtn: { flex: 1, height: 44, borderRadius: 12, overflow: 'hidden' },
@@ -542,21 +626,85 @@ const styles = StyleSheet.create({
     },
     whatsText: { color: '#166534', fontWeight: '800', fontSize: 14 },
 
+    // Offer section
+    section: {
+        marginTop: 16,
+        marginHorizontal: 20,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 14,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    title: { fontSize: 16, fontWeight: '800', color: '#0f172a', marginBottom: 10 },
+
+    rowCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        borderRadius: 14,
+        paddingVertical: 12,
+        paddingHorizontal: 12,
+    },
+    rowLeft: { flex: 1, paddingRight: 12 },
+    requireChip: {
+        alignSelf: 'flex-start',
+        borderRadius: 999,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderWidth: 1,
+        borderColor: 'rgba(251,146,60,0.45)',
+    },
+    requireChipText: { color: '#000', fontWeight: '800', fontSize: 12, letterSpacing: 0.3 },
+    benefitText: { marginTop: 8, color: '#0F172A', fontSize: 14 },
+    benefitStrong: { fontWeight: '800' },
+
+    progressWrap: { marginTop: 10, flexDirection: 'row', alignItems: 'center' },
+    progressTrack: { flex: 1, height: 8, backgroundColor: '#E2E8F0', borderRadius: 999, overflow: 'hidden' },
+    progressFill: { height: '100%', borderRadius: 999, backgroundColor: '#F7931E' },
+    progressLabel: { marginLeft: 8, color: '#475569', fontSize: 12, width: 48, textAlign: 'right', fontWeight: '700' },
+
+    statusText: { marginTop: 6, fontSize: 12 },
+    statusOk: { color: '#16A34A', fontWeight: '700' },
+    statusWait: { color: '#DC2626', fontWeight: '700' },
+
+    claimBtn: { borderRadius: 999, overflow: 'hidden' },
+    claimGrad: { paddingHorizontal: 16, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
+    claimText: { color: '#FFFFFF', fontWeight: '800', fontSize: 12 },
+
+    // History
+    historyRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        borderRadius: 14,
+        paddingVertical: 12,
+        paddingHorizontal: 12,
+    },
+    historyBenefit: { color: '#0f172a', fontWeight: '800', fontSize: 14 },
+    historyMeta: { color: '#475569', marginTop: 2, fontWeight: '600', fontSize: 12 },
+    historyDate: { color: '#64748B', marginTop: 2, fontWeight: '600', fontSize: 12 },
+    historyBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(22,163,74,0.35)',
+        backgroundColor: '#ECFDF5',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 999,
+        marginLeft: 10,
+    },
+    historyBadgeText: { color: '#065F46', fontWeight: '800', fontSize: 12, marginLeft: 6 },
+
     // Tabs
     tabsWrap: { paddingHorizontal: 20, marginTop: 12 },
-    tabsPill: {
-        backgroundColor: '#E2E8F0',
-        borderRadius: 14,
-        padding: 6,
-        flexDirection: 'row',
-    },
-    tabBtn: {
-        flex: 1,
-        height: 40,
-        borderRadius: 10,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
+    tabsPill: { backgroundColor: '#E2E8F0', borderRadius: 14, padding: 6, flexDirection: 'row' },
+    tabBtn: { flex: 1, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
     tabBtnActive: {
         backgroundColor: '#fff',
         elevation: 2,
@@ -568,7 +716,7 @@ const styles = StyleSheet.create({
     tabText: { color: '#475569', fontWeight: '700', fontSize: 13 },
     tabTextActive: { color: '#111827' },
 
-    // Empty
+    // Empty state
     emptyBox: {
         backgroundColor: '#fff',
         borderRadius: 16,
@@ -579,7 +727,7 @@ const styles = StyleSheet.create({
     },
     emptyText: { color: '#64748B', fontWeight: '600' },
 
-    // List row
+    // People list
     personRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -592,12 +740,9 @@ const styles = StyleSheet.create({
     },
     personName: { color: '#0f172a', fontWeight: '800', fontSize: 14 },
     personPhone: { color: '#64748B', marginTop: 2, fontWeight: '600', fontSize: 12 },
-
-    // Completed detail line
     completedRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
     completedDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#16A34A', marginRight: 6 },
     completedText: { color: '#16A34A', fontWeight: '700', fontSize: 12 },
-
     completedBadge: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -612,126 +757,6 @@ const styles = StyleSheet.create({
 
     // Remind button
     remindBtn: { height: 40, borderRadius: 999, overflow: 'hidden' },
-    remindGrad: {
-        height: '100%',
-        paddingHorizontal: 14,
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexDirection: 'row',
-    },
+    remindGrad: { height: '100%', paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' },
     remindText: { color: '#fff', fontWeight: '800', fontSize: 12 },
-
-    // Offer Details
-    section: {
-        marginTop: 16,
-        marginHorizontal: 20,
-        backgroundColor: '#FFFFFF',
-        borderRadius: 16,
-        padding: 14,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-    },
-    title: {
-        fontSize: 16,
-        fontWeight: '800',
-        color: '#0f172a',
-        marginBottom: 10,
-    },
-    rowCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#FFFFFF',
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-        borderRadius: 14,
-        paddingVertical: 12,
-        paddingHorizontal: 12,
-    },
-
-    rowLeft: {
-        flex: 1,
-        paddingRight: 12,
-    },
-
-    requireChip: {
-        alignSelf: 'flex-start',
-        borderRadius: 999,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderWidth: 1,
-        borderColor: 'rgba(251,146,60,0.45)',
-    },
-
-    requireChipText: {
-        color: '#000',
-        fontWeight: '800',
-        fontSize: 12,
-        letterSpacing: 0.3,
-    },
-
-    benefitText: {
-        marginTop: 8,
-        color: '#0F172A',
-        fontSize: 14,
-    },
-
-    benefitStrong: {
-        fontWeight: '800',
-    },
-
-    progressWrap: {
-        marginTop: 10,
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-
-    progressTrack: {
-        flex: 1,
-        height: 8,
-        backgroundColor: '#E2E8F0',
-        borderRadius: 999,
-        overflow: 'hidden',
-    },
-
-    progressFill: {
-        height: '100%',
-        borderRadius: 999,
-        backgroundColor: '#F7931E',
-    },
-
-    progressLabel: {
-        marginLeft: 8,
-        color: '#475569',
-        fontSize: 12,
-        width: 48,
-        textAlign: 'right',
-        fontWeight: '700',
-    },
-
-    statusText: {
-        marginTop: 6,
-        fontSize: 12,
-    },
-
-    statusOk: { color: '#16A34A', fontWeight: '700' },
-    statusWait: { color: '#DC2626', fontWeight: '700' },
-
-    claimBtn: {
-        borderRadius: 999,
-        overflow: 'hidden',
-    },
-
-    claimGrad: {
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: 999,
-    },
-
-    claimText: {
-        color: '#FFFFFF',
-        fontWeight: '800',
-        fontSize: 12,
-    },
 });

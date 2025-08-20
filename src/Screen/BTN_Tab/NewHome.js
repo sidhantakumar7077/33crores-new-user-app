@@ -16,7 +16,8 @@ import {
     Platform,
     ToastAndroid,
     ActivityIndicator,
-    RefreshControl
+    RefreshControl,
+    Animated
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/FontAwesome5';
@@ -34,6 +35,7 @@ const NewHome = () => {
 
     const navigation = useNavigation();
     const isFocused = useIsFocused();
+    const pulse = React.useRef(new Animated.Value(0)).current;
     const [spinner, setSpinner] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [allPackages, setAllPackages] = useState([]);
@@ -46,7 +48,7 @@ const NewHome = () => {
     const closeModal = () => setIsModalVisible(false);
     const [referralCode, setReferralCode] = useState(null);
     const [code, setCode] = useState('');
-    const [isReferCodeApply, setIsReferCodeApply] = useState('no');
+    const [isReferCodeApply, setIsReferCodeApply] = useState('yes');
     const [referCodeSpinner, setReferCodeSpinner] = useState(false);
     // --- Festivals state ---
     const [festivals, setFestivals] = useState([]);
@@ -64,12 +66,14 @@ const NewHome = () => {
 
     const onRefresh = React.useCallback(() => {
         setRefreshing(true);
-        setTimeout(async () => {
+        setTimeout(() => {
             setRefreshing(false);
-            await getAllPackages();
-            await getOfferDetails();
-            await getUpcomingFestivals();
-            await getReferralCode();
+            getAllPackages();
+            getOfferDetails();
+            getUpcomingFestivals();
+            getReferralCode();
+            getCurrentOrder();
+            getProductPackages();
             console.log("Refreshing Successful");
         }, 2000);
     }, []);
@@ -149,6 +153,76 @@ const NewHome = () => {
         }).catch((error) => {
             console.error('Error:', error);
             setSpinner(false);
+        });
+    };
+
+    // NEW: product packages carousel
+    const [productPackages, setProductPackages] = useState([]);
+    const pkgFlatRef = useRef();
+    const [activePkgIndex, setActivePkgIndex] = useState(0);
+    const onPkgViewableItemsChanged = useRef(({ viewableItems }) => {
+        if (viewableItems.length > 0) setActivePkgIndex(viewableItems[0].index);
+    }).current;
+    const pkgViewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
+
+    // NEW: get product packages (category === "Package")
+    const getProductPackages = async () => {
+        try {
+            const res = await fetch(base_url + 'api/package-items', {
+                method: 'GET',
+                headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+            });
+            const json = await res.json();
+            if (res.ok && Array.isArray(json?.data)) {
+                const pkgs = json.data.filter(
+                    (it) => (it?.category || '').toLowerCase() === 'package'
+                );
+                setProductPackages(pkgs);
+            }
+        } catch (e) {
+            console.error('getProductPackages error:', e);
+        }
+    };
+
+    const [activeSubscription, setActiveSubscription] = useState(null);
+    const [approvedRequest, setApprovedRequest] = useState(null);
+
+    const getCurrentOrder = async () => {
+        var access_token = await AsyncStorage.getItem('storeAccesstoken');
+
+        await fetch(base_url + 'api/orders-list', {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + access_token
+            },
+        }).then(response => response.json()).then(response => {
+            if (response.success) {
+                // console.log("object", response.data);
+                // setRequested_orderList(response.data.requested_orders);
+                // setSubscriptionList(response.data.subscriptions_order);
+                const subs = Array.isArray(response?.data?.subscriptions_order)
+                    ? response.data.subscriptions_order
+                    : [];
+                // first subscription with status 'active' or 'paused' (to show controls)
+                const subCandidate =
+                    subs.find(s => (s?.status || '').toLowerCase() === 'active') ||
+                    subs.find(s => (s?.status || '').toLowerCase() === 'paused') ||
+                    null;
+                setActiveSubscription(subCandidate);
+
+                const reqs = Array.isArray(response?.data?.requested_orders)
+                    ? response.data.requested_orders
+                    : [];
+                // first request with status 'approved'
+                const approved = reqs.find(r => (r?.status || '').toLowerCase() === 'approved') || null;
+                setApprovedRequest(approved);
+            } else {
+                console.error('Failed to fetch packages:', response.message);
+            }
+        }).catch((error) => {
+            console.error('Error:', error);
         });
     };
 
@@ -266,6 +340,8 @@ const NewHome = () => {
                 await getOfferDetails();
                 await getUpcomingFestivals();
                 await getReferralCode();
+                await getCurrentOrder();
+                await getProductPackages();
 
                 try {
                     const storedStatus = await AsyncStorage.getItem('isReferCodeApply');
@@ -280,6 +356,33 @@ const NewHome = () => {
             fetchData();
         }
     }, [isFocused]);
+
+    // highlight pulse
+    useEffect(() => {
+        const loop = Animated.loop(
+            Animated.sequence([
+                Animated.timing(pulse, { toValue: 1, duration: 1100, useNativeDriver: true }),
+                Animated.timing(pulse, { toValue: 0, duration: 1100, useNativeDriver: true }),
+            ])
+        );
+        loop.start();
+        return () => loop.stop();
+    }, [pulse]);
+
+    // ==== Active subscription derived values (place right before return) ====
+    const subStatus = (activeSubscription?.status || '').toLowerCase();
+    const start = moment(activeSubscription?.start_date);
+    const end = moment(activeSubscription?.new_date || activeSubscription?.end_date);
+    const today = moment();
+
+    const totalDays = start.isValid() && end.isValid()
+        ? Math.max(1, end.diff(start, 'days') + 1)
+        : 1;
+    const usedDays = start.isValid()
+        ? Math.min(totalDays, Math.max(0, today.diff(start, 'days') + 1))
+        : 0;
+    const remainingDays = Math.max(0, totalDays - usedDays);
+    const progressPct = Math.round((usedDays / totalDays) * 100);
 
     return (
         <View style={styles.container}>
@@ -321,7 +424,7 @@ const NewHome = () => {
                     </LinearGradient>
 
                     {/* Search Bar */}
-                    <View style={styles.searchContainer}>
+                    {/* <View style={styles.searchContainer}>
                         <View style={styles.searchInputContainer}>
                             <TextInput
                                 style={styles.searchInput}
@@ -332,224 +435,335 @@ const NewHome = () => {
                                 placeholderTextColor="#000"
                             />
                         </View>
-                    </View>
+                    </View> */}
 
                     {/* Quick Actions */}
                     <View style={styles.quickActionsContainer}>
                         <QuickAction
                             label="Custom Order"
-                            icon="plus"
+                            icon="clock"
                             colors={['#8B5CF6', '#A855F7']}
                             onPress={() => navigation.navigate('CustomOrderScreen')}
                         />
-                        <QuickAction label="Subscribe" icon="clock" colors={['#10B981', '#059669']} onPress={() => setActiveTab('subscribe')} />
-                        <QuickAction label="Notification" icon="bell" colors={['#F59E0B', '#D97706']} onPress={() => navigation.navigate('Notificationpage')} />
+                        <QuickAction label="Subscribe" icon="calendar" colors={['#10B981', '#059669']} onPress={() => setActiveTab('subscribe')} />
+                        <QuickAction label="Rewards" icon="gift" colors={['#0b7cf5ff', '#539be8ff']} onPress={() => navigation.navigate('ReferralPage')} />
                         <QuickAction label="My Orders" icon="truck" colors={['#EF4444', '#DC2626']} onPress={() => navigation.navigate('MyOrder')} />
                     </View>
+                    {spinner ?
+                        <ActivityIndicator size="large" color="#f18204ff" />
+                        :
+                        <>
+                            {/* Enter Referral Code */}
+                            {isReferCodeApply === 'no' && (
+                                <LinearGradient colors={['#FFEDD5', '#FDBA74']} style={styles.card}>
+                                    <View style={styles.headerRow}>
+                                        <Icon name="gift" size={18} color="#9A3412" />
+                                        <Text style={styles.title}>Have a Referral Code?</Text>
+                                    </View>
 
-                    {/* Enter Referral Code */}
-                    {isReferCodeApply === 'no' && (
-                        <LinearGradient colors={['#FFEDD5', '#FDBA74']} style={styles.card}>
-                            <View style={styles.headerRow}>
-                                <Icon name="gift" size={18} color="#9A3412" />
-                                <Text style={styles.title}>Have a Referral Code?</Text>
-                            </View>
+                                    <Text style={styles.subtitle}>
+                                        Enter your code to unlock rewards on your first Subscription.
+                                    </Text>
 
-                            <Text style={styles.subtitle}>
-                                Enter your code to unlock rewards on your first Subscription.
-                            </Text>
+                                    <View style={styles.row}>
+                                        <View style={styles.inputRow}>
+                                            <Icon name="ticket-alt" size={16} color="#9CA3AF" style={{ marginRight: 8 }} />
+                                            <TextInput
+                                                style={styles.input}
+                                                placeholder="Enter Code"
+                                                placeholderTextColor="#9CA3AF"
+                                                value={code}
+                                                onChangeText={(txt) => setCode(txt.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                                            />
+                                        </View>
 
-                            <View style={styles.row}>
-                                <View style={styles.inputRow}>
-                                    <Icon name="ticket-alt" size={16} color="#9CA3AF" style={{ marginRight: 8 }} />
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Enter Code"
-                                        placeholderTextColor="#9CA3AF"
-                                        value={code}
-                                        onChangeText={(txt) => setCode(txt.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
-                                    />
-                                </View>
+                                        <TouchableOpacity
+                                            activeOpacity={0.85}
+                                            onPress={() => claimReferralCode()}
+                                            style={styles.applyBtn}
+                                        >
+                                            <LinearGradient colors={['#FF6B35', '#F97316']} style={styles.applyGrad}>
+                                                {referCodeSpinner ?
+                                                    <ActivityIndicator size="small" color="#fff" />
+                                                    :
+                                                    <Text style={styles.applyText}>Apply</Text>
+                                                }
+                                            </LinearGradient>
+                                        </TouchableOpacity>
+                                    </View>
+                                </LinearGradient>
+                            )}
 
-                                <TouchableOpacity
-                                    activeOpacity={0.85}
-                                    onPress={() => claimReferralCode()}
-                                    style={styles.applyBtn}
-                                >
-                                    <LinearGradient colors={['#FF6B35', '#F97316']} style={styles.applyGrad}>
-                                        {referCodeSpinner ?
-                                            <ActivityIndicator size="small" color="#fff" />
-                                            :
-                                            <Text style={styles.applyText}>Apply</Text>
-                                        }
-                                    </LinearGradient>
-                                </TouchableOpacity>
-                            </View>
-                        </LinearGradient>
-                    )}
+                            {/* Active Subscription — Attractive Highlight */}
+                            {activeSubscription && (
+                                <View style={styles.sectionWrap}>
+                                    {/* <Text style={styles.sectionHeader}>Your Subscription</Text> */}
 
-                    {/* Premium Subscription Card */}
-                    <View>
-                        <FlatList
-                            ref={flatListRef}
-                            data={allPackages}
-                            horizontal
-                            pagingEnabled
-                            showsHorizontalScrollIndicator={false}
-                            decelerationRate="fast"
-                            snapToAlignment="center"
-                            keyExtractor={(item) => item.id}
-                            renderItem={({ item }) => (
-                                <View style={[styles.subscriptionCard, { width: width - 40 }]}>
-                                    <LinearGradient colors={['#1E293B', '#334155', '#475569']} style={styles.subscriptionGradient}>
-                                        <View style={styles.subscriptionContent}>
-                                            <View style={styles.subscriptionLeft}>
-                                                <Text style={styles.subscriptionTitle}>{item.name}</Text>
-                                                <Text style={styles.subscriptionSubtitle}>{item.description}</Text>
-                                                <View style={styles.subscriptionPrice}>
-                                                    <Text style={styles.priceText}>{item.price}</Text>
-                                                    <Text style={styles.originalPrice}>{item.mrp}</Text>
-                                                    <Text style={styles.priceInterval}>/ {item.duration} month</Text>
+                                    <View style={styles.subCardNew}>
+                                        {/* Gradient hero band */}
+                                        <LinearGradient
+                                            colors={subStatus === 'active' ? ['#F59E0B', '#F97316'] : ['#CBD5E1', '#94A3B8']}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 1 }}
+                                            style={styles.subHero}
+                                        >
+                                            <View style={styles.subHeroLeft}>
+                                                <View style={styles.subHeroIcon}>
+                                                    <Icon name="leaf" size={14} color="#065F46" />
                                                 </View>
+                                                <View>
+                                                    <Text style={styles.subHeroTitle} numberOfLines={1}>
+                                                        {activeSubscription?.flower_products?.name || 'Subscription'}
+                                                    </Text>
+                                                    <Text style={styles.subHeroMeta}>
+                                                        {`${moment(activeSubscription?.start_date).format('DD MMM YYYY')} → ${moment(
+                                                            activeSubscription?.new_date || activeSubscription?.end_date
+                                                        ).format('DD MMM YYYY')}`}
+                                                    </Text>
+                                                </View>
+                                            </View>
+
+                                            <View
+                                                style={[
+                                                    styles.subStatusChip,
+                                                    subStatus === 'active' ? styles.subChipActive : styles.subChipPaused,
+                                                ]}
+                                            >
+                                                <Text style={styles.subStatusText}>{(activeSubscription?.status || '').toUpperCase()}</Text>
+                                            </View>
+                                        </LinearGradient>
+
+                                        {/* Progress + stats */}
+                                        <View style={styles.subBody}>
+                                            <View style={styles.progressRow}>
+                                                <View style={styles.progressTrack}>
+                                                    <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
+                                                </View>
+                                                <Text style={styles.progressPct}>{progressPct}%</Text>
+                                            </View>
+
+                                            <View style={styles.statsRow}>
+                                                <View style={styles.statBadge}>
+                                                    <Icon name="calendar-day" size={10} color="#0F172A" />
+                                                    <Text style={styles.statText}>Total {totalDays}d</Text>
+                                                </View>
+                                                <View style={styles.statBadge}>
+                                                    <Icon name="check-circle" size={10} color="#0F172A" />
+                                                    <Text style={styles.statText}>Used {usedDays}d</Text>
+                                                </View>
+                                                <View style={[styles.statBadge, styles.statBadgeEm]}>
+                                                    <Icon name="hourglass-half" size={10} color="#065F46" />
+                                                    <Text style={[styles.statText, { color: '#065F46' }]}>Left {remainingDays}d</Text>
+                                                </View>
+                                            </View>
+
+                                            {/* CTAs */}
+                                            <View style={styles.subActionsRow}>
+                                                {/* Primary CTA depends on status */}
                                                 <TouchableOpacity
-                                                    style={styles.subscribeButton}
-                                                    onPress={() => navigation.navigate('SubscriptionCheckoutPage', item)}
+                                                    activeOpacity={0.9}
+                                                    onPress={() => navigation.navigate('SubscriptionOrderDetailsPage', activeSubscription)}
+                                                    disabled={subStatus !== 'active'}
+                                                    style={[
+                                                        styles.primaryBtn,
+                                                        subStatus !== 'active' && { opacity: 0.55 },
+                                                    ]}
                                                 >
-                                                    <Text style={styles.subscribeButtonText}>Subscribe Now</Text>
+                                                    <LinearGradient
+                                                        colors={['#F97316', '#EF4444']}
+                                                        start={{ x: 0, y: 0 }}
+                                                        end={{ x: 1, y: 1 }}
+                                                        style={styles.primaryGrad}
+                                                    >
+                                                        <Icon name="pause" size={12} color="#fff" style={{ marginRight: 8 }} />
+                                                        <Text style={styles.primaryText}>Pause</Text>
+                                                    </LinearGradient>
+                                                </TouchableOpacity>
+
+                                                <TouchableOpacity
+                                                    activeOpacity={0.9}
+                                                    onPress={() => navigation.navigate('SubscriptionOrderDetailsPage', activeSubscription)}
+                                                    disabled={subStatus !== 'paused'}
+                                                    style={[
+                                                        styles.secondaryBtn,
+                                                        subStatus !== 'paused' && { opacity: 0.55 },
+                                                    ]}
+                                                >
+                                                    <Icon name="play" size={12} color={subStatus === 'paused' ? '#065F46' : '#64748B'} style={{ marginRight: 8 }} />
+                                                    <Text style={[styles.secondaryText, subStatus === 'paused' ? { color: '#065F46' } : { color: '#64748B' }]}>
+                                                        Resume
+                                                    </Text>
                                                 </TouchableOpacity>
                                             </View>
-                                            <Image source={{ uri: item.product_image }} style={styles.subscriptionImage} />
                                         </View>
-                                    </LinearGradient>
+                                    </View>
                                 </View>
                             )}
-                            onViewableItemsChanged={onViewableItemsChanged}
-                            viewabilityConfig={viewabilityConfig}
-                            contentContainerStyle={styles.subscriptionScrollContainer}
-                        />
 
-                        {/* Dot Indicators */}
-                        <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 12 }}>
-                            {allPackages.map((_, index) => (
-                                <View
-                                    key={index}
-                                    style={[
-                                        styles.dot,
-                                        index === activeIndex ? styles.activeDot : {},
-                                    ]}
-                                />
-                            ))}
-                        </View>
-                    </View>
-
-                    {/* Refer & Earn */}
-                    <View style={styles.referralWrap}>
-                        <LinearGradient
-                            colors={['#FFEDD5', '#FED7AA', '#FDBA74']}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={styles.referralCard}
-                        >
-                            <View style={styles.refHeaderRow}>
-                                <View style={styles.refBadge}>
-                                    <Icon name="gift" size={12} color="#fff" />
-                                    <Text style={styles.refBadgeText}>Refer & Earn</Text>
-                                </View>
-                                {/* <Icon name="hands-helping" size={18} color="#9A3412" /> */}
-                                <TouchableOpacity style={styles.seeStatus} onPress={() => navigation.navigate('ReferralPage')}>
-                                    <Text style={{ color: '#9A3412', fontWeight: '600' }}>See status</Text>
-                                </TouchableOpacity>
-                            </View>
-
-                            <Text style={styles.refTitle}>Invite friends, earn rewards!</Text>
-                            <Text style={styles.refSubtitle}>
-                                Share your code and they’ll get a welcome benefit on their first puja order.
-                            </Text>
-
-                            <View style={styles.codeRow}>
-                                <Text style={styles.codeLabel}>Your Code</Text>
-                                <View style={styles.codePill}>
-                                    <Text style={styles.codeText}>{referralCode}</Text>
-                                </View>
-                            </View>
-
-                            <View style={styles.refActions}>
-                                <TouchableOpacity style={styles.inviteBtn} activeOpacity={0.9} onPress={handleInvite}>
-                                    <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.inviteGrad}>
-                                        <Icon name="share-alt" size={14} color="#fff" style={{ marginRight: 8 }} />
-                                        <Text style={styles.inviteText}>Invite</Text>
-                                    </LinearGradient>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity style={styles.whatsBtn} activeOpacity={0.9} onPress={handleWhatsAppInvite}>
-                                    <Icon name="whatsapp" size={16} color="#16A34A" style={{ marginRight: 8 }} />
-                                    <Text style={styles.whatsText}>WhatsApp</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </LinearGradient>
-                    </View>
-
-                    {/* Upcoming Festivals Card */}
-                    <View style={styles.festivalsContainer}>
-                        <View style={styles.festivalsHeader}>
-                            <Text style={styles.sectionTitle}>Upcoming Festivals</Text>
-                        </View>
-
-                        {festivalsLoading && (
-                            <ActivityIndicator size="small" color="#c9170a" style={{ marginTop: 8 }} />
-                        )}
-
-                        {!festivalsLoading && festivalsError && (
-                            <Text style={{ color: '#ef4444', marginTop: 8 }}>
-                                {String(festivalsError)}
-                            </Text>
-                        )}
-
-                        {!festivalsLoading && !festivalsError && festivals.length === 0 && (
-                            <Text style={{ color: '#64748b', marginTop: 8 }}>
-                                No upcoming festivals.
-                            </Text>
-                        )}
-
-                        {!festivalsLoading && !festivalsError && festivals.length > 0 && (
-                            <View style={styles.festivalsGrid}>
-                                {festivals.map((festival, index) => (
-                                    <TouchableOpacity
-                                        key={festival.id}
-                                        style={[styles.festivalCard, index === 1 && styles.middleCard]}
-                                    >
-                                        <View style={styles.festivalImageContainer}>
-                                            <LinearGradient
-                                                colors={festival.gradient}
-                                                style={styles.festivalImageGradient}
-                                            >
-                                                <Text style={styles.festivalEmoji}>
-                                                    {/* {index === 0 ? '🌺' : index === 1 ? '🪔' : '🌸'} */}
-                                                    {festival.festival_image ?
-                                                        <Image
-                                                            source={{ uri: festival.festival_image }}
-                                                            style={{ width: 65, height: 65 }}
-                                                            resizeMode="contain"
-                                                        />
-                                                        :
-                                                        '🪔'
-                                                    }
-                                                </Text>
-                                            </LinearGradient>
-
-                                            <View style={styles.countdownBadge}>
-                                                <Text style={styles.countdownNumber}>{festival.daysLeft}</Text>
-                                                <Text style={styles.countdownLabel}>days</Text>
+                            {/* Premium Subscription Card */}
+                            {!activeSubscription &&
+                                <View>
+                                    <FlatList
+                                        ref={flatListRef}
+                                        data={allPackages}
+                                        horizontal
+                                        pagingEnabled
+                                        showsHorizontalScrollIndicator={false}
+                                        decelerationRate="fast"
+                                        snapToAlignment="center"
+                                        keyExtractor={(item) => item.id}
+                                        renderItem={({ item }) => (
+                                            <View style={[styles.subscriptionCard, { width: width - 40 }]}>
+                                                <LinearGradient colors={['#1E293B', '#334155', '#475569']} style={styles.subscriptionGradient}>
+                                                    <View style={styles.subscriptionContent}>
+                                                        <View style={styles.subscriptionLeft}>
+                                                            <Text style={styles.subscriptionTitle}>{item.name}</Text>
+                                                            <Text style={styles.subscriptionSubtitle}>{item.description}</Text>
+                                                            <View style={styles.subscriptionPrice}>
+                                                                <Text style={styles.priceText}>{item.price}</Text>
+                                                                <Text style={styles.originalPrice}>{item.mrp}</Text>
+                                                                <Text style={styles.priceInterval}>/ {item.duration} month</Text>
+                                                            </View>
+                                                            <TouchableOpacity
+                                                                style={styles.subscribeButton}
+                                                                onPress={() => navigation.navigate('SubscriptionCheckoutPage', item)}
+                                                            >
+                                                                <Text style={styles.subscribeButtonText}>Subscribe Now</Text>
+                                                            </TouchableOpacity>
+                                                        </View>
+                                                        <Image source={{ uri: item.product_image }} style={styles.subscriptionImage} />
+                                                    </View>
+                                                </LinearGradient>
                                             </View>
-                                        </View>
+                                        )}
+                                        onViewableItemsChanged={onViewableItemsChanged}
+                                        viewabilityConfig={viewabilityConfig}
+                                        contentContainerStyle={styles.subscriptionScrollContainer}
+                                    />
 
-                                        <View style={styles.festivalInfo}>
-                                            <Text style={styles.festivalName}>{festival.name}</Text>
-                                            <Text style={styles.festivalDate}>{festival.date}</Text>
-                                            <Text style={styles.festivalDescription} numberOfLines={2}>
-                                                {festival.description}
-                                            </Text>
-                                            {/* <TouchableOpacity style={styles.orderButton}>
+                                    {/* Dot Indicators */}
+                                    <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 12 }}>
+                                        {allPackages.map((_, index) => (
+                                            <View
+                                                key={index}
+                                                style={[
+                                                    styles.dot,
+                                                    index === activeIndex ? styles.activeDot : {},
+                                                ]}
+                                            />
+                                        ))}
+                                    </View>
+                                </View>
+                            }
+
+                            {/* Refer & Earn */}
+                            <View style={styles.referralWrap}>
+                                <LinearGradient
+                                    colors={['#FFEDD5', '#FED7AA', '#FDBA74']}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={styles.referralCard}
+                                >
+                                    <View style={styles.refHeaderRow}>
+                                        <View style={styles.refBadge}>
+                                            <Icon name="gift" size={12} color="#fff" />
+                                            <Text style={styles.refBadgeText}>Refer & Earn</Text>
+                                        </View>
+                                        {/* <Icon name="hands-helping" size={18} color="#9A3412" /> */}
+                                        <TouchableOpacity style={styles.seeStatus} onPress={() => navigation.navigate('ReferralPage')}>
+                                            <Text style={{ color: '#9A3412', fontWeight: '600' }}>See status</Text>
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    <Text style={styles.refTitle}>Invite friends, earn rewards!</Text>
+                                    <Text style={styles.refSubtitle}>
+                                        Share your code and they’ll get a welcome benefit on their first puja order.
+                                    </Text>
+
+                                    <View style={styles.codeRow}>
+                                        <Text style={styles.codeLabel}>Your Code</Text>
+                                        <View style={styles.codePill}>
+                                            <Text style={styles.codeText}>{referralCode}</Text>
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.refActions}>
+                                        <TouchableOpacity style={styles.inviteBtn} activeOpacity={0.9} onPress={handleInvite}>
+                                            <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.inviteGrad}>
+                                                <Icon name="share-alt" size={14} color="#fff" style={{ marginRight: 8 }} />
+                                                <Text style={styles.inviteText}>Invite</Text>
+                                            </LinearGradient>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity style={styles.whatsBtn} activeOpacity={0.9} onPress={handleWhatsAppInvite}>
+                                            <Icon name="whatsapp" size={16} color="#16A34A" style={{ marginRight: 8 }} />
+                                            <Text style={styles.whatsText}>WhatsApp</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </LinearGradient>
+                            </View>
+
+                            {/* Upcoming Festivals Card */}
+                            <View style={styles.festivalsContainer}>
+                                <View style={styles.festivalsHeader}>
+                                    <Text style={styles.sectionTitle}>Upcoming Festivals</Text>
+                                </View>
+
+                                {festivalsLoading && (
+                                    <ActivityIndicator size="small" color="#c9170a" style={{ marginTop: 8 }} />
+                                )}
+
+                                {!festivalsLoading && festivalsError && (
+                                    <Text style={{ color: '#ef4444', marginTop: 8 }}>
+                                        {String(festivalsError)}
+                                    </Text>
+                                )}
+
+                                {!festivalsLoading && !festivalsError && festivals.length === 0 && (
+                                    <Text style={{ color: '#64748b', marginTop: 8 }}>
+                                        No upcoming festivals.
+                                    </Text>
+                                )}
+
+                                {!festivalsLoading && !festivalsError && festivals.length > 0 && (
+                                    <View style={styles.festivalsGrid}>
+                                        {festivals.map((festival, index) => (
+                                            <TouchableOpacity
+                                                key={festival.id}
+                                                style={[styles.festivalCard, index === 1 && styles.middleCard]}
+                                            >
+                                                <View style={styles.festivalImageContainer}>
+                                                    <LinearGradient
+                                                        colors={festival.gradient}
+                                                        style={styles.festivalImageGradient}
+                                                    >
+                                                        <Text style={styles.festivalEmoji}>
+                                                            {/* {index === 0 ? '🌺' : index === 1 ? '🪔' : '🌸'} */}
+                                                            {festival.festival_image ?
+                                                                <Image
+                                                                    source={{ uri: festival.festival_image }}
+                                                                    style={{ width: 65, height: 65 }}
+                                                                    resizeMode="contain"
+                                                                />
+                                                                :
+                                                                '🪔'
+                                                            }
+                                                        </Text>
+                                                    </LinearGradient>
+
+                                                    <View style={styles.countdownBadge}>
+                                                        <Text style={styles.countdownNumber}>{festival.daysLeft}</Text>
+                                                        <Text style={styles.countdownLabel}>days</Text>
+                                                    </View>
+                                                </View>
+
+                                                <View style={styles.festivalInfo}>
+                                                    <Text style={styles.festivalName}>{festival.name}</Text>
+                                                    <Text style={styles.festivalDate}>{festival.date}</Text>
+                                                    <Text style={styles.festivalDescription} numberOfLines={2}>
+                                                        {festival.description}
+                                                    </Text>
+                                                    {/* <TouchableOpacity style={styles.orderButton}>
                                                 <LinearGradient
                                                     colors={['#FF6B35', '#F7931E']}
                                                     style={styles.orderButtonGradient}
@@ -557,82 +771,199 @@ const NewHome = () => {
                                                     <Text style={styles.orderButtonText}>Order Now</Text>
                                                 </LinearGradient>
                                             </TouchableOpacity> */}
-                                        </View>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        )}
-                    </View>
-
-                    {/* Special Offers */}
-                    <View style={styles.offersContainer}>
-                        <View style={styles.festivalsHeader}>
-                            <Text style={styles.sectionTitle}>Limited Time Offers</Text>
-                        </View>
-                        <View style={styles.specialOfferCard}>
-                            <LinearGradient
-                                colors={['#667EEA', '#764BA2', '#F093FB']}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.specialOfferGradient}
-                            >
-                                <View style={styles.offerPattern}>
-                                    <Text style={styles.patternEmoji}>✨</Text>
-                                    <Text style={styles.patternEmoji}>🎊</Text>
-                                    <Text style={styles.patternEmoji}>🌟</Text>
-                                </View>
-
-                                <View style={styles.offerMainContent}>
-                                    <View style={styles.offerBadge}>
-                                        <Text style={styles.offerBadgeText}>{offerDetails?.sub_header}</Text>
-                                    </View>
-
-                                    <Text style={styles.offerMainTitle}>🎉 {offerDetails?.main_header}</Text>
-                                    <Text style={styles.offerDescription}>
-                                        {offerDetails?.content}
-                                    </Text>
-
-                                    <View style={styles.offerHighlight}>
-                                        <View style={styles.discountCircle}>
-                                            <Text style={styles.discountPercentage}>{offerDetails?.discount}</Text>
-                                            {/* <Text style={styles.discountText}>OFF</Text> */}
-                                            {/* <Text style={styles.discountPercentage}>Buy 1 Get 1 Free</Text> */}
-                                        </View>
-
-                                        <View style={styles.offerInfo}>
-                                            {offerDetails?.menu?.split(',').map((item, index) => (
-                                                <View key={index} style={styles.offerRow}>
-                                                    <View style={styles.bulletDot} />
-                                                    <Text style={styles.offerInfoText}>{item.trim()}</Text>
                                                 </View>
-                                            ))}
-                                            <View style={styles.offerRow}>
-                                                <View style={styles.bulletDot} />
-                                                <Text style={styles.offerInfoText}>
-                                                    Valid till {new Date(offerDetails?.end_date).toLocaleDateString('en-IN', {
-                                                        day: 'numeric',
-                                                        month: 'short',
-                                                        year: 'numeric',
-                                                    })}
-                                                </Text>
-                                            </View>
-                                        </View>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                )}
+                            </View>
+
+                            {/* Product Packages (like flower subscription) */}
+                            {productPackages.length > 0 && (
+                                <View style={{ marginTop: 10, marginBottom: approvedRequest ? 80 : 10 }}>
+                                    <View style={styles.festivalsHeader}>
+                                        <Text style={styles.sectionTitle}>Puja Packages</Text>
                                     </View>
 
-                                    <TouchableOpacity style={styles.grabOfferButton}>
-                                        <LinearGradient
-                                            colors={['#FF6B35', '#F7931E']}
-                                            style={styles.grabOfferGradient}
-                                        >
-                                            <Text style={styles.grabOfferText}>🎯 Offer Active soon</Text>
-                                        </LinearGradient>
-                                    </TouchableOpacity>
+                                    <FlatList
+                                        ref={pkgFlatRef}
+                                        data={productPackages}
+                                        horizontal
+                                        pagingEnabled
+                                        showsHorizontalScrollIndicator={false}
+                                        decelerationRate="fast"
+                                        snapToAlignment="center"
+                                        keyExtractor={(item) => String(item.product_id)}
+                                        renderItem={({ item }) => (
+                                            <View style={[styles.subscriptionCard, { width: width - 40 }]}>
+                                                {/* different gradient to distinguish from subscription */}
+                                                <LinearGradient colors={['#F59E0B', '#F97316']} style={styles.subscriptionGradient}>
+                                                    <View style={styles.subscriptionContent}>
+                                                        <View style={styles.subscriptionLeft}>
+                                                            <Text style={styles.subscriptionTitle} numberOfLines={2}>{item.name}</Text>
+                                                            <Text style={styles.subscriptionSubtitle} numberOfLines={2}>{item.description}</Text>
+
+                                                            <View style={styles.subscriptionPrice}>
+                                                                <Text style={styles.priceText}>₹ {item.price}</Text>
+                                                                {!!item.mrp && <Text style={styles.originalPrice}>₹ {item.mrp}</Text>}
+                                                                {!!item.duration && (
+                                                                    <Text style={styles.priceInterval}>/ {item.duration} {item.duration > 1 ? 'months' : 'month'}</Text>
+                                                                )}
+                                                            </View>
+
+                                                            <TouchableOpacity
+                                                                style={styles.subscribeButton}
+                                                                onPress={() => navigation.navigate('ProductCheckoutPage', item)}
+                                                            >
+                                                                <Text style={styles.subscribeButtonText}>Buy Package</Text>
+                                                            </TouchableOpacity>
+                                                        </View>
+
+                                                        {!!item.product_image && (
+                                                            <Image source={{ uri: item.product_image }} style={styles.subscriptionImage} />
+                                                        )}
+                                                    </View>
+                                                </LinearGradient>
+                                            </View>
+                                        )}
+                                        onViewableItemsChanged={onPkgViewableItemsChanged}
+                                        viewabilityConfig={pkgViewabilityConfig}
+                                        contentContainerStyle={styles.subscriptionScrollContainer}
+                                    />
+
+                                    {/* Dot Indicators for packages */}
+                                    <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 12 }}>
+                                        {productPackages.map((pkg, index) => (
+                                            <View
+                                                key={pkg.product_id}
+                                                style={[styles.dot, index === activePkgIndex ? styles.activeDot : null]}
+                                            />
+                                        ))}
+                                    </View>
                                 </View>
-                            </LinearGradient>
-                        </View>
-                    </View>
+                            )}
+
+                            {/* Special Offers */}
+                            {/* <View style={styles.offersContainer}>
+                                <View style={styles.festivalsHeader}>
+                                    <Text style={styles.sectionTitle}>Limited Time Offers</Text>
+                                </View>
+                                <View style={styles.specialOfferCard}>
+                                    <LinearGradient
+                                        colors={['#667EEA', '#764BA2', '#F093FB']}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                        style={styles.specialOfferGradient}
+                                    >
+                                        <View style={styles.offerPattern}>
+                                            <Text style={styles.patternEmoji}>✨</Text>
+                                            <Text style={styles.patternEmoji}>🎊</Text>
+                                            <Text style={styles.patternEmoji}>🌟</Text>
+                                        </View>
+
+                                        <View style={styles.offerMainContent}>
+                                            <View style={styles.offerBadge}>
+                                                <Text style={styles.offerBadgeText}>{offerDetails?.sub_header}</Text>
+                                            </View>
+
+                                            <Text style={styles.offerMainTitle}>🎉 {offerDetails?.main_header}</Text>
+                                            <Text style={styles.offerDescription}>
+                                                {offerDetails?.content}
+                                            </Text>
+
+                                            <View style={styles.offerHighlight}>
+                                                <View style={styles.discountCircle}>
+                                                    <Text style={styles.discountPercentage}>{offerDetails?.discount}</Text>
+                                                </View>
+
+                                                <View style={styles.offerInfo}>
+                                                    {offerDetails?.menu?.split(',').map((item, index) => (
+                                                        <View key={index} style={styles.offerRow}>
+                                                            <View style={styles.bulletDot} />
+                                                            <Text style={styles.offerInfoText}>{item.trim()}</Text>
+                                                        </View>
+                                                    ))}
+                                                    <View style={styles.offerRow}>
+                                                        <View style={styles.bulletDot} />
+                                                        <Text style={styles.offerInfoText}>
+                                                            Valid till {new Date(offerDetails?.end_date).toLocaleDateString('en-IN', {
+                                                                day: 'numeric',
+                                                                month: 'short',
+                                                                year: 'numeric',
+                                                            })}
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                            </View>
+
+                                            <TouchableOpacity style={styles.grabOfferButton}>
+                                                <LinearGradient
+                                                    colors={['#FF6B35', '#F7931E']}
+                                                    style={styles.grabOfferGradient}
+                                                >
+                                                    <Text style={styles.grabOfferText}>🎯 Offer Active soon</Text>
+                                                </LinearGradient>
+                                            </TouchableOpacity>
+                                        </View>
+                                    </LinearGradient>
+                                </View>
+                            </View> */}
+                        </>
+                    }
                 </ScrollView>
             </TouchableWithoutFeedback>
+            {/* Pending payment fixed bottom bar */}
+            {approvedRequest && (
+                <Animated.View
+                    pointerEvents="box-none"
+                    style={[
+                        styles.pendingBarWrap,
+                        {
+                            paddingBottom: 5,
+                            transform: [
+                                {
+                                    scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.02] }),
+                                },
+                            ],
+                            opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 0.96] }),
+                        },
+                    ]}
+                >
+                    <LinearGradient
+                        colors={['#F59E0B', '#F97316']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.pendingBar}
+                    >
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.pendingTitle}>
+                                Pending Payment
+                            </Text>
+                            <Text style={styles.pendingMeta} numberOfLines={1}>
+                                {(approvedRequest?.flower_product?.name ||
+                                    approvedRequest?.flower_products?.name ||
+                                    'Custom Order')}{' '}
+                                • {approvedRequest?.date ? moment(approvedRequest.date).format('DD MMM YYYY') : ''}{' '}
+                                {approvedRequest?.time ? `• ${approvedRequest.time}` : ''}
+                            </Text>
+                        </View>
+
+                        {!!(approvedRequest?.order?.total_price || approvedRequest?.order?.requested_flower_price) && (
+                            <Text style={styles.pendingPrice}>
+                                ₹ {approvedRequest?.order?.total_price ?? approvedRequest?.order?.requested_flower_price}
+                            </Text>
+                        )}
+
+                        <TouchableOpacity
+                            style={styles.payBtn}
+                            onPress={() => navigation.navigate('CustomOrderDetailsPage', approvedRequest)}
+                            activeOpacity={0.9}
+                        >
+                            <Text style={styles.payBtnText}>Pay</Text>
+                        </TouchableOpacity>
+                    </LinearGradient>
+                </Animated.View>
+            )}
         </View>
     );
 };
@@ -659,8 +990,9 @@ const styles = StyleSheet.create({
     },
     header: {
         padding: 20,
-        borderBottomLeftRadius: 24,
-        borderBottomRightRadius: 24,
+        paddingBottom: 0,
+        borderBottomLeftRadius: 35,
+        borderBottomRightRadius: 35,
     },
     logo: {
         width: 120,
@@ -736,7 +1068,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-around',
         marginBottom: 30,
         paddingHorizontal: 10,
-        // marginTop: 20,
+        marginTop: 20,
     },
     quickAction: {
         alignItems: 'center',
@@ -831,7 +1163,15 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         paddingHorizontal: 24,
         alignSelf: 'flex-start',
-        backgroundColor: '#FF6B35',
+        backgroundColor: '#3477e2ff',
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 4,
     },
     subscribeButtonText: {
         fontSize: 16,
@@ -843,6 +1183,7 @@ const styles = StyleSheet.create({
         height: 80,
         borderRadius: 20,
         resizeMode: 'cover',
+        marginBottom: 55,
     },
     festivalsContainer: {
         marginVertical: 20,
@@ -1307,5 +1648,250 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontWeight: '800',
         fontSize: 14,
+    },
+    // ==== New attractive subscription styles ====
+    subCardNew: {
+        width: '90%',
+        alignSelf: 'center',
+        marginBottom: 20,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 18,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        elevation: 6,
+    },
+
+    subHero: {
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+
+    subHeroLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+        marginRight: 10,
+    },
+
+    subHeroIcon: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        backgroundColor: '#ECFDF5',
+        borderWidth: 1,
+        borderColor: 'rgba(5,150,105,0.25)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 10,
+    },
+
+    subHeroTitle: {
+        color: '#FFFFFF',
+        fontWeight: '800',
+        fontSize: 16,
+        marginBottom: 2,
+    },
+
+    subHeroMeta: {
+        color: 'rgba(255,255,255,0.9)',
+        fontSize: 12,
+        fontWeight: '700',
+    },
+
+    subStatusChip: {
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 999,
+        borderWidth: 1,
+    },
+
+    subChipActive: {
+        backgroundColor: 'rgba(236,253,245,0.9)',
+        borderColor: 'rgba(16,185,129,0.35)',
+    },
+
+    subChipPaused: {
+        backgroundColor: '#F1F5F9',
+        borderColor: 'rgba(100,116,139,0.35)',
+    },
+
+    subStatusText: {
+        fontSize: 11,
+        fontWeight: '900',
+        color: '#065F46',
+    },
+
+    subBody: {
+        padding: 14,
+    },
+
+    progressRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+
+    progressTrack: {
+        flex: 1,
+        height: 10,
+        backgroundColor: '#E2E8F0',
+        borderRadius: 999,
+        overflow: 'hidden',
+    },
+
+    progressFill: {
+        height: '100%',
+        backgroundColor: '#10B981',
+        borderRadius: 999,
+    },
+
+    progressPct: {
+        width: 44,
+        textAlign: 'right',
+        marginLeft: 8,
+        color: '#0F172A',
+        fontWeight: '800',
+        fontSize: 12,
+    },
+
+    statsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginTop: 10,
+    },
+
+    statBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: '#F8FAFC',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 999,
+    },
+
+    statBadgeEm: {
+        backgroundColor: '#ECFDF5',
+        borderColor: 'rgba(16,185,129,0.35)',
+    },
+
+    statText: {
+        fontSize: 12,
+        fontWeight: '800',
+        color: '#0F172A',
+    },
+
+    subActionsRow: {
+        marginTop: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+
+    primaryBtn: {
+        flex: 1,
+        height: 44,
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+
+    primaryGrad: {
+        flex: 1,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'row',
+    },
+
+    primaryText: {
+        color: '#FFFFFF',
+        fontWeight: '900',
+        fontSize: 13,
+        letterSpacing: 0.3,
+    },
+
+    secondaryBtn: {
+        height: 44,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        backgroundColor: '#FFFFFF',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+
+    secondaryText: {
+        fontWeight: '900',
+        fontSize: 13,
+        letterSpacing: 0.3,
+    },
+    // --- Pending payment fixed bar ---
+    pendingBarWrap: {
+        position: 'absolute',
+        left: 16,
+        right: 16,
+        bottom: 0,
+        zIndex: 100,
+    },
+    pendingBar: {
+        minHeight: 64,
+        borderRadius: 16,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        // “highlight” feel:
+        shadowColor: '#F97316',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.35,
+        shadowRadius: 16,
+        elevation: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.08)',
+    },
+    pendingTitle: {
+        color: '#ffffffff',
+        fontWeight: '600',
+        fontSize: 14,
+    },
+    pendingMeta: {
+        marginTop: 2,
+        color: '#ffffffff',
+        fontWeight: '600',
+        opacity: 0.9,
+        fontSize: 12,
+    },
+    pendingPrice: {
+        marginHorizontal: 10,
+        color: '#0A4D1A',
+        backgroundColor: 'rgba(255,255,255,0.9)',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+        fontWeight: '900',
+    },
+    payBtn: {
+        backgroundColor: '#0F172A',
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 12,
+    },
+    payBtnText: {
+        color: '#fff',
+        fontWeight: '800',
+        fontSize: 13,
+        letterSpacing: 0.3,
     },
 });

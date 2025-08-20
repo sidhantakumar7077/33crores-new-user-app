@@ -99,6 +99,7 @@ const Index = (props) => {
 
       const data = await response.json();
       if (response.status === 200) {
+        console.log("Resume dates submitted successfully:", data);
         closeResumeModal();
         navigation.goBack();
       } else {

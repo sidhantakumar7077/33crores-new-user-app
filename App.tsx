@@ -49,6 +49,7 @@ import TermsAndConditions from './src/Screen/TermsAndConditions/Index'
 import PrivacyPolicy from './src/Screen/PrivacyPolicy/Index'
 // import ReferCodeScreen from './src/Screen/ReferCodeScreen/Index'
 import ReferralPage from './src/Screen/ReferralPage/Index'
+import ProductCheckoutPage from './src/Screen/ProductCheckoutPage/Index'
 
 const Stack = createStackNavigator();
 
@@ -213,7 +214,7 @@ const App = () => {
               <Stack.Screen name='OTP' component={OTP} />
               <Stack.Screen name='SubscriptionCheckoutPage' component={SubscriptionCheckoutPage} />
               <Stack.Screen name='CustomOrderScreen' component={CustomOrderScreen} />
-              <Stack.Screen name='NewHome' component={NewHome} />
+              {/* <Stack.Screen name='NewHome' component={NewHome} /> */}
               <Stack.Screen name='Category' component={Category} />
               <Stack.Screen name='Subscribe' component={Subscribe} />
               <Stack.Screen name='NewProfile' component={NewProfile} />
@@ -230,6 +231,7 @@ const App = () => {
               <Stack.Screen name='PrivacyPolicy' component={PrivacyPolicy} />
               {/* <Stack.Screen name='ReferCodeScreen' component={ReferCodeScreen} /> */}
               <Stack.Screen name='ReferralPage' component={ReferralPage} />
+              <Stack.Screen name='ProductCheckoutPage' component={ProductCheckoutPage} />
             </>
           )}
         </Stack.Navigator>

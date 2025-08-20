@@ -75,8 +75,8 @@ const BTN_Layout = () => {
                     onPress={() => setActiveTab('home')}
                 />
                 <TabButton
-                    label="Categories"
-                    icon="th"
+                    label="Flowers"
+                    icon="seedling"
                     isActive={activeTab === 'category'}
                     onPress={() => setActiveTab('category')}
                 />
@@ -87,10 +87,10 @@ const BTN_Layout = () => {
                     onPress={() => setActiveTab('subscribe')}
                 />
                 <TabButton
-                    label="Profile"
-                    icon="user"
-                    isActive={activeTab === 'profile'}
-                    onPress={() => setActiveTab('profile')}
+                    label="Notification"
+                    icon="bell"
+                    isActive={activeTab === 'Notificationpage'}
+                    onPress={() => setActiveTab('Notificationpage')}
                 />
             </View>
         </SafeAreaView>
@@ -99,8 +99,8 @@ const BTN_Layout = () => {
 
 const TabButton = ({ label, icon, isActive, onPress }) => (
     <TouchableOpacity style={styles.tabButton} onPress={onPress}>
-        <Icon name={icon} size={20} color={isActive ? '#7C3AED' : '#8E8E8E'} />
-        <Text style={[styles.tabLabel, { color: isActive ? '#7C3AED' : '#8E8E8E' }]}>{label}</Text>
+        <Icon name={icon} size={20} color={isActive ? '#f18204ff' : '#8E8E8E'} />
+        <Text style={[styles.tabLabel, { color: isActive ? '#f18204ff' : '#8E8E8E' }]}>{label}</Text>
     </TouchableOpacity>
 );
 

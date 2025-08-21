@@ -51,6 +51,21 @@ const Index = () => {
                 </Text>
               </View>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.planCard}
+              onPress={() => navigation.navigate('ProductHistory')}
+            >
+              <View style={[styles.iconContainer, { backgroundColor: '#10B981' }]}>
+                <Icon name="pray" size={30} color="#FFF" />
+              </View>
+              <View style={styles.planTextContent}>
+                <Text style={styles.planTitle}>Puja Product Order</Text>
+                <Text style={styles.planDescription}>
+                  Browse purchased puja packs and items, and track their delivery status.
+                </Text>
+              </View>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </View>
@@ -73,7 +88,7 @@ const styles = StyleSheet.create({
     padding: 20,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-    paddingTop: 50,
+    paddingTop: 35,
   },
   headerRow: {
     flexDirection: 'row',

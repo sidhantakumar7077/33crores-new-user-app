@@ -18,7 +18,7 @@ const BENEFITS = [
     {
         icon: 'calendar-alt',
         title: 'Daily Devotion',
-        description: 'Fresh flowers delivered every morning before sunrise',
+        description: 'Fresh flowers delivered every morning.',
         gradient: ['#FF6B35', '#F7931E'],
     },
     {
@@ -30,14 +30,14 @@ const BENEFITS = [
     {
         icon: 'gift',
         title: 'Festival Specials',
-        description: 'Special arrangements for Durga Puja, Kali Puja, Jagannath Rath Yatra',
+        description: 'Special arrangements for Ganesh Chaturthi, Durga Puja, and other festivals',
         gradient: ['#8B5CF6', '#A855F7'],
     },
     {
-        icon: 'star',
-        title: 'Temple Fresh',
-        description: 'Hand-picked flowers from local temple gardens',
-        gradient: ['#F59E0B', '#D97706'],
+        icon: 'headset',
+        title: 'Dedicated Support',
+        description: 'Phone & whatsapp assistance for special requests, customizations, and order help.',
+        gradient: ['#0EA5E9', '#0284C7'],
     },
 ];
 

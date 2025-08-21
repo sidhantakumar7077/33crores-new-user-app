@@ -17,6 +17,7 @@ import NewHome from './BTN_Tab/NewHome';
 import Category from './BTN_Tab/Category';
 import Subscribe from './BTN_Tab/Subscribe';
 import NewProfile from './BTN_Tab/NewProfile';
+import Notificationpage from '../Screen/Notificationpage/Index';
 
 const BTN_Layout = () => {
 
@@ -56,8 +57,8 @@ const BTN_Layout = () => {
                 return <Category />;
             case 'subscribe':
                 return <Subscribe />;
-            case 'profile':
-                return <NewProfile />;
+            case 'Notificationpage':
+                return <Notificationpage />;
             default:
                 return <NewHome />;
         }

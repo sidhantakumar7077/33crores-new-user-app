@@ -50,6 +50,8 @@ import PrivacyPolicy from './src/Screen/PrivacyPolicy/Index'
 // import ReferCodeScreen from './src/Screen/ReferCodeScreen/Index'
 import ReferralPage from './src/Screen/ReferralPage/Index'
 import ProductCheckoutPage from './src/Screen/ProductCheckoutPage/Index'
+import ProductHistory from './src/Screen/ProductHistory/Index'
+import ProductDetailsPage from './src/Screen/ProductDetailsPage/Index'
 
 const Stack = createStackNavigator();
 
@@ -232,6 +234,8 @@ const App = () => {
               {/* <Stack.Screen name='ReferCodeScreen' component={ReferCodeScreen} /> */}
               <Stack.Screen name='ReferralPage' component={ReferralPage} />
               <Stack.Screen name='ProductCheckoutPage' component={ProductCheckoutPage} />
+              <Stack.Screen name='ProductHistory' component={ProductHistory} />
+              <Stack.Screen name='ProductDetailsPage' component={ProductDetailsPage} />
             </>
           )}
         </Stack.Navigator>

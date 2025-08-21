@@ -384,7 +384,7 @@ export default function PackageCheckout(props) {
                     address_id: selectedOption,
                     payment_id: rz?.razorpay_payment_id || '',
                     start_date: moment(dob).format('YYYY-MM-DD'),
-                    duration: pkg?.duration,
+                    duration: pkg?.duration ? pkg?.duration : 1,
                     paid_amount: pkg?.price,
                     suggestion: suggestions,
                 }),
@@ -409,6 +409,7 @@ export default function PackageCheckout(props) {
         getProfile();
         getAllLocality();
         getAllAddress();
+        // console.log("Product Checkout", props?.route?.params);
     }, []);
 
     return (
@@ -427,7 +428,7 @@ export default function PackageCheckout(props) {
 
             <ScrollView
                 style={{ flex: 1 }}
-                contentContainerStyle={{ paddingBottom: 120 }}
+                contentContainerStyle={{ paddingBottom: 70 }}
                 showsVerticalScrollIndicator={false}
                 refreshControl={<RefreshControl refreshing={spinner} onRefresh={getAllAddress} />}
             >
@@ -624,12 +625,7 @@ export default function PackageCheckout(props) {
 
                     <View style={styles.summaryRow}>
                         <Text style={styles.sumLabel}>Package Price</Text>
-                        <Text style={styles.sumValue}>{currency(pkg?.price)}</Text>
-                    </View>
-
-                    <View style={styles.summaryRow}>
-                        <Text style={styles.sumLabel}>Delivery</Text>
-                        <Text style={[styles.sumValue, { color: '#16A34A', fontWeight: '800' }]}>Free</Text>
+                        <Text style={styles.sumValue}>{currency(pkg?.mrp)}</Text>
                     </View>
 
                     {hasDiscount && (
@@ -638,6 +634,11 @@ export default function PackageCheckout(props) {
                             <Text style={[styles.sumValue, { color: '#16A34A' }]}>{currency(youSave)}</Text>
                         </View>
                     )}
+
+                    <View style={styles.summaryRow}>
+                        <Text style={styles.sumLabel}>Delivery</Text>
+                        <Text style={[styles.sumValue, { color: '#16A34A', fontWeight: '800' }]}>Free</Text>
+                    </View>
 
                     <View style={styles.divider} />
 
@@ -792,50 +793,54 @@ export default function PackageCheckout(props) {
                         {errors.locality && <Text style={styles.errorText}>{errors.locality}</Text>}
 
                         {/* Apartment */}
-                        <Text style={[styles.inputLabel, { marginTop: 10 }]}>Apartment</Text>
-                        {apartmentList.length > 0 ? (
-                            <View style={styles.ddCard}>
-                                <DropDownPicker
-                                    style={{ borderColor: 'transparent' }}
-                                    placeholder="Select apartment"
-                                    open={apartmentOpen}
-                                    value={apartmentValue}
-                                    items={[...apartmentList, { label: 'Add Your Apartment', value: 'add_new' }]}
-                                    setOpen={setApartmentOpen}
-                                    setValue={(cb) => {
-                                        const v = typeof cb === 'function' ? cb(apartmentValue) : cb;
-                                        setApartmentValue(v);
-                                    }}
-                                    setItems={setApartmentList}
-                                    itemSeparator
-                                    listMode="MODAL"
-                                    searchable
-                                    searchPlaceholder="Apartment..."
-                                />
-                            </View>
-                        ) : (
-                            <View style={styles.inputCard}>
-                                <TextInput
-                                    style={styles.inputField}
-                                    onChangeText={setNewApartment}
-                                    value={newApartment}
-                                    placeholder="Enter your apartment name"
-                                    placeholderTextColor="#94A3B8"
-                                />
-                            </View>
-                        )}
-                        {apartmentValue === 'add_new' && (
-                            <View style={[styles.inputCard, { marginTop: 10 }]}>
-                                <TextInput
-                                    style={styles.inputField}
-                                    onChangeText={setNewApartment}
-                                    value={newApartment}
-                                    placeholder="Enter your apartment name"
-                                    placeholderTextColor="#94A3B8"
-                                />
-                            </View>
-                        )}
-                        {errors.apartment && <Text style={styles.errorText}>{errors.apartment}</Text>}
+                        {seletedAddress === 'apartment' &&
+                            <>
+                                <Text style={[styles.inputLabel, { marginTop: 10 }]}>Apartment</Text>
+                                {apartmentList.length > 0 ? (
+                                    <View style={styles.ddCard}>
+                                        <DropDownPicker
+                                            style={{ borderColor: 'transparent' }}
+                                            placeholder="Select apartment"
+                                            open={apartmentOpen}
+                                            value={apartmentValue}
+                                            items={[...apartmentList, { label: 'Add Your Apartment', value: 'add_new' }]}
+                                            setOpen={setApartmentOpen}
+                                            setValue={(cb) => {
+                                                const v = typeof cb === 'function' ? cb(apartmentValue) : cb;
+                                                setApartmentValue(v);
+                                            }}
+                                            setItems={setApartmentList}
+                                            itemSeparator
+                                            listMode="MODAL"
+                                            searchable
+                                            searchPlaceholder="Apartment..."
+                                        />
+                                    </View>
+                                ) : (
+                                    <View style={styles.inputCard}>
+                                        <TextInput
+                                            style={styles.inputField}
+                                            onChangeText={setNewApartment}
+                                            value={newApartment}
+                                            placeholder="Enter your apartment name"
+                                            placeholderTextColor="#94A3B8"
+                                        />
+                                    </View>
+                                )}
+                                {apartmentValue === 'add_new' && (
+                                    <View style={[styles.inputCard, { marginTop: 10 }]}>
+                                        <TextInput
+                                            style={styles.inputField}
+                                            onChangeText={setNewApartment}
+                                            value={newApartment}
+                                            placeholder="Enter your apartment name"
+                                            placeholderTextColor="#94A3B8"
+                                        />
+                                    </View>
+                                )}
+                                {errors.apartment && <Text style={styles.errorText}>{errors.apartment}</Text>}
+                            </>
+                        }
 
                         {/* Plot/Flat */}
                         <Text style={[styles.inputLabel, { marginTop: 10 }]}>Plot / Flat Number</Text>
@@ -944,8 +949,10 @@ export default function PackageCheckout(props) {
                         )}
                     </ScrollView>
 
-                    <TouchableOpacity onPress={saveAddress} style={styles.saveAddress}>
-                        <Text style={{ color: '#0f172a', fontSize: 16, fontWeight: '800' }}>Save Address</Text>
+                    <TouchableOpacity onPress={saveAddress}>
+                        <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.saveAddress}>
+                            <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>Save Address</Text>
+                        </LinearGradient>
                     </TouchableOpacity>
                 </View>
             </Modal>
@@ -1083,7 +1090,7 @@ const styles = StyleSheet.create({
     },
 
     // addresses
-    addrHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    addrHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
     addBtn: {
         flexDirection: 'row',
         alignItems: 'center',

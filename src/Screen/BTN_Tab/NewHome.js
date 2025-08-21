@@ -23,6 +23,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Clipboard from '@react-native-clipboard/clipboard';
 import { base_url } from '../../../App';
 import { useTab } from '../TabContext';
 import Drawer from '../../component/Drawer'
@@ -79,10 +80,10 @@ const NewHome = () => {
     }, []);
 
     const buildReferralMessage = () => {
-        const link = `${base_url}referral/${referralCode}`; // adjust to your deep link
+        const link = 'https://play.google.com/store/apps/details?id=com.thirtythreecroresapp&hl=en';
         return (
             `🪔 Join me on 33Crores!\n` +
-            `Use my referral code **${referralCode}** to get special benefits on your first puja order.\n\n` +
+            `Use my referral code **${referralCode}** to get special benefits on your first order.\n\n` +
             `Install / Open: ${link}`
         );
     };
@@ -331,6 +332,15 @@ const NewHome = () => {
             console.log("Error reading referral code:", e);
             setReferralCode(null);
         }
+    };
+
+    const copyCode = () => {
+        if (!referralCode) {
+            ToastAndroid.show('No referral code found', ToastAndroid.SHORT);
+            return;
+        }
+        Clipboard.setString(referralCode);
+        ToastAndroid.show('Referral code copied', ToastAndroid.SHORT);
     };
 
     useEffect(() => {
@@ -602,7 +612,7 @@ const NewHome = () => {
 
                             {/* Premium Subscription Card */}
                             {!activeSubscription &&
-                                <View>
+                                <View style={{ marginBottom: 18 }}>
                                     <FlatList
                                         ref={flatListRef}
                                         data={allPackages}
@@ -683,8 +693,12 @@ const NewHome = () => {
                                     <View style={styles.codeRow}>
                                         <Text style={styles.codeLabel}>Your Code</Text>
                                         <View style={styles.codePill}>
-                                            <Text style={styles.codeText}>{referralCode}</Text>
+                                            <Text style={styles.codeText}>{referralCode ?? '—'}</Text>
                                         </View>
+                                        <TouchableOpacity onPress={copyCode} style={styles.copyBtn}>
+                                            <Icon name="copy" size={12} color="#0f172a" />
+                                            <Text style={styles.copyText}>Copy</Text>
+                                        </TouchableOpacity>
                                     </View>
 
                                     <View style={styles.refActions}>
@@ -1472,7 +1486,7 @@ const styles = StyleSheet.create({
     // Refer & Earn Styles
     referralWrap: {
         paddingHorizontal: 20,
-        marginTop: 18,
+        marginTop: 6,
         marginBottom: 6,
     },
     referralCard: {
@@ -1543,12 +1557,17 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 6,
     },
-    codeText: {
-        fontSize: 14,
-        fontWeight: '800',
-        color: '#9A3412',
-        letterSpacing: 1,
+    copyBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginLeft: 20,
+        backgroundColor: '#E2E8F0',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 999,
     },
+    codeText: { fontSize: 14, fontWeight: '800', color: '#9A3412', letterSpacing: 1 },
+    copyText: { color: '#0f172a', fontSize: 12, fontWeight: '700', marginLeft: 6 },
     refActions: {
         flexDirection: 'row',
         gap: 10,

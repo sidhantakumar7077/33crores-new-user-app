@@ -108,6 +108,9 @@ const Login = () => {
         <View style={styles.footer}>
           <Text style={styles.welcomeText}>Welcome</Text>
           <Text style={styles.subText}>Login to continue</Text>
+          <Text style={{ color: '#000000ff', fontSize: 14, marginTop: 4, marginBottom: 18 }}>
+            Enter your whatsapp number to receive an OTP
+          </Text>
 
           <View style={styles.inputWrapper}>
             {(isFocused || phone.length > 3) && (
@@ -168,7 +171,7 @@ const styles = StyleSheet.create({
     fontFamily: 'okra',
     fontWeight: '600',
     color: '#353535',
-    marginBottom: 18,
+    // marginBottom: 18,
   },
   inputWrapper: {
     width: '80%',

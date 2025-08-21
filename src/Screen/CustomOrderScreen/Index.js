@@ -314,11 +314,11 @@ const Index = () => {
   // === NEW: Master data ===
   const [flowerNames, setFlowerNames] = useState([]);
   const [flowerUnits, setFlowerUnits] = useState([]);
-  const garlandSizes = [
-    { label: 'Small', value: 'small' },
-    { label: 'Medium', value: 'medium' },
-    { label: 'Large', value: 'large' },
-  ];
+  // 1 ft to 20 ft
+  const garlandSizes = Array.from({ length: 20 }, (_, i) => {
+    const ft = i + 1;
+    return { label: `${ft} ft`, value: ft }; // use `${ft}` if you need a string
+  });
 
   const [selectedType, setSelectedType] = useState('flower');
   const handleTypeSwitch = (type) => {
@@ -1243,58 +1243,60 @@ const Index = () => {
               {errors.locality && <Text style={styles.errorText}>{errors.locality}</Text>}
             </View>
 
-            <View style={{ width: '90%', alignSelf: 'center', marginBottom: 20, zIndex: localityOpen ? 10 : 1 }}>
-              <Text style={styles.inputLable}>Apartment</Text>
-              {apartmentList.length > 0 ?
-                <View style={styles.card}>
-                  <DropDownPicker
-                    style={{ borderColor: 'transparent' }}
-                    placeholder={!isFocus ? 'Apartment' : '...'}
-                    open={apartmentOpen}
-                    value={apartmentValue}
-                    items={[
-                      ...apartmentList,
-                      { label: 'Add Your Apartment', value: 'add_new' },
-                    ]}
-                    setOpen={setApartmentOpen}
-                    setValue={(callback) => {
-                      const selectedValue = typeof callback === 'function' ? callback(apartmentValue) : callback;
-                      setApartmentValue(selectedValue);
-                    }}
-                    setItems={setApartmentList}
-                    itemSeparator={true}
-                    listMode="MODAL"
-                    searchable={true}
-                    searchPlaceholder="Apartment..."
-                  />
-                </View>
-                :
-                <View style={styles.card}>
-                  <TextInput
-                    style={styles.inputs}
-                    onChangeText={setNewApartment}
-                    value={newApartment}
-                    placeholder="Enter Your Apartment Name"
-                    placeholderTextColor="#424242"
-                    underlineColorAndroid="transparent"
-                  />
-                </View>
-              }
-              {errors.apartment && <Text style={styles.errorText}>{errors.apartment}</Text>}
-              {apartmentValue === 'add_new' && (
-                <View style={[styles.card, { marginTop: 15 }]}>
-                  <TextInput
-                    style={styles.inputs}
-                    onChangeText={setNewApartment}
-                    value={newApartment}
-                    placeholder="Enter Your Apartment Name"
-                    placeholderTextColor="#424242"
-                    underlineColorAndroid="transparent"
-                  />
-                </View>
-              )}
-              {errors.apartment && <Text style={styles.errorText}>{errors.apartment}</Text>}
-            </View>
+            {seletedAddress === 'apartment' &&
+              <View style={{ width: '90%', alignSelf: 'center', marginBottom: 20, zIndex: localityOpen ? 10 : 1 }}>
+                <Text style={styles.inputLable}>Apartment</Text>
+                {apartmentList.length > 0 ?
+                  <View style={styles.card}>
+                    <DropDownPicker
+                      style={{ borderColor: 'transparent' }}
+                      placeholder={!isFocus ? 'Apartment' : '...'}
+                      open={apartmentOpen}
+                      value={apartmentValue}
+                      items={[
+                        ...apartmentList,
+                        { label: 'Add Your Apartment', value: 'add_new' },
+                      ]}
+                      setOpen={setApartmentOpen}
+                      setValue={(callback) => {
+                        const selectedValue = typeof callback === 'function' ? callback(apartmentValue) : callback;
+                        setApartmentValue(selectedValue);
+                      }}
+                      setItems={setApartmentList}
+                      itemSeparator={true}
+                      listMode="MODAL"
+                      searchable={true}
+                      searchPlaceholder="Apartment..."
+                    />
+                  </View>
+                  :
+                  <View style={styles.card}>
+                    <TextInput
+                      style={styles.inputs}
+                      onChangeText={setNewApartment}
+                      value={newApartment}
+                      placeholder="Enter Your Apartment Name"
+                      placeholderTextColor="#424242"
+                      underlineColorAndroid="transparent"
+                    />
+                  </View>
+                }
+                {errors.apartment && <Text style={styles.errorText}>{errors.apartment}</Text>}
+                {apartmentValue === 'add_new' && (
+                  <View style={[styles.card, { marginTop: 15 }]}>
+                    <TextInput
+                      style={styles.inputs}
+                      onChangeText={setNewApartment}
+                      value={newApartment}
+                      placeholder="Enter Your Apartment Name"
+                      placeholderTextColor="#424242"
+                      underlineColorAndroid="transparent"
+                    />
+                  </View>
+                )}
+                {errors.apartment && <Text style={styles.errorText}>{errors.apartment}</Text>}
+              </View>
+            }
 
             <View style={{ width: '90%', alignSelf: 'center', marginBottom: 20 }}>
               <Text style={styles.inputLable}>Plot / Flat  Number</Text>

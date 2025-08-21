@@ -17,7 +17,9 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Clipboard from '@react-native-clipboard/clipboard';
 import { useNavigation, useIsFocused, useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DropDownPicker from 'react-native-dropdown-picker';
 import { launchImageLibrary } from 'react-native-image-picker';
 import Icon from 'react-native-vector-icons/FontAwesome5';
@@ -41,6 +43,7 @@ const NewProfile = () => {
 
     const navigation = useNavigation();
     const isFocused = useIsFocused();
+    const insets = useSafeAreaInsets();
     const [refreshing, setRefreshing] = useState(false);
     const { setActiveTab } = useTab();
     const [spinner, setSpinner] = useState(false);
@@ -279,11 +282,20 @@ const NewProfile = () => {
         }
     };
 
+    const copyCode = () => {
+        if (!referralCode) {
+            ToastAndroid.show('No referral code found', ToastAndroid.SHORT);
+            return;
+        }
+        Clipboard.setString(referralCode);
+        ToastAndroid.show('Referral code copied', ToastAndroid.SHORT);
+    };
+
     const buildReferralMessage = () => {
-        const link = `${base_url}referral/${referralCode}`; // change to your deep link if needed
+        const link = 'https://play.google.com/store/apps/details?id=com.thirtythreecroresapp&hl=en';
         return (
             `🪔 Join me on 33Crores!\n` +
-            `Use my referral code ${referralCode} to get special benefits on your first puja order.\n\n` +
+            `Use my referral code **${referralCode}** to get special benefits on your first order.\n\n` +
             `Install / Open: ${link}`
         );
     };
@@ -316,21 +328,13 @@ const NewProfile = () => {
     }, [isFocused]);
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { paddingBottom: insets.bottom }]}>
             <ProfileImgMenu isVisible={profileImgMenu} onClose={() => setProfileImgMenu(false)} selectImage={selectImage} showProfileImage={viewProfileImage} removeProfilePhoto={removeProfilePhoto} />
             <ShowDP showProfileImage={showProfileImage} onClose={() => setShowProfileImage(false)} imageSource={imageSource} />
             <View style={{ flex: 1 }}>
                 <LinearGradient colors={['#1E293B', '#334155', '#475569']} style={styles.header}>
                     <View style={styles.heroContent}>
-                        <TouchableOpacity
-                            style={styles.headerRow}
-                            onPress={() => {
-                                setActiveTab('home');
-                                if (navigation.canGoBack()) {
-                                    navigation.goBack();
-                                }
-                            }}
-                        >
+                        <TouchableOpacity style={styles.headerRow} onPress={() => navigation.goBack()}>
                             <Icon name="arrow-left" size={24} color="#FFFFFF" style={styles.backIcon} />
                             <Text style={styles.heroTitle}>My Profile</Text>
                         </TouchableOpacity>
@@ -418,8 +422,12 @@ const NewProfile = () => {
                             <View style={styles.codeRow}>
                                 <Text style={styles.codeLabel}>Your Code</Text>
                                 <View style={styles.codePill}>
-                                    <Text style={styles.codeText}>{referralCode}</Text>
+                                    <Text style={styles.codeText}>{referralCode ?? '—'}</Text>
                                 </View>
+                                <TouchableOpacity onPress={copyCode} style={styles.copyBtn}>
+                                    <Icon name="copy" size={12} color="#0f172a" />
+                                    <Text style={styles.copyText}>Copy</Text>
+                                </TouchableOpacity>
                             </View>
 
                             <View style={styles.refActions}>
@@ -944,12 +952,17 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 6,
     },
-    codeText: {
-        fontSize: 14,
-        fontWeight: '800',
-        color: '#9A3412',
-        letterSpacing: 1,
+    copyBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginLeft: 20,
+        backgroundColor: '#E2E8F0',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 999,
     },
+    codeText: { fontSize: 14, fontWeight: '800', color: '#9A3412', letterSpacing: 1 },
+    copyText: { color: '#0f172a', fontSize: 12, fontWeight: '700', marginLeft: 6 },
     refActions: {
         flexDirection: 'row',
         gap: 10,

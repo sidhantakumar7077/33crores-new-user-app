@@ -1,23 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, ScrollView, Image, ActivityIndicator, FlatList, RefreshControl } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useState, useEffect, useCallback } from 'react';
+import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, ScrollView, Image, ActivityIndicator, FlatList, RefreshControl, BackHandler } from 'react-native'
 import LinearGradient from 'react-native-linear-gradient';
-import { useNavigation, useIsFocused } from '@react-navigation/native';
+import { useNavigation, useIsFocused, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import moment from 'moment';
 import { base_url } from '../../../App';
+import { useTab } from '../TabContext';
 
 const Index = () => {
 
   const navigation = useNavigation();
   const isFocused = useIsFocused();
-  const insets = useSafeAreaInsets();
+  const { setActiveTab } = useTab();
   const [allNotifications, setAllNotifications] = useState([]);
   const [spinner, setSpinner] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const onRefresh = React.useCallback(() => {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
     setTimeout(() => {
       setRefreshing(false);
@@ -25,6 +25,18 @@ const Index = () => {
       console.log("Refreshing Successful");
     }, 2000);
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        setActiveTab('home');
+        return false;
+      };
+
+      const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => backHandler.remove();
+    }, [])
+  );
 
   const getAllNotifications = async () => {
     try {
@@ -112,12 +124,19 @@ const Index = () => {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.scrollView}>
         {/* Hero Header with Gradient */}
         <LinearGradient colors={['#1E293B', '#334155', '#475569']} style={styles.header}>
           <View style={styles.heroContent}>
-            <TouchableOpacity style={styles.headerRow} onPress={() => navigation.goBack()}>
+            <TouchableOpacity style={styles.headerRow}
+              onPress={() => {
+                setActiveTab('home');
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                }
+              }}
+            >
               <Icon name="arrow-left" size={24} color="#FFFFFF" style={styles.backIcon} />
               <Text style={styles.heroTitle}>Notification</Text>
             </TouchableOpacity>
@@ -170,7 +189,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    paddingBottom: 10
+    // paddingBottom: 10
   },
   header: {
     padding: 20,

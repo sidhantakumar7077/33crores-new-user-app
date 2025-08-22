@@ -203,7 +203,7 @@ const App = () => {
       <NavigationContainer>
         {showPromotion && <PromotionGate baseUrl={base_url} onOpen={() => { }} onClose={() => { }} />}
         <Notification />
-        <StatusBar backgroundColor="#c9170a" barStyle="light-content" />
+        <StatusBar backgroundColor="#334155" barStyle="light-content" />
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           {showSplash ? (<Stack.Screen name="SplashScreen" component={SplashScreen} options={{ presentation: 'modal', animationTypeForReplace: 'push', animation: 'slide_from_right' }} />) : null}
           {!isConnected ? (

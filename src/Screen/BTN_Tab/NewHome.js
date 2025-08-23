@@ -67,14 +67,17 @@ const NewHome = () => {
 
     const onRefresh = React.useCallback(() => {
         setRefreshing(true);
-        setTimeout(() => {
+        setTimeout(async () => {
             setRefreshing(false);
-            getAllPackages();
-            getOfferDetails();
-            getUpcomingFestivals();
-            getReferralCode();
-            getCurrentOrder();
-            getProductPackages();
+            await getAllPackages();
+            await getOfferDetails();
+            await getUpcomingFestivals();
+            await getReferralCode();
+            await getCurrentOrder();
+            await getProductPackages();
+            const storedStatus = await AsyncStorage.getItem('isReferCodeApply');
+            const codeStatus = storedStatus ? JSON.parse(storedStatus) : null;
+            setIsReferCodeApply(codeStatus);
             console.log("Refreshing Successful");
         }, 2000);
     }, []);
@@ -260,8 +263,8 @@ const NewHome = () => {
             ToastAndroid.show("Referral code claimed successfully", ToastAndroid.SHORT);
             setCode('');
             setReferCodeSpinner(false);
-            // setIsReferCodeApply('yes');
-            // await AsyncStorage.setItem('isReferCodeApply', JSON.stringify('yes'));
+            setIsReferCodeApply('yes');
+            await AsyncStorage.setItem('isReferCodeApply', JSON.stringify('yes'));
         } else {
             // Handle failed referral code claim
             const msg = data?.message || 'Invalid or expired referral code.';

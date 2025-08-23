@@ -40,10 +40,10 @@ const Index = (props) => {
   const itemsPref = Array.isArray(prod?.package_items_details) ? prod.package_items_details : [];
   const itemsFallback = Array.isArray(prod?.package_items)
     ? prod.package_items.map((p) => ({
-        item_name: p?.item?.item_name,
-        variant_name: p?.variant?.title,
-        price: p?.variant?.price,
-      }))
+      item_name: p?.item?.item_name,
+      variant_name: p?.variant?.title,
+      price: p?.variant?.price,
+    }))
     : [];
   const pkgItems = itemsPref.length > 0 ? itemsPref : itemsFallback;
   const itemsCount = pkgItems.length;
@@ -128,14 +128,12 @@ const Index = (props) => {
                     <Text style={styles.itemName} numberOfLines={1}>
                       {it?.item_name || '—'}
                     </Text>
-                    {!!it?.variant_name && (
-                      <Text style={styles.itemMeta} numberOfLines={1}>
-                        {it.variant_name}
-                      </Text>
-                    )}
                   </View>
-
-                  {!!it?.price && <Text style={styles.itemPrice}>{currency(it.price)}</Text>}
+                  {!!it?.quantity && (
+                    <Text style={styles.itemMeta} numberOfLines={1}>
+                      {it.quantity} {it.unit}
+                    </Text>
+                  )}
                 </View>
               ))}
             </View>

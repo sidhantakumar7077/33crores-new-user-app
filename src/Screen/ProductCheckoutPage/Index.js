@@ -614,8 +614,8 @@ export default function PackageCheckout(props) {
                                         <View style={{ flex: 1 }}>
                                             <Text style={styles.itemName}>{it.item_name}</Text>
                                         </View>
-                                        {!!it.variant_title && (
-                                            <Text style={styles.itemMeta}>{it.variant_title}</Text>
+                                        {!!it.quantity && (
+                                            <Text style={styles.itemMeta}>{it.quantity} {it.unit}</Text>
                                         )}
                                     </View>
                                 ))}

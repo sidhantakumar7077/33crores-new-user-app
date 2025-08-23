@@ -10,7 +10,9 @@ import {
   ActivityIndicator,
   PermissionsAndroid,
   Platform,
-  Keyboard
+  Keyboard,
+  KeyboardAvoidingView,
+  ScrollView
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { base_url } from '../../../App';
@@ -94,57 +96,70 @@ const Login = () => {
   // }, [])
 
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' }}>
-      <ImageBackground
-        source={require('../../assets/images/Login_BG.png')}
-        style={{ flex: 1, resizeMode: 'cover', justifyContent: 'center', alignItems: 'center', height: '100%', width: '100%' }}
+    <View style={{ flex: 1 }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' }}>
-          <Image
-            source={require('../../assets/images/whitelogo.png')}
-            style={{ height: 130, width: 130, resizeMode: 'contain' }}
-          />
-        </View>
-        <View style={styles.footer}>
-          <Text style={styles.welcomeText}>Welcome</Text>
-          <Text style={styles.subText}>Login to continue</Text>
-          <Text style={{ color: '#000000ff', fontSize: 14, marginTop: 4, marginBottom: 18 }}>
-            Enter your whatsapp number to receive an OTP
-          </Text>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ flexGrow: 1 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
+          <ImageBackground
+            source={require('../../assets/images/Login_BG.png')}
+            style={{ flex: 1, resizeMode: 'cover', justifyContent: 'center', alignItems: 'center', height: '100%', width: '100%' }}
+          >
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' }}>
+              <Image
+                source={require('../../assets/images/whitelogo.png')}
+                style={{ height: 130, width: 130, resizeMode: 'contain' }}
+              />
+            </View>
+            <View style={styles.footer}>
+              <Text style={styles.welcomeText}>Welcome</Text>
+              <Text style={styles.subText}>Login to continue</Text>
+              <Text style={{ color: '#000000ff', fontSize: 14, marginTop: 4, marginBottom: 18 }}>
+                Enter your whatsapp number to receive an OTP
+              </Text>
 
-          <View style={styles.inputWrapper}>
-            {(isFocused || phone.length > 3) && (
-              <Text style={styles.floatingLabel}>Phone Number</Text>
-            )}
-            <TextInput
-              style={styles.textInput}
-              value={phone}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
-              maxLength={13}
-              keyboardType="phone-pad"
-              onChangeText={value => {
-                if (value.length >= 4 || value.startsWith('+91')) {
-                  setPhone(value);
-                } else {
-                  setPhone('+91');
-                }
-              }}
-            />
-          </View>
+              <View style={styles.inputWrapper}>
+                {(isFocused || phone.length > 3) && (
+                  <Text style={styles.floatingLabel}>Phone Number</Text>
+                )}
+                <TextInput
+                  style={styles.textInput}
+                  value={phone}
+                  onFocus={() => setIsFocused(true)}
+                  onBlur={() => setIsFocused(false)}
+                  maxLength={13}
+                  keyboardType="phone-pad"
+                  onChangeText={value => {
+                    if (value.length >= 4 || value.startsWith('+91')) {
+                      setPhone(value);
+                    } else {
+                      setPhone('+91');
+                    }
+                  }}
+                />
+              </View>
 
-          {showError && <Text style={styles.errorText}>{errorMessage}</Text>}
-        </View>
-        <View style={styles.bottom}>
-          {isLoading ? (
-            <ActivityIndicator size="large" color="#c80100" />
-          ) : (
-            <TouchableOpacity style={styles.button} onPress={pressHandler}>
-              <Text style={styles.buttonText}>SUBMIT</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </ImageBackground>
+              {showError && <Text style={styles.errorText}>{errorMessage}</Text>}
+            </View>
+            <View style={styles.bottom}>
+              {isLoading ? (
+                <ActivityIndicator size="large" color="#c80100" />
+              ) : (
+                <TouchableOpacity style={styles.button} onPress={pressHandler}>
+                  <Text style={styles.buttonText}>SUBMIT</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </ImageBackground>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 };

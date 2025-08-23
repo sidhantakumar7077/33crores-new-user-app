@@ -597,25 +597,35 @@ export default function PackageCheckout(props) {
 
                 {/* Items list */}
                 <View style={styles.card}>
-                    <Text style={styles.sectionTitle}>What’s inside ({itemsCount})</Text>
-                    <View style={styles.listWrap}>
-                        {items.map((it) => (
-                            <View key={String(it.item_id)} style={styles.itemRow}>
-                                <View style={styles.itemIcon}>
-                                    <Icon name="leaf" size={12} color="#166534" />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.itemName}>{it.item_name}</Text>
-                                    {!!it.variant_title && <Text style={styles.itemMeta}>{it.variant_title}</Text>}
-                                </View>
-                                {!!it.variant_price && (
-                                    <Text style={styles.itemPrice}>{currency(it.variant_price)}</Text>
+                    <Text style={styles.sectionTitle}>What’s inside ({itemsCount} items)</Text>
+
+                    {/* Scroll only this section */}
+                    <View style={{ maxHeight: 300 }}>
+                        <ScrollView
+                            nestedScrollEnabled
+                            showsVerticalScrollIndicator={false}
+                        >
+                            <View style={styles.listWrap}>
+                                {items.map((it, idx) => (
+                                    <View key={String(it.item_id ?? it.id ?? idx)} style={styles.itemRow}>
+                                        <View style={styles.itemIcon}>
+                                            <Icon name="leaf" size={12} color="#166534" />
+                                        </View>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.itemName}>{it.item_name}</Text>
+                                        </View>
+                                        {!!it.variant_title && (
+                                            <Text style={styles.itemMeta}>{it.variant_title}</Text>
+                                        )}
+                                    </View>
+                                ))}
+                                {itemsCount === 0 && (
+                                    <Text style={{ color: '#64748B', fontWeight: '600' }}>
+                                        No items listed.
+                                    </Text>
                                 )}
                             </View>
-                        ))}
-                        {itemsCount === 0 && (
-                            <Text style={{ color: '#64748B', fontWeight: '600' }}>No items listed.</Text>
-                        )}
+                        </ScrollView>
                     </View>
                 </View>
 

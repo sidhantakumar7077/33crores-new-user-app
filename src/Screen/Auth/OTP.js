@@ -7,7 +7,10 @@ import {
     ImageBackground,
     StyleSheet,
     TouchableOpacity,
-    ActivityIndicator
+    ActivityIndicator,
+    Platform,
+    KeyboardAvoidingView,
+    ScrollView
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,6 +18,16 @@ import { base_url } from '../../../App';
 import DeviceInfo from 'react-native-device-info';
 import { getMessaging, getToken, requestPermission, AuthorizationStatus } from '@react-native-firebase/messaging';
 import Notification from '../../component/Notification';
+
+const maskPhone = (p = '') => {
+    if (!p) return '';
+    // keep country code + last 2–4 digits visible
+    const cc = p.startsWith('+') ? p.slice(0, 3) : '';
+    const digits = p.replace(/^\+91/, '');
+    const visible = digits.slice(-4);
+    const masked = digits.slice(0, -4).replace(/\d/g, '•');
+    return `${cc}${masked}${visible}`;
+};
 
 const OTP = (props) => {
 
@@ -26,6 +39,9 @@ const OTP = (props) => {
     const [isLoading, setIsLoading] = useState(false);
     const [access_token, setAccess_token] = useState('');
     const [fcmToken, setFcmToken] = useState(null);
+
+    const phoneParam = props?.route?.params?.phone || '';
+    const masked = maskPhone(phoneParam);
 
     useEffect(() => {
         if (otp.length === 6) {
@@ -83,7 +99,7 @@ const OTP = (props) => {
             const formData = new FormData();
             // formData.append('orderId', props.route.params.order_id);
             formData.append('otp', otp);
-            formData.append('phoneNumber', props.route.params.phone);
+            formData.append('phoneNumber', phoneParam);
             formData.append('device_id', fcmToken);
             formData.append('device_model', deviceModel);
             formData.append('platform', platformName);
@@ -118,46 +134,62 @@ const OTP = (props) => {
     };
 
     return (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' }}>
+        <View style={{ flex: 1 }}>
             {access_token && <Notification />}
-            <ImageBackground
-                source={require('../../assets/images/Login_BG.png')}
-                style={{ flex: 1, resizeMode: 'cover', justifyContent: 'center', alignItems: 'center', height: '100%', width: '100%' }}
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
             >
-                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' }}>
-                    <Image
-                        source={require('../../assets/images/whitelogo.png')}
-                        style={{ height: 130, width: 130, resizeMode: 'contain' }}
-                    />
-                </View>
-                <View style={styles.footer}>
-                    <Text style={styles.titleText}>Enter OTP For Login</Text>
-                    <View style={styles.inputWrapper}>
-                        {(isFocused || otp.length > 0) && (
-                            <Text style={styles.floatingLabel}>OTP</Text>
-                        )}
-                        <TextInput
-                            style={styles.textInput}
-                            value={otp}
-                            onFocus={() => setIsFocused(true)}
-                            onBlur={() => setIsFocused(false)}
-                            maxLength={6}
-                            keyboardType="numeric"
-                            onChangeText={value => setOtp(value)}
-                        />
-                    </View>
-                    {showError && <Text style={styles.errorText}>{errorMessage}</Text>}
-                </View>
-                <View style={styles.bottom}>
-                    {isLoading ? (
-                        <ActivityIndicator size="large" color="#c80100" />
-                    ) : (
-                        <TouchableOpacity style={styles.button} onPress={pressHandler}>
-                            <Text style={styles.buttonText}>SUBMIT</Text>
-                        </TouchableOpacity>
-                    )}
-                </View>
-            </ImageBackground>
+                <ScrollView
+                    style={{ flex: 1 }}
+                    contentContainerStyle={{ flexGrow: 1 }}
+                    keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="on-drag"
+                >
+                    <ImageBackground
+                        source={require('../../assets/images/Login_BG.png')}
+                        style={{ flex: 1, resizeMode: 'cover', justifyContent: 'center', alignItems: 'center', height: '100%', width: '100%' }}
+                    >
+                        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' }}>
+                            <Image
+                                source={require('../../assets/images/whitelogo.png')}
+                                style={{ height: 130, width: 130, resizeMode: 'contain' }}
+                            />
+                        </View>
+                        <View style={styles.footer}>
+                            <Text style={styles.titleText}>Enter OTP For Login</Text>
+                            <Text style={styles.helperText}>
+                                We’ve sent an OTP to your WhatsApp number {masked}. Please check WhatsApp.
+                            </Text>
+                            <View style={styles.inputWrapper}>
+                                {(isFocused || otp.length > 0) && (
+                                    <Text style={styles.floatingLabel}>OTP</Text>
+                                )}
+                                <TextInput
+                                    style={styles.textInput}
+                                    value={otp}
+                                    onFocus={() => setIsFocused(true)}
+                                    onBlur={() => setIsFocused(false)}
+                                    maxLength={6}
+                                    keyboardType="numeric"
+                                    onChangeText={value => setOtp(value)}
+                                />
+                            </View>
+                            {showError && <Text style={styles.errorText}>{errorMessage}</Text>}
+                        </View>
+                        <View style={styles.bottom}>
+                            {isLoading ? (
+                                <ActivityIndicator size="large" color="#c80100" />
+                            ) : (
+                                <TouchableOpacity style={styles.button} onPress={pressHandler}>
+                                    <Text style={styles.buttonText}>SUBMIT</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    </ImageBackground>
+                </ScrollView>
+            </KeyboardAvoidingView>
         </View>
     );
 };
@@ -172,6 +204,13 @@ const styles = StyleSheet.create({
         backgroundColor: 'transparent',
         padding: 10,
         marginTop: 10,
+    },
+    helperText: {
+        color: '#000',
+        fontSize: 14,
+        textAlign: 'center',
+        marginBottom: 16,
+        paddingHorizontal: 12,
     },
     titleText: {
         fontSize: 16,

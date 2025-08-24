@@ -267,7 +267,7 @@ const Index = (props) => {
       errors.locality = "Locality is required";
       valid = false;
     }
-    if (apartmentValue === null && newApartment === "") {
+    if (selectedOption === 'apartment' && (apartmentValue === null && newApartment === "")) {
       errors.apartment = "Apartment is required";
       valid = false;
     }
@@ -773,7 +773,7 @@ const Index = (props) => {
                     />
                   </View>
                 )}
-                {errors.apartment && <Text style={styles.errorText}>{errors.apartment}</Text>}
+                {/* {errors.apartment && <Text style={styles.errorText}>{errors.apartment}</Text>} */}
               </View>
             }
             <View style={{ width: '90%', alignSelf: 'center', marginBottom: 20 }}>

@@ -214,8 +214,8 @@ const Index = () => {
       errorsObj.locality = "Locality is required";
       valid = false;
     }
-    if (apartmentValue === null && newApartment === "") {
-      errorsObj.apartment = "Apartment is required";
+    if (selectedOption === 'apartment' && (apartmentValue === null && newApartment === "")) {
+      errors.apartment = "Apartment is required";
       valid = false;
     }
     if (landmark === "") {
@@ -1310,7 +1310,7 @@ const Index = () => {
                   underlineColorAndroid='transparent'
                 />
               </View>
-              {errors.plotFlatNumber && <Text style={styles.errorText}>{errors.plotFlatNumber}</Text>}
+              {/* {errors.plotFlatNumber && <Text style={styles.errorText}>{errors.plotFlatNumber}</Text>} */}
             </View>
 
             <View style={{ width: '90%', alignSelf: 'center', marginBottom: 20 }}>
@@ -1395,8 +1395,10 @@ const Index = () => {
               {errors.activeAddressType && <Text style={styles.errorText}>{errors.activeAddressType}</Text>}
             </View>
           </ScrollView>
-          <TouchableOpacity onPress={saveAddress} style={styles.saveAddress}>
-            <Text style={{ color: '#000', fontSize: 17, fontWeight: '600' }}>Save Address</Text>
+          <TouchableOpacity onPress={saveAddress}>
+            <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.saveAddress}>
+              <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>Save Address</Text>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       </Modal>

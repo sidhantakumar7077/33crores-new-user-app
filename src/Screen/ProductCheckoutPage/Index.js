@@ -231,53 +231,52 @@ export default function PackageCheckout(props) {
     };
 
     const validateFields = () => {
-        let ok = true;
-        const e = {};
+        let valid = true;
+        let errors = {};
+
         if (seletedAddress === null) {
-            e.residential = 'Please select residential type';
-            ok = false;
+            errors.residential = "Please select residential type";
+            valid = false;
         }
-        if (!plotFlatNumber) {
-            e.plotFlatNumber = 'Plot/Flat Number is required';
-            ok = false;
+        if (plotFlatNumber === "") {
+            errors.plotFlatNumber = "Plot/Flat Number is required";
+            valid = false;
         }
         if (localityValue === null) {
-            e.locality = 'Locality is required';
-            ok = false;
+            errors.locality = "Locality is required";
+            valid = false;
         }
-        if (apartmentList.length > 0 && apartmentValue === null) {
-            e.apartment = 'Apartment is required';
-            ok = false;
+        if (selectedOption === 'apartment' && (apartmentValue === null && newApartment === "")) {
+            errors.apartment = "Apartment is required";
+            valid = false;
         }
-        if (apartmentList.length === 0 && !newApartment) {
-            e.apartment = 'Apartment is required';
-            ok = false;
+        if (landmark === "") {
+            errors.landmark = "Landmark is required";
+            valid = false;
         }
-        if (!landmark) {
-            e.landmark = 'Landmark is required';
-            ok = false;
+        if (city === "") {
+            errors.city = "City is required";
+            valid = false;
         }
-        if (!city) {
-            e.city = 'City is required';
-            ok = false;
+        if (state === "") {
+            errors.state = "State is required";
+            valid = false;
         }
-        if (!state) {
-            e.state = 'State is required';
-            ok = false;
+        if (pincode === "") {
+            errors.pincode = "Pincode is required";
+            valid = false;
         }
-        if (!pincode) {
-            e.pincode = 'Pincode is required';
-            ok = false;
-        } else if (String(pincode).length !== 6) {
-            e.pincode = 'Pincode must be 6 digits';
-            ok = false;
+        if (pincode.length !== 6) {
+            errors.pincode = "Pincode must be 6 digits";
+            valid = false;
         }
         if (activeAddressType === null) {
-            e.activeAddressType = 'Please select address type';
-            ok = false;
+            errors.activeAddressType = "Please select address type";
+            valid = false;
         }
-        setErrors(e);
-        return ok;
+
+        setErrors(errors);
+        return valid;
     };
 
     const closeAddAddressModal = () => {

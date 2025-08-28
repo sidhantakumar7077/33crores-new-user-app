@@ -16,6 +16,7 @@ import {
     RefreshControl,
     Animated,
     Easing,
+    KeyboardAvoidingView
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -347,7 +348,9 @@ export default function PackageCheckout(props) {
         setIsLoading(true);
         try {
             if (!selectedOption) {
-                displayErrorMessage('Please select your address');
+                // displayErrorMessage('Please select your address');
+                setErrorMsg('Please select/Add your address');
+                setErrorModal(true);
                 setIsLoading(false);
                 return;
             }
@@ -425,250 +428,258 @@ export default function PackageCheckout(props) {
                 <Text style={styles.headerSubtitle}>Review your package and complete the purchase.</Text>
             </LinearGradient>
 
-            <ScrollView
+            <KeyboardAvoidingView
                 style={{ flex: 1 }}
-                contentContainerStyle={{ paddingBottom: 70 }}
-                showsVerticalScrollIndicator={false}
-                refreshControl={<RefreshControl refreshing={spinner} onRefresh={getAllAddress} />}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={0}
             >
-                {/* Package hero (new design) */}
-                <View style={styles.card}>
-                    <View style={styles.heroRow}>
-                        <View style={{ flex: 1, paddingRight: 12 }}>
-                            <View style={styles.badgeRow}>
-                                {!!pkg?.duration && (
-                                    <View style={styles.badge}>
-                                        <Icon name="clock" size={10} color="#7C2D12" />
-                                        <Text style={styles.badgeText}>
-                                            {pkg.duration} {pkg.duration > 1 ? 'months' : 'month'}
-                                        </Text>
-                                    </View>
+                <ScrollView
+                    style={{ flex: 1 }}
+                    contentContainerStyle={{ paddingBottom: 70 }}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="on-drag"
+                    refreshControl={<RefreshControl refreshing={spinner} onRefresh={getAllAddress} />}
+                >
+                    {/* Package hero (new design) */}
+                    <View style={styles.card}>
+                        <View style={styles.heroRow}>
+                            <View style={{ flex: 1, paddingRight: 12 }}>
+                                <View style={styles.badgeRow}>
+                                    {!!pkg?.duration && (
+                                        <View style={styles.badge}>
+                                            <Icon name="clock" size={10} color="#7C2D12" />
+                                            <Text style={styles.badgeText}>
+                                                {pkg.duration} {pkg.duration > 1 ? 'months' : 'month'}
+                                            </Text>
+                                        </View>
+                                    )}
+                                    {hasDiscount && (
+                                        <View
+                                            style={[
+                                                styles.badge,
+                                                { backgroundColor: '#FEF3C7', borderColor: 'rgba(245,158,11,0.35)' },
+                                            ]}
+                                        >
+                                            <Icon name="tags" size={10} color="#7C2D12" />
+                                            <Text style={styles.badgeText}>You save {currency(youSave)}</Text>
+                                        </View>
+                                    )}
+                                </View>
+
+                                <Text style={styles.pkgTitle} numberOfLines={2}>
+                                    {pkg?.name ?? '—'}
+                                </Text>
+
+                                <Text style={styles.pkgDesc} numberOfLines={expanded ? 0 : 3}>
+                                    {pkg?.description || '—'}
+                                </Text>
+                                {pkg?.description && pkg.description.length > 120 && (
+                                    <TouchableOpacity onPress={() => setExpanded((v) => !v)}>
+                                        <Text style={styles.seeMore}>{expanded ? 'Show less' : 'Read more'}</Text>
+                                    </TouchableOpacity>
                                 )}
-                                {hasDiscount && (
-                                    <View
+
+                                <View style={styles.priceRow}>
+                                    <Text style={styles.priceNow}>{currency(pkg?.price)}</Text>
+                                    {hasDiscount && <Text style={styles.priceMrp}>{currency(pkg?.mrp)}</Text>}
+                                </View>
+                            </View>
+
+                            {!!pkg?.product_image && (
+                                <Image source={{ uri: pkg.product_image }} style={styles.pkgImage} />
+                            )}
+                        </View>
+                    </View>
+
+                    {/* Delivery details (start date + suggestion) */}
+                    <View style={styles.card}>
+                        <Text style={styles.sectionTitle}>Delivery Details</Text>
+
+                        <Text style={styles.inputLabel}>Subscription Start Date</Text>
+                        <TouchableOpacity onPress={openDatePicker} activeOpacity={0.9}>
+                            <View style={styles.inputBox}>
+                                <Text style={styles.inputValue}>
+                                    {dob ? moment(dob).format('DD-MM-YYYY') : ''}
+                                </Text>
+                                <MaterialCommunityIcons name="calendar-month" color={'#475569'} size={20} />
+                            </View>
+                        </TouchableOpacity>
+
+                        <Text style={[styles.inputLabel, { marginTop: 12 }]}>Suggestions (optional)</Text>
+                        <View style={[styles.textarea]}>
+                            <TextInput
+                                style={{ flex: 1, color: '#0f172a' }}
+                                onChangeText={setSuggestions}
+                                value={suggestions}
+                                multiline
+                                placeholder="Any suggestions? We will pass it on…"
+                                placeholderTextColor="#94A3B8"
+                                underlineColorAndroid="transparent"
+                            />
+                        </View>
+                    </View>
+
+                    {/* Addresses (old logic, refreshed UI) */}
+                    <View style={styles.card}>
+                        <View style={styles.addrHeaderRow}>
+                            <Text style={styles.sectionTitle}>Deliver To</Text>
+                            <TouchableOpacity onPress={() => setAddAddressModal(true)} style={styles.addBtn}>
+                                <Icon name="plus" size={12} color="#7C2D12" />
+                                <Text style={styles.addBtnText}>Add Address</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {addressErrorMessageVisible ? (
+                            <Text style={{ color: '#DC2626', fontWeight: '700', marginBottom: 8 }}>
+                                {addressError}
+                            </Text>
+                        ) : null}
+
+                        <FlatList
+                            data={displayedAddresses}
+                            keyExtractor={(item) => String(item.id)}
+                            scrollEnabled={false}
+                            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+                            renderItem={({ item }) => {
+                                const isSelected = String(selectedOption) === String(item.id);
+                                return (
+                                    <TouchableOpacity
+                                        onPress={() => setSelectedOption(item.id)}
+                                        activeOpacity={0.9}
                                         style={[
-                                            styles.badge,
-                                            { backgroundColor: '#FEF3C7', borderColor: 'rgba(245,158,11,0.35)' },
+                                            styles.addrRow,
+                                            isSelected && { borderColor: '#F59E0B', backgroundColor: '#FFFBEB' },
                                         ]}
                                     >
-                                        <Icon name="tags" size={10} color="#7C2D12" />
-                                        <Text style={styles.badgeText}>You save {currency(youSave)}</Text>
-                                    </View>
-                                )}
-                            </View>
+                                        <View style={{ width: 28, alignItems: 'center' }}>
+                                            {item.address_type === 'Home' && <Feather name="home" size={16} color="#475569" />}
+                                            {item.address_type === 'Work' && (
+                                                <Feather name="briefcase" size={16} color="#475569" />
+                                            )}
+                                            {item.address_type === 'Other' && <Feather name="globe" size={16} color="#475569" />}
+                                        </View>
 
-                            <Text style={styles.pkgTitle} numberOfLines={2}>
-                                {pkg?.name ?? '—'}
-                            </Text>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.addrTitle}>{item.address_type}</Text>
+                                            <Text style={styles.addrLine}>
+                                                {item.apartment_name}, {item.apartment_flat_plot}, {item.landmark}
+                                            </Text>
+                                            <Text style={styles.addrLine}>
+                                                {item?.locality_details?.locality_name}, {item.city}, {item.state}
+                                            </Text>
+                                            <Text style={styles.addrLine}>
+                                                {item.pincode} • {item.place_category}
+                                            </Text>
+                                        </View>
 
-                            <Text style={styles.pkgDesc} numberOfLines={expanded ? 0 : 3}>
-                                {pkg?.description || '—'}
-                            </Text>
-                            {pkg?.description && pkg.description.length > 120 && (
-                                <TouchableOpacity onPress={() => setExpanded((v) => !v)}>
-                                    <Text style={styles.seeMore}>{expanded ? 'Show less' : 'Read more'}</Text>
-                                </TouchableOpacity>
-                            )}
+                                        <View style={{ paddingLeft: 10 }}>
+                                            {isSelected ? (
+                                                <MaterialCommunityIcons name="record-circle" color={'#F59E0B'} size={22} />
+                                            ) : (
+                                                <Feather name="circle" color={'#94A3B8'} size={20} />
+                                            )}
+                                        </View>
+                                    </TouchableOpacity>
+                                );
+                            }}
+                            ListEmptyComponent={
+                                <Text style={{ color: '#64748B', fontWeight: '600' }}>
+                                    No addresses found. Add a new one.
+                                </Text>
+                            }
+                        />
 
-                            <View style={styles.priceRow}>
-                                <Text style={styles.priceNow}>{currency(pkg?.price)}</Text>
-                                {hasDiscount && <Text style={styles.priceMrp}>{currency(pkg?.mrp)}</Text>}
-                            </View>
-                        </View>
-
-                        {!!pkg?.product_image && (
-                            <Image source={{ uri: pkg.product_image }} style={styles.pkgImage} />
+                        {allAddresses.length > 1 && (
+                            <TouchableOpacity onPress={toggleAddresses} style={styles.showAllBtn}>
+                                <Text style={styles.showAllText}>
+                                    {showAllAddresses ? 'Hide addresses' : 'Show all addresses'}
+                                </Text>
+                                <Icon
+                                    name={showAllAddresses ? 'angle-up' : 'angle-down'}
+                                    size={16}
+                                    color="#0f172a"
+                                />
+                            </TouchableOpacity>
                         )}
                     </View>
-                </View>
 
-                {/* Delivery details (start date + suggestion) */}
-                <View style={styles.card}>
-                    <Text style={styles.sectionTitle}>Delivery Details</Text>
+                    {/* Items list */}
+                    <View style={styles.card}>
+                        <Text style={styles.sectionTitle}>What’s inside ({itemsCount} items)</Text>
 
-                    <Text style={styles.inputLabel}>Subscription Start Date</Text>
-                    <TouchableOpacity onPress={openDatePicker} activeOpacity={0.9}>
-                        <View style={styles.inputBox}>
-                            <Text style={styles.inputValue}>
-                                {dob ? moment(dob).format('DD-MM-YYYY') : ''}
-                            </Text>
-                            <MaterialCommunityIcons name="calendar-month" color={'#475569'} size={20} />
+                        {/* Scroll only this section */}
+                        <View style={{ maxHeight: 300 }}>
+                            <ScrollView
+                                nestedScrollEnabled
+                                showsVerticalScrollIndicator={false}
+                            >
+                                <View style={styles.listWrap}>
+                                    {items.map((it, idx) => (
+                                        <View key={String(it.item_id ?? it.id ?? idx)} style={styles.itemRow}>
+                                            <View style={styles.itemIcon}>
+                                                <Icon name="leaf" size={12} color="#166534" />
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.itemName}>{it.item_name}</Text>
+                                            </View>
+                                            {!!it.quantity && (
+                                                <Text style={styles.itemMeta}>{it.quantity} {it.unit}</Text>
+                                            )}
+                                        </View>
+                                    ))}
+                                    {itemsCount === 0 && (
+                                        <Text style={{ color: '#64748B', fontWeight: '600' }}>
+                                            No items listed.
+                                        </Text>
+                                    )}
+                                </View>
+                            </ScrollView>
                         </View>
-                    </TouchableOpacity>
-
-                    <Text style={[styles.inputLabel, { marginTop: 12 }]}>Suggestions (optional)</Text>
-                    <View style={[styles.textarea]}>
-                        <TextInput
-                            style={{ flex: 1, color: '#0f172a' }}
-                            onChangeText={setSuggestions}
-                            value={suggestions}
-                            multiline
-                            placeholder="Any suggestions? We will pass it on…"
-                            placeholderTextColor="#94A3B8"
-                            underlineColorAndroid="transparent"
-                        />
-                    </View>
-                </View>
-
-                {/* Addresses (old logic, refreshed UI) */}
-                <View style={styles.card}>
-                    <View style={styles.addrHeaderRow}>
-                        <Text style={styles.sectionTitle}>Deliver To</Text>
-                        <TouchableOpacity onPress={() => setAddAddressModal(true)} style={styles.addBtn}>
-                            <Icon name="plus" size={12} color="#7C2D12" />
-                            <Text style={styles.addBtnText}>Add Address</Text>
-                        </TouchableOpacity>
                     </View>
 
-                    {addressErrorMessageVisible ? (
-                        <Text style={{ color: '#DC2626', fontWeight: '700', marginBottom: 8 }}>
-                            {addressError}
-                        </Text>
-                    ) : null}
+                    {/* Order summary */}
+                    <View style={styles.card}>
+                        <Text style={styles.sectionTitle}>Order Summary</Text>
 
-                    <FlatList
-                        data={displayedAddresses}
-                        keyExtractor={(item) => String(item.id)}
-                        scrollEnabled={false}
-                        ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-                        renderItem={({ item }) => {
-                            const isSelected = String(selectedOption) === String(item.id);
-                            return (
-                                <TouchableOpacity
-                                    onPress={() => setSelectedOption(item.id)}
-                                    activeOpacity={0.9}
-                                    style={[
-                                        styles.addrRow,
-                                        isSelected && { borderColor: '#F59E0B', backgroundColor: '#FFFBEB' },
-                                    ]}
-                                >
-                                    <View style={{ width: 28, alignItems: 'center' }}>
-                                        {item.address_type === 'Home' && <Feather name="home" size={16} color="#475569" />}
-                                        {item.address_type === 'Work' && (
-                                            <Feather name="briefcase" size={16} color="#475569" />
-                                        )}
-                                        {item.address_type === 'Other' && <Feather name="globe" size={16} color="#475569" />}
-                                    </View>
-
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={styles.addrTitle}>{item.address_type}</Text>
-                                        <Text style={styles.addrLine}>
-                                            {item.apartment_name}, {item.apartment_flat_plot}, {item.landmark}
-                                        </Text>
-                                        <Text style={styles.addrLine}>
-                                            {item?.locality_details?.locality_name}, {item.city}, {item.state}
-                                        </Text>
-                                        <Text style={styles.addrLine}>
-                                            {item.pincode} • {item.place_category}
-                                        </Text>
-                                    </View>
-
-                                    <View style={{ paddingLeft: 10 }}>
-                                        {isSelected ? (
-                                            <MaterialCommunityIcons name="record-circle" color={'#F59E0B'} size={22} />
-                                        ) : (
-                                            <Feather name="circle" color={'#94A3B8'} size={20} />
-                                        )}
-                                    </View>
-                                </TouchableOpacity>
-                            );
-                        }}
-                        ListEmptyComponent={
-                            <Text style={{ color: '#64748B', fontWeight: '600' }}>
-                                No addresses found. Add a new one.
-                            </Text>
-                        }
-                    />
-
-                    {allAddresses.length > 1 && (
-                        <TouchableOpacity onPress={toggleAddresses} style={styles.showAllBtn}>
-                            <Text style={styles.showAllText}>
-                                {showAllAddresses ? 'Hide addresses' : 'Show all addresses'}
-                            </Text>
-                            <Icon
-                                name={showAllAddresses ? 'angle-up' : 'angle-down'}
-                                size={16}
-                                color="#0f172a"
-                            />
-                        </TouchableOpacity>
-                    )}
-                </View>
-
-                {/* Items list */}
-                <View style={styles.card}>
-                    <Text style={styles.sectionTitle}>What’s inside ({itemsCount} items)</Text>
-
-                    {/* Scroll only this section */}
-                    <View style={{ maxHeight: 300 }}>
-                        <ScrollView
-                            nestedScrollEnabled
-                            showsVerticalScrollIndicator={false}
-                        >
-                            <View style={styles.listWrap}>
-                                {items.map((it, idx) => (
-                                    <View key={String(it.item_id ?? it.id ?? idx)} style={styles.itemRow}>
-                                        <View style={styles.itemIcon}>
-                                            <Icon name="leaf" size={12} color="#166534" />
-                                        </View>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={styles.itemName}>{it.item_name}</Text>
-                                        </View>
-                                        {!!it.quantity && (
-                                            <Text style={styles.itemMeta}>{it.quantity} {it.unit}</Text>
-                                        )}
-                                    </View>
-                                ))}
-                                {itemsCount === 0 && (
-                                    <Text style={{ color: '#64748B', fontWeight: '600' }}>
-                                        No items listed.
-                                    </Text>
-                                )}
-                            </View>
-                        </ScrollView>
-                    </View>
-                </View>
-
-                {/* Order summary */}
-                <View style={styles.card}>
-                    <Text style={styles.sectionTitle}>Order Summary</Text>
-
-                    <View style={styles.summaryRow}>
-                        <Text style={styles.sumLabel}>Package Price</Text>
-                        <Text style={styles.sumValue}>{currency(pkg?.mrp)}</Text>
-                    </View>
-
-                    {hasDiscount && (
                         <View style={styles.summaryRow}>
-                            <Text style={[styles.sumLabel, { color: '#16A34A' }]}>You Save</Text>
-                            <Text style={[styles.sumValue, { color: '#16A34A' }]}>{currency(youSave)}</Text>
+                            <Text style={styles.sumLabel}>Package Price</Text>
+                            <Text style={styles.sumValue}>{currency(pkg?.mrp)}</Text>
                         </View>
-                    )}
 
-                    <View style={styles.summaryRow}>
-                        <Text style={styles.sumLabel}>Delivery</Text>
-                        <Text style={[styles.sumValue, { color: '#16A34A', fontWeight: '800' }]}>Free</Text>
+                        {hasDiscount && (
+                            <View style={styles.summaryRow}>
+                                <Text style={[styles.sumLabel, { color: '#16A34A' }]}>You Save</Text>
+                                <Text style={[styles.sumValue, { color: '#16A34A' }]}>{currency(youSave)}</Text>
+                            </View>
+                        )}
+
+                        <View style={styles.summaryRow}>
+                            <Text style={styles.sumLabel}>Delivery</Text>
+                            <Text style={[styles.sumValue, { color: '#16A34A', fontWeight: '800' }]}>Free</Text>
+                        </View>
+
+                        <View style={styles.divider} />
+
+                        <View style={styles.summaryRow}>
+                            <Text style={styles.sumTotal}>Total</Text>
+                            <Text style={styles.sumTotal}>{currency(pkg?.price)}</Text>
+                        </View>
                     </View>
 
-                    <View style={styles.divider} />
-
-                    <View style={styles.summaryRow}>
-                        <Text style={styles.sumTotal}>Total</Text>
-                        <Text style={styles.sumTotal}>{currency(pkg?.price)}</Text>
+                    {/* Info */}
+                    <View style={[styles.card, { paddingVertical: 14 }]}>
+                        <View style={styles.infoRow}>
+                            <Icon name="undo" size={12} color="#0f172a" />
+                            <Text style={styles.infoText}>No returns on puja consumables.</Text>
+                        </View>
+                        <View style={styles.infoRow}>
+                            <Icon name="shield-alt" size={12} color="#0f172a" />
+                            <Text style={styles.infoText}>100% genuine & fresh items.</Text>
+                        </View>
                     </View>
-                </View>
-
-                {/* Info */}
-                <View style={[styles.card, { paddingVertical: 14 }]}>
-                    <View style={styles.infoRow}>
-                        <Icon name="undo" size={12} color="#0f172a" />
-                        <Text style={styles.infoText}>No returns on puja consumables.</Text>
-                    </View>
-                    <View style={styles.infoRow}>
-                        <Icon name="shield-alt" size={12} color="#0f172a" />
-                        <Text style={styles.infoText}>100% genuine & fresh items.</Text>
-                    </View>
-                </View>
-            </ScrollView>
+                </ScrollView>
+            </KeyboardAvoidingView>
 
             {/* Sticky footer */}
             <View style={[styles.footerWrap, { paddingBottom: Math.max(insets.bottom, 10) }]}>
@@ -998,7 +1009,7 @@ export default function PackageCheckout(props) {
                 <View style={styles.errorModalOverlay}>
                     <View style={styles.errorModalContainer}>
                         <View style={{ alignItems: 'center', marginBottom: 10 }}>
-                            <MaterialIcons name="report-gmailerrorred" size={80} color="red" />
+                            <MaterialIcons name="report-gmailerrorred" size={70} color="red" />
                             <Text style={styles.errorTitle}>{errorMsg}</Text>
                         </View>
                         <TouchableOpacity onPress={() => setErrorModal(false)} style={styles.confirmDeleteBtn}>
@@ -1346,5 +1357,5 @@ const styles = StyleSheet.create({
     },
     errorTitle: { color: '#0f172a', fontSize: 18, fontWeight: '900', textAlign: 'center', marginTop: 8, letterSpacing: 0.2 },
     btnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-    confirmDeleteBtn: { backgroundColor: 'green', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 7, marginTop: 10 },
+    confirmDeleteBtn: { backgroundColor: '#FF6B35', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 7, marginTop: 10 },
 });

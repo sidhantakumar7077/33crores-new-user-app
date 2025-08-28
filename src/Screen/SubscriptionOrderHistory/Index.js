@@ -34,7 +34,7 @@ const chipForStatus = (raw) => {
 };
 
 const Index = () => {
-  
+
   const navigation = useNavigation();
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
@@ -313,9 +313,14 @@ const Index = () => {
           contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
-            <View style={styles.emptyBox}>
-              <Icon name="box-open" size={22} color="#94A3B8" />
-              <Text style={styles.emptyText}>No subscription orders yet.</Text>
+            <View style={styles.emptyWrap}>
+              <View style={styles.emptyBadge}>
+                <Text style={styles.emptyEmoji}>🌸</Text>
+              </View>
+              <Text style={styles.emptyTitle}>No Subscriptions Yet</Text>
+              <Text style={styles.emptyText}>
+                Create a subscription to get started.
+              </Text>
             </View>
           }
           showsVerticalScrollIndicator={false}
@@ -499,17 +504,15 @@ const styles = StyleSheet.create({
   gradInner: { paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
   gradText: { color: '#fff', fontWeight: '900', fontSize: 12 },
 
-  emptyBox: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 14,
-    padding: 18,
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 24,
+  emptyWrap: { alignItems: 'center', marginTop: 140, paddingHorizontal: 24 },
+  emptyBadge: {
+    width: 72, height: 72, borderRadius: 36,
+    backgroundColor: '#FFF7ED', borderWidth: 1, borderColor: '#FED7AA',
+    alignItems: 'center', justifyContent: 'center', marginBottom: 12,
   },
-  emptyText: { color: '#6B7280', fontWeight: '700' },
+  emptyEmoji: { fontSize: 30 },
+  emptyTitle: { color: '#0f172a', fontSize: 18, fontWeight: '900', marginBottom: 4 },
+  emptyText: { color: '#64748B', textAlign: 'center', fontWeight: '600' },
 
   // Modals (shared styles)
   modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },

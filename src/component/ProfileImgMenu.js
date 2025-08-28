@@ -58,13 +58,12 @@ const ProfileImgMenu = ({ isVisible, onClose, selectImage, showProfileImage, rem
                         </View>
                         <Text style={{ color: '#737370', fontWeight: '500', marginTop: 5 }}>Gallery</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={{ alignItems: 'center' }}>
+                    {/* <TouchableOpacity style={{ alignItems: 'center' }}>
                         <View style={{ width: 45, height: 45, borderColor: '#ffcb44', borderWidth: 2, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }}>
-                            {/* <FontAwesome6 name="face-dizzy" color={'#000'} size={27} /> */}
                             <Image style={{ width: 28, height: 28 }} source={require('../assets/images/avatar.png')} />
                         </View>
                         <Text style={{ color: '#737370', fontWeight: '500', marginTop: 5 }}>Avatar</Text>
-                    </TouchableOpacity>
+                    </TouchableOpacity> */}
                     <TouchableOpacity onPress={() => { showProfileImage(); slideOut(); }} style={{ alignItems: 'center' }}>
                         <View style={{ width: 45, height: 45, borderColor: '#ffcb44', borderWidth: 2, borderRadius: 50, alignItems: 'center', justifyContent: 'center' }}>
                             <Entypo name="folder-images" color={'#000'} size={27} />

@@ -214,22 +214,28 @@ const Index = () => {
     // -------- Share / Copy / Remind --------
     const buildReferralMessage = (mode = 'invite', userName = '', codeOverride = null) => {
         const code = (codeOverride || referralCode || '').trim();
-        const link = 'https://play.google.com/store/apps/details?id=com.thirtythreecroresapp&hl=en';
+        const androidLink = 'https://play.google.com/store/apps/details?id=com.thirtythreecroresapp&hl=en';
+        const iosLink = 'https://apps.apple.com/in/app/33-crores/id6443912970';
 
+        const linksBlock = `📱 Android: ${androidLink}\n🍎 iOS: ${iosLink}`;
+
+        // Reminder message
         if (mode === 'remind') {
             return (
                 `🙏 Hi ${userName || 'friend'},\n` +
-                `You’ve already used my referral code *${code}* on 33Crores.\n` +
-                `Please subscribe now so we BOTH can get the benefit! 🎁\n\n` +
-                `Complete your subscription here: ${link}`
+                (code ? `You’ve already used my referral code *${code}* on 33Crores.\n` : '') +
+                `Please complete your subscription so we BOTH get the benefit! 🎁\n\n` +
+                linksBlock
             );
         }
 
+        // default: invite
         return (
-            `🙏 Namaste\n` +
-            `🪔 Join me on 33Crores!\n` +
-            `Use my referral code *${code}* to get special benefits on your first puja order.\n\n` +
-            `Install / Open: ${link}`
+            `🙏 Namaskar\n` +
+            `I am delighted to share this new service.\n` +
+            `Order Fresh Pooja Flowers from 33Crores, free home delivery.\n\n` +
+            (code ? `Use my referral code ${code} to get special benefits on your first flower subscription.\n\n` : '') +
+            linksBlock
         );
     };
 
@@ -285,7 +291,7 @@ const Index = () => {
                         <Icon name="arrow-left" size={18} color="#fff" />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Refer & Earn</Text>
-                    <View style={styles.headerIcon} />
+                    <View style={{ width: 24 }} />
                 </View>
                 <Text style={styles.headerSubtitle}>Share your blessings—invite friends and earn rewards.</Text>
             </LinearGradient>
@@ -309,12 +315,12 @@ const Index = () => {
                                 <Icon name="gift" size={12} color="#fff" />
                                 <Text style={styles.refBadgeText}>Refer & Earn</Text>
                             </View>
-                            <Icon name="hands-helping" size={18} color="#9A3412" />
+                            {/* <Icon name="hands-helping" size={18} color="#9A3412" /> */}
                         </View>
 
                         <Text style={styles.refTitle}>Invite friends, earn rewards!</Text>
                         <Text style={styles.refSubtitle}>
-                            Share your code and they’ll get a welcome benefit on their first puja order.
+                            Share your code and they’ll get a welcome benefit on their first order.
                         </Text>
 
                         <View style={styles.codeRow}>

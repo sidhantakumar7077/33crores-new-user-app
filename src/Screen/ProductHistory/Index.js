@@ -178,10 +178,22 @@ const Index = (props) => {
                     contentContainerStyle={{ padding: 16, paddingBottom: 4 }}
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
                     showsVerticalScrollIndicator={false}
+                    // ListEmptyComponent={
+                    //     <View style={styles.emptyBox}>
+                    //         <Icon name="box-open" size={22} color="#94A3B8" />
+                    //         <Text style={styles.emptyText}>No product packages found.</Text>
+                    //     </View>
+                    // }
                     ListEmptyComponent={
-                        <View style={styles.emptyBox}>
-                            <Icon name="box-open" size={22} color="#94A3B8" />
-                            <Text style={styles.emptyText}>No product packages found.</Text>
+                        <View style={styles.emptyWrap}>
+                            <View style={styles.emptyBadge}>
+                                {/* <Text style={styles.emptyEmoji}>🌸</Text> */}
+                                <Icon name="box-open" size={25} color="#830a0aff" />
+                            </View>
+                            <Text style={styles.emptyTitle}>No Products Yet</Text>
+                            <Text style={styles.emptyText}>
+                                Order a Puja product and it will appear here.
+                            </Text>
                         </View>
                     }
                 />
@@ -256,15 +268,13 @@ const styles = StyleSheet.create({
     infoChip: { backgroundColor: '#F8FAFC', borderColor: '#E5E7EB', flexDirection: 'row', alignItems: 'center' },
     infoText: { color: '#1F2937', fontWeight: '800', fontSize: 11 },
 
-    emptyBox: {
-        backgroundColor: '#fff',
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-        borderRadius: 14,
-        padding: 18,
-        alignItems: 'center',
-        gap: 8,
-        marginTop: 24,
+    emptyWrap: { alignItems: 'center', marginTop: 140, paddingHorizontal: 24 },
+    emptyBadge: {
+        width: 72, height: 72, borderRadius: 36,
+        backgroundColor: '#FFF7ED', borderWidth: 1, borderColor: '#FED7AA',
+        alignItems: 'center', justifyContent: 'center', marginBottom: 12,
     },
-    emptyText: { color: '#6B7280', fontWeight: '700' },
+    emptyEmoji: { fontSize: 30 },
+    emptyTitle: { color: '#0f172a', fontSize: 18, fontWeight: '900', marginBottom: 4 },
+    emptyText: { color: '#64748B', textAlign: 'center', fontWeight: '600' },
 });

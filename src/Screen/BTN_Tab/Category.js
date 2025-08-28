@@ -76,16 +76,16 @@ const Category = () => {
                     <View style={styles.heroContent}>
                         <TouchableOpacity style={styles.headerRow} onPress={() => setActiveTab('home')}>
                             <Icon name="arrow-left" size={24} color="#FFFFFF" style={styles.backIcon} />
-                            <Text style={styles.heroTitle}>Sacred Categories</Text>
+                            <Text style={styles.heroTitle}>Categories</Text>
                         </TouchableOpacity>
                         <Text style={styles.heroSubtitle}>
-                            Choose flowers according to your deity and ritual traditions
+                            Choose flowers, leaves & decor according to your deity and ritual traditions.
                         </Text>
                     </View>
                 </LinearGradient>
 
                 <ScrollView style={styles.categoriesContainer} showsVerticalScrollIndicator={false}>
-                    <Text style={styles.sectionTitle}>🏷️ Sacred Flower Collections</Text>
+                    <Text style={styles.sectionTitle}>🌸 Sacred Collections</Text>
                     {loading ? (
                         <ActivityIndicator size="large" color="#FF6B35" style={{ marginTop: 30 }} />
                     ) : (
@@ -120,10 +120,10 @@ const Category = () => {
                                                     </Text>
                                                 )}
 
-                                                <TouchableOpacity style={styles.exploreButton}>
+                                                {/* <TouchableOpacity style={styles.exploreButton}>
                                                     <Icon name="search" size={14} color="#FFFFFF" />
                                                     <Text style={styles.exploreButtonText}>Explore</Text>
-                                                </TouchableOpacity>
+                                                </TouchableOpacity> */}
                                             </View>
                                         </LinearGradient>
                                     </TouchableOpacity>
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
         marginBottom: 40,
     },
     categoryCard: {
-        height: 160,
+        height: 110,
         borderRadius: 24,
         overflow: 'hidden',
         backgroundColor: '#FFFFFF',

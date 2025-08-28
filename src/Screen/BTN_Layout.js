@@ -76,16 +76,16 @@ const BTN_Layout = () => {
                     onPress={() => setActiveTab('home')}
                 />
                 <TabButton
-                    label="Flowers"
-                    icon="seedling"
-                    isActive={activeTab === 'category'}
-                    onPress={() => setActiveTab('category')}
-                />
-                <TabButton
                     label="Subscribe"
                     icon="calendar-alt"
                     isActive={activeTab === 'subscribe'}
                     onPress={() => setActiveTab('subscribe')}
+                />
+                <TabButton
+                    label="Flowers"
+                    icon="seedling"
+                    isActive={activeTab === 'category'}
+                    onPress={() => setActiveTab('category')}
                 />
                 <TabButton
                     label="Notification"

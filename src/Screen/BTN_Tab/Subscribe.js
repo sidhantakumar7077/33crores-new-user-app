@@ -133,7 +133,7 @@ export default function SubscriptionScreen() {
 
                         {/* Plans Section */}
                         <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>📦 Subscription Plans</Text>
+                            <Text style={styles.sectionTitle}>🌸 Flower Subscription Plans</Text>
                             {allPackages.map((plan) => (
                                 <TouchableOpacity
                                     key={plan.product_id}

@@ -25,6 +25,8 @@ import PromotionGate from './src/component/PromotionGate';
 // Auth
 import Login from './src/Screen/Auth/Login'
 import OTP from './src/Screen/Auth/OTP'
+import NewLogin from './src/Screen/Auth/NewLogin';
+import ProfileSetup from './src/Screen/Auth/ProfileSetup'
 
 // BTN_Layout
 import BTN_Layout from './src/Screen/BTN_Layout'
@@ -210,10 +212,11 @@ const App = () => {
             <Stack.Screen name="NoInternet" component={NoInternet} />
           ) : (
             <>
-              {accessToken ? <Stack.Screen name="BTN_Layout" component={BTN_Layout} /> : <Stack.Screen name="Login" component={Login} />}
-              {!accessToken ? <Stack.Screen name="BTN_Layout" component={BTN_Layout} /> : <Stack.Screen name="Login" component={Login} />}
+              {accessToken ? <Stack.Screen name="BTN_Layout" component={BTN_Layout} /> : <Stack.Screen name="NewLogin" component={NewLogin} />}
+              {!accessToken ? <Stack.Screen name="BTN_Layout" component={BTN_Layout} /> : <Stack.Screen name="NewLogin" component={NewLogin} />}
               {/* <Stack.Screen name='BTN_Layout' component={BTN_Layout} /> */}
               <Stack.Screen name='OTP' component={OTP} />
+              <Stack.Screen name='ProfileSetup' component={ProfileSetup} />
               <Stack.Screen name='SubscriptionCheckoutPage' component={SubscriptionCheckoutPage} />
               <Stack.Screen name='CustomOrderScreen' component={CustomOrderScreen} />
               {/* <Stack.Screen name='NewHome' component={NewHome} /> */}

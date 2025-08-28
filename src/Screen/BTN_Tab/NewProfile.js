@@ -29,6 +29,7 @@ import { useTab } from '../TabContext';
 import { base_url } from '../../../App';
 import ProfileImgMenu from '../../component/ProfileImgMenu';
 import ShowDP from '../../component/ShowDP';
+import moment from 'moment';
 
 const PROFILE_OPTIONS = [
     { id: '1', title: 'My Orders', icon: 'clock', subtitle: 'Track your pooja flower deliveries', gradient: ['#FF6B35', '#F7931E'], page: 'MyOrder' },
@@ -52,6 +53,7 @@ const NewProfile = () => {
     const [name, setName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
     const [email, setEmail] = useState('');
+    const [dob, setDob] = useState(new Date());
     const [about, setAbout] = useState('');
     const [gender, setGender] = useState('');
     const [genderID, setGenderID] = useState(null);
@@ -102,7 +104,7 @@ const NewProfile = () => {
                 setPhoneNumber(responseData?.user?.mobile_number);
                 setEmail(responseData?.user?.email);
                 setAbout(responseData?.user?.about);
-                // setDOB(responseData?.user?.dob);
+                setDob(responseData?.user?.dob);
                 setGenderID(responseData?.user?.gender);
                 setImageSource(responseData?.user?.userphoto);
             }
@@ -291,12 +293,17 @@ const NewProfile = () => {
         ToastAndroid.show('Referral code copied', ToastAndroid.SHORT);
     };
 
-    const buildReferralMessage = () => {
-        const link = 'https://play.google.com/store/apps/details?id=com.thirtythreecroresapp&hl=en';
+    const buildReferralMessage = (codeOverride = null) => {
+        const androidLink = 'https://play.google.com/store/apps/details?id=com.thirtythreecroresapp&hl=en';
+        const iosLink = 'https://apps.apple.com/in/app/33-crores/id6443912970';
+
         return (
-            `🪔 Join me on 33Crores!\n` +
-            `Use my referral code **${referralCode}** to get special benefits on your first order.\n\n` +
-            `Install / Open: ${link}`
+            `🙏 Namaskar\n` +
+            `I am delighted to share this new service.\n` +
+            `Order Fresh Pooja Flowers from 33Crores, free home delivery.\n\n` +
+            `Use my referral code ${referralCode} to get special benefits on your first flower subscription.\n\n` +
+            `📱 Android: ${androidLink}\n` +
+            `🍎 iOS: ${iosLink}`
         );
     };
 
@@ -555,6 +562,20 @@ const NewProfile = () => {
                                         placeholder="Enter Your Email ID"
                                         placeholderTextColor="#b7b7c2"
                                         underlineColorAndroid='transparent'
+                                    />
+                                </View>
+                            </View>
+                            <View style={{ width: '100%' }}>
+                                <Text style={{ color: '#000', fontSize: 16, marginLeft: 8 }}>Date of Birth</Text>
+                                <View style={[styles.cardStyle, { backgroundColor: '#e8e8eb', borderColor: '#868687', }]}>
+                                    <TextInput
+                                        style={[styles.inputs, { color: '#6a6a6b' }]}
+                                        onChangeText={setDob}
+                                        value={moment(dob).format('YYYY-MM-DD')}
+                                        placeholder="Select Date of Birth"
+                                        placeholderTextColor="#b7b7c2"
+                                        underlineColorAndroid='transparent'
+                                        editable={false}
                                     />
                                 </View>
                             </View>

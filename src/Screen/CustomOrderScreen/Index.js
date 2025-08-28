@@ -12,7 +12,8 @@ import {
   Modal,
   ActivityIndicator,
   Animated, Easing,
-  Linking
+  Linking,
+  KeyboardAvoidingView
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
@@ -215,7 +216,7 @@ const Index = () => {
       valid = false;
     }
     if (selectedOption === 'apartment' && (apartmentValue === null && newApartment === "")) {
-      errors.apartment = "Apartment is required";
+      errorsObj.apartment = "Apartment is required";
       valid = false;
     }
     if (landmark === "") {
@@ -549,12 +550,15 @@ const Index = () => {
 
     try {
       if (!selectedOption) {
-        displayErrorMessage("Please Select Your Address");
+        // displayErrorMessage("Please Select Your Address");
+        setErrormasg("Please Select/Add Your Address");
+        setErrorModal(true);
         setIsLoading(false);
         return;
       }
       if (!flowerRequest?.product_id) {
-        displayErrorMessage("Missing product id");
+        setErrormasg("Missing product id");
+        setErrorModal(true);
         setIsLoading(false);
         return;
       }
@@ -562,7 +566,9 @@ const Index = () => {
       const payload = buildPayloadForApi();
 
       if (!payload.items.length) {
-        displayErrorMessage("Please save at least one Flower or Garland entry");
+        // displayErrorMessage("Please save at least one Flower or Garland entry");
+        setErrormasg("Please save at least one Flower or Garland entry");
+        setErrorModal(true);
         setIsLoading(false);
         return;
       }
@@ -692,421 +698,427 @@ const Index = () => {
           </View>
         </LinearGradient>
 
-        <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, marginBottom: 50 }}>
-          {/* Product Details */}
-          <View style={styles.productDetails}>
-            <View style={{ width: '35%', paddingVertical: 10 }}>
-              <View style={styles.flowerImage}>
-                <Image style={{ flex: 1, borderRadius: 8, resizeMode: 'cover' }} source={{ uri: flowerRequest.product_image }} />
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+        >
+          <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false} style={{ flex: 1, marginBottom: 50 }}>
+            {/* Product Details */}
+            <View style={styles.productDetails}>
+              <View style={{ width: '35%', paddingVertical: 10 }}>
+                <View style={styles.flowerImage}>
+                  <Image style={{ flex: 1, borderRadius: 8, resizeMode: 'cover' }} source={{ uri: flowerRequest.product_image }} />
+                </View>
+              </View>
+              <View style={{ width: '60%', alignItems: 'flex-start', justifyContent: 'center' }}>
+                <Text style={{ color: '#000', fontSize: 18, fontWeight: '500', textTransform: 'capitalize' }}>{flowerRequest.name}</Text>
+                <Text style={{ color: '#000', fontSize: 14, fontWeight: '400', textTransform: 'capitalize', marginTop: 5 }}>Price :  {flowerRequest.immediate_price}</Text>
               </View>
             </View>
-            <View style={{ width: '60%', alignItems: 'flex-start', justifyContent: 'center' }}>
-              <Text style={{ color: '#000', fontSize: 18, fontWeight: '500', textTransform: 'capitalize' }}>{flowerRequest.name}</Text>
-              <Text style={{ color: '#000', fontSize: 14, fontWeight: '400', textTransform: 'capitalize', marginTop: 5 }}>Price :  {flowerRequest.immediate_price}</Text>
-            </View>
-          </View>
 
-          {/* ===================== Flower / Garland Section (REWRITTEN) ===================== */}
-          <View style={{ marginTop: 15, backgroundColor: '#fff', width: '100%', paddingHorizontal: 15, zIndex: 2000 }}>
-            {/* Type Switch */}
-            <View style={styles.typeSwitchWrapper}>
-              <View style={styles.typeSwitch}>
-                {['flower', 'garland'].map((type) => {
-                  const isActive = selectedType === type;
-                  return (
-                    <TouchableOpacity
-                      key={type}
-                      activeOpacity={0.8}
-                      style={[styles.typePill, isActive ? styles.typePillActive : styles.typePillInactive]}
-                      onPress={() => handleTypeSwitch(type)}
-                    >
-                      {isActive ? (
+            {/* ===================== Flower / Garland Section (REWRITTEN) ===================== */}
+            <View style={{ marginTop: 15, backgroundColor: '#fff', width: '100%', paddingHorizontal: 15, zIndex: 2000 }}>
+              {/* Type Switch */}
+              <View style={styles.typeSwitchWrapper}>
+                <View style={styles.typeSwitch}>
+                  {['flower', 'garland'].map((type) => {
+                    const isActive = selectedType === type;
+                    return (
+                      <TouchableOpacity
+                        key={type}
+                        activeOpacity={0.8}
+                        style={[styles.typePill, isActive ? styles.typePillActive : styles.typePillInactive]}
+                        onPress={() => handleTypeSwitch(type)}
+                      >
+                        {isActive ? (
+                          <LinearGradient
+                            colors={['#FF6B35', '#F7931E']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.typePillGradient}
+                          >
+                            <Image
+                              source={type === 'flower' ? require('../../assets/images/flower.png') : require('../../assets/images/garland.png')}
+                              style={{ width: 30, height: 30, marginRight: 8 }}
+                            />
+                            <Text style={styles.typePillTextActive}>
+                              {type === 'flower' ? 'Flower' : 'Garland'}
+                            </Text>
+                          </LinearGradient>
+                        ) : (
+                          <>
+                            <Image
+                              source={type === 'flower' ? require('../../assets/images/flower.png') : require('../../assets/images/garland.png')}
+                              style={{ width: 30, height: 30, marginRight: 8 }}
+                            />
+                            <Text style={styles.typePillText}> {type === 'flower' ? 'Flower' : 'Garland'} </Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Inputs */}
+              <View style={{ marginTop: 12, paddingHorizontal: 12 }}>
+                {selectedType === 'flower' ? (
+                  <View style={styles.detailCard}>
+                    {/* Header */}
+                    <View style={styles.detailHeader}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                         <LinearGradient
-                          colors={['#FF6B35', '#F7931E']}
+                          colors={['#1E293B', '#334155']}
                           start={{ x: 0, y: 0 }}
                           end={{ x: 1, y: 1 }}
-                          style={styles.typePillGradient}
+                          style={styles.detailIconWrap}
                         >
-                          <Image
-                            source={type === 'flower' ? require('../../assets/images/flower.png') : require('../../assets/images/garland.png')}
-                            style={{ width: 30, height: 30, marginRight: 8 }}
-                          />
-                          <Text style={styles.typePillTextActive}>
-                            {type === 'flower' ? 'Flower' : 'Garland'}
-                          </Text>
+                          <Image source={require('../../assets/images/flower.png')} style={{ width: 24, height: 24 }} />
                         </LinearGradient>
-                      ) : (
-                        <>
-                          <Image
-                            source={type === 'flower' ? require('../../assets/images/flower.png') : require('../../assets/images/garland.png')}
-                            style={{ width: 30, height: 30, marginRight: 8 }}
+                        <Text style={styles.detailTitle}>Flower</Text>
+                      </View>
+                    </View>
+
+                    {/* Fields: Flower, Quantity, Unit */}
+                    <View style={{ marginTop: 12 }}>
+                      {/* Flower & Quantity in one row */}
+                      <View style={styles.row}>
+                        <View style={[styles.col, { flex: 1, zIndex: 3000, elevation: 3000 }]}>
+                          <Text style={styles.inputLabel}>Flower</Text>
+                          <DropDownPicker
+                            open={flowerInput.flowerNameOpen}
+                            value={flowerInput.flowerName}
+                            items={flowerNames}
+                            setOpen={(open) => setFlowerInput(prev => ({ ...prev, flowerNameOpen: open }))}
+                            setValue={(next) => {
+                              const cur = flowerInput.flowerName;
+                              const val = typeof next === 'function' ? next(cur) : next;
+                              setFlowerInput(prev => ({ ...prev, flowerName: val }));
+                            }}
+                            placeholder="Select flower"
+                            listMode="MODAL"
+                            style={styles.ddInput}
+                            dropDownContainerStyle={styles.ddContainer}
+                            zIndex={3000}
+                            zIndexInverse={1000}
                           />
-                          <Text style={styles.typePillText}> {type === 'flower' ? 'Flower' : 'Garland'} </Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* Inputs */}
-            <View style={{ marginTop: 12, paddingHorizontal: 12 }}>
-              {selectedType === 'flower' ? (
-                <View style={styles.detailCard}>
-                  {/* Header */}
-                  <View style={styles.detailHeader}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <LinearGradient
-                        colors={['#1E293B', '#334155']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.detailIconWrap}
-                      >
-                        <Image source={require('../../assets/images/flower.png')} style={{ width: 24, height: 24 }} />
-                      </LinearGradient>
-                      <Text style={styles.detailTitle}>Flower</Text>
-                    </View>
-                  </View>
-
-                  {/* Fields: Flower, Quantity, Unit */}
-                  <View style={{ marginTop: 12 }}>
-                    {/* Flower & Quantity in one row */}
-                    <View style={styles.row}>
-                      <View style={[styles.col, { flex: 1, zIndex: 3000, elevation: 3000 }]}>
-                        <Text style={styles.inputLabel}>Flower</Text>
-                        <DropDownPicker
-                          open={flowerInput.flowerNameOpen}
-                          value={flowerInput.flowerName}
-                          items={flowerNames}
-                          setOpen={(open) => setFlowerInput(prev => ({ ...prev, flowerNameOpen: open }))}
-                          setValue={(next) => {
-                            const cur = flowerInput.flowerName;
-                            const val = typeof next === 'function' ? next(cur) : next;
-                            setFlowerInput(prev => ({ ...prev, flowerName: val }));
-                          }}
-                          placeholder="Select flower"
-                          listMode="MODAL"
-                          style={styles.ddInput}
-                          dropDownContainerStyle={styles.ddContainer}
-                          zIndex={3000}
-                          zIndexInverse={1000}
-                        />
-                      </View>
-
-                      <View style={[styles.col, { flex: 1 }]}>
-                        <Text style={styles.inputLabel}>Quantity</Text>
-                        <TextInput
-                          style={styles.textInput}
-                          onChangeText={(text) => setFlowerInput(prev => ({ ...prev, flowerQuantity: text }))}
-                          value={flowerInput.flowerQuantity}
-                          keyboardType="numeric"
-                          placeholder="e.g. 2"
-                          placeholderTextColor="#94a3b8"
-                        />
-                      </View>
-                    </View>
-
-                    {/* Unit & Save Button in one row */}
-                    <View style={styles.row}>
-                      <View style={[styles.col, { flex: 1, zIndex: 2500, elevation: 2500 }]}>
-                        <Text style={styles.inputLabel}>Unit</Text>
-                        <DropDownPicker
-                          open={flowerInput.flowerUnitOpen}
-                          value={flowerInput.flowerUnit}
-                          items={flowerUnits}
-                          setOpen={(open) => setFlowerInput(prev => ({ ...prev, flowerUnitOpen: open }))}
-                          setValue={(next) => {
-                            const cur = flowerInput.flowerUnit;
-                            const val = typeof next === 'function' ? next(cur) : next;
-                            setFlowerInput(prev => ({ ...prev, flowerUnit: val }));
-                          }}
-                          placeholder="Select unit"
-                          listMode="MODAL"
-                          style={styles.ddInput}
-                          dropDownContainerStyle={styles.ddContainer}
-                          zIndex={2500}
-                          zIndexInverse={3000}
-                        />
-                      </View>
-
-                      {/* fixed width save column to avoid being pushed off-screen */}
-                      <View style={[styles.col, { width: 140, alignSelf: 'flex-end' }]}>
-                        <TouchableOpacity
-                          disabled={!isFlowerInputValid()}
-                          onPress={handleSaveFlower}
-                          style={[styles.saveRowBtn, !isFlowerInputValid() && { opacity: 0.5 }]}
-                        >
-                          <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.smallBtnGradient}>
-                            <Text style={styles.smallBtnText}>Save</Text>
-                          </LinearGradient>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              ) : (
-                <View style={styles.detailCard}>
-                  {/* Header */}
-                  <View style={styles.detailHeader}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <LinearGradient
-                        colors={['#1E293B', '#334155']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.detailIconWrap}
-                      >
-                        <Image source={require('../../assets/images/garland.png')} style={{ width: 24, height: 24 }} />
-                      </LinearGradient>
-                      <Text style={styles.detailTitle}>Garland</Text>
-                    </View>
-                  </View>
-
-                  {/* Fields */}
-                  <View style={{ marginTop: 12 }}>
-                    {/* Garland (Flower name) */}
-                    <View style={styles.row}>
-                      <View style={[styles.col, { flex: 1.2, zIndex: 3000, elevation: 3000 }]}>
-                        <Text style={styles.inputLabel}>Flower</Text>
-                        <DropDownPicker
-                          open={garlandInput.garlandNameOpen}
-                          value={garlandInput.garlandName}
-                          items={flowerNames} // reuse same list
-                          setOpen={(open) => setGarlandInput(prev => ({ ...prev, garlandNameOpen: open }))}
-                          setValue={(next) => {
-                            const cur = garlandInput.garlandName;
-                            const val = typeof next === 'function' ? next(cur) : next;
-                            setGarlandInput(prev => ({ ...prev, garlandName: val }));
-                          }}
-                          placeholder="Select flower"
-                          listMode="MODAL"
-                          style={styles.ddInput}
-                          dropDownContainerStyle={styles.ddContainer}
-                          zIndex={3000}
-                          zIndexInverse={1000}
-                        />
-                      </View>
-                      {/* Number of Garlands */}
-                      <View style={[styles.col, { flex: 0.8 }]}>
-                        <Text style={styles.inputLabel}>No. of Garlands</Text>
-                        <TextInput
-                          style={styles.textInput}
-                          onChangeText={(text) => setGarlandInput(prev => ({ ...prev, garlandQuantity: text }))}
-                          value={garlandInput.garlandQuantity}
-                          keyboardType="numeric"
-                          placeholder="e.g. 2"
-                          placeholderTextColor="#94a3b8"
-                        />
-                      </View>
-                    </View>
-
-                    {/* Radio: Flower Count or Garland Size */}
-                    <View style={[styles.row, { marginTop: 12 }]}>
-                      <TouchableOpacity
-                        onPress={() => setGarlandInput(prev => ({ ...prev, radioChoice: 'count' }))}
-                        style={[styles.radioPill, garlandInput.radioChoice === 'count' && styles.radioPillActive]}
-                      >
-                        <View style={[styles.radioCircle, garlandInput.radioChoice === 'count' && styles.radioCircleActive]}>
-                          {garlandInput.radioChoice === 'count' && <View style={styles.radioDot} />}
                         </View>
-                        <Text style={[styles.radioText, garlandInput.radioChoice === 'count' && styles.radioTextActive]}>Flower Count</Text>
-                      </TouchableOpacity>
 
-                      <TouchableOpacity
-                        onPress={() => setGarlandInput(prev => ({ ...prev, radioChoice: 'size' }))}
-                        style={[styles.radioPill, garlandInput.radioChoice === 'size' && styles.radioPillActive]}
-                      >
-                        <View style={[styles.radioCircle, garlandInput.radioChoice === 'size' && styles.radioCircleActive]}>
-                          {garlandInput.radioChoice === 'size' && <View style={styles.radioDot} />}
-                        </View>
-                        <Text style={[styles.radioText, garlandInput.radioChoice === 'size' && styles.radioTextActive]}>Garland Size</Text>
-                      </TouchableOpacity>
-                    </View>
-
-                    {/* Conditional Field */}
-                    {garlandInput.radioChoice === 'count' && (
-                      <View style={[styles.row, { marginTop: 10 }]}>
                         <View style={[styles.col, { flex: 1 }]}>
-                          <Text style={styles.inputLabel}>Flower Count</Text>
+                          <Text style={styles.inputLabel}>Quantity</Text>
                           <TextInput
                             style={styles.textInput}
-                            onChangeText={(text) => setGarlandInput(prev => ({ ...prev, garlandCount: text }))}
-                            value={garlandInput.garlandCount}
+                            onChangeText={(text) => setFlowerInput(prev => ({ ...prev, flowerQuantity: text }))}
+                            value={flowerInput.flowerQuantity}
                             keyboardType="numeric"
-                            placeholder="e.g. 50"
+                            placeholder="e.g. 2"
                             placeholderTextColor="#94a3b8"
                           />
                         </View>
                       </View>
-                    )}
 
-                    {garlandInput.radioChoice === 'size' && (
-                      <View style={[styles.row, { marginTop: 10 }]}>
-                        <View style={[styles.col, { flex: 1, zIndex: 2000, elevation: 2000 }]}>
-                          <Text style={styles.inputLabel}>Size</Text>
+                      {/* Unit & Save Button in one row */}
+                      <View style={styles.row}>
+                        <View style={[styles.col, { flex: 1, zIndex: 2500, elevation: 2500 }]}>
+                          <Text style={styles.inputLabel}>Unit</Text>
                           <DropDownPicker
-                            open={garlandInput.garlandSizeOpen}
-                            value={garlandInput.garlandSize}
-                            items={garlandSizes}
-                            setOpen={(open) => setGarlandInput(prev => ({ ...prev, garlandSizeOpen: open }))}
+                            open={flowerInput.flowerUnitOpen}
+                            value={flowerInput.flowerUnit}
+                            items={flowerUnits}
+                            setOpen={(open) => setFlowerInput(prev => ({ ...prev, flowerUnitOpen: open }))}
                             setValue={(next) => {
-                              const cur = garlandInput.garlandSize;
+                              const cur = flowerInput.flowerUnit;
                               const val = typeof next === 'function' ? next(cur) : next;
-                              setGarlandInput(prev => ({ ...prev, garlandSize: val }));
+                              setFlowerInput(prev => ({ ...prev, flowerUnit: val }));
                             }}
-                            placeholder="Select size"
+                            placeholder="Select unit"
                             listMode="MODAL"
                             style={styles.ddInput}
                             dropDownContainerStyle={styles.ddContainer}
-                            zIndex={2000}
-                            zIndexInverse={2500}
+                            zIndex={2500}
+                            zIndexInverse={3000}
+                          />
+                        </View>
+
+                        {/* fixed width save column to avoid being pushed off-screen */}
+                        <View style={[styles.col, { width: 140, alignSelf: 'flex-end' }]}>
+                          <TouchableOpacity
+                            disabled={!isFlowerInputValid()}
+                            onPress={handleSaveFlower}
+                            style={[styles.saveRowBtn, !isFlowerInputValid() && { opacity: 0.5 }]}
+                          >
+                            <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.smallBtnGradient}>
+                              <Text style={styles.smallBtnText}>Save</Text>
+                            </LinearGradient>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.detailCard}>
+                    {/* Header */}
+                    <View style={styles.detailHeader}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <LinearGradient
+                          colors={['#1E293B', '#334155']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.detailIconWrap}
+                        >
+                          <Image source={require('../../assets/images/garland.png')} style={{ width: 24, height: 24 }} />
+                        </LinearGradient>
+                        <Text style={styles.detailTitle}>Garland</Text>
+                      </View>
+                    </View>
+
+                    {/* Fields */}
+                    <View style={{ marginTop: 12 }}>
+                      {/* Garland (Flower name) */}
+                      <View style={styles.row}>
+                        <View style={[styles.col, { flex: 1.2, zIndex: 3000, elevation: 3000 }]}>
+                          <Text style={styles.inputLabel}>Flower</Text>
+                          <DropDownPicker
+                            open={garlandInput.garlandNameOpen}
+                            value={garlandInput.garlandName}
+                            items={flowerNames} // reuse same list
+                            setOpen={(open) => setGarlandInput(prev => ({ ...prev, garlandNameOpen: open }))}
+                            setValue={(next) => {
+                              const cur = garlandInput.garlandName;
+                              const val = typeof next === 'function' ? next(cur) : next;
+                              setGarlandInput(prev => ({ ...prev, garlandName: val }));
+                            }}
+                            placeholder="Select flower"
+                            listMode="MODAL"
+                            style={styles.ddInput}
+                            dropDownContainerStyle={styles.ddContainer}
+                            zIndex={3000}
+                            zIndexInverse={1000}
+                          />
+                        </View>
+                        {/* Number of Garlands */}
+                        <View style={[styles.col, { flex: 0.8 }]}>
+                          <Text style={styles.inputLabel}>No. of Garlands</Text>
+                          <TextInput
+                            style={styles.textInput}
+                            onChangeText={(text) => setGarlandInput(prev => ({ ...prev, garlandQuantity: text }))}
+                            value={garlandInput.garlandQuantity}
+                            keyboardType="numeric"
+                            placeholder="e.g. 2"
+                            placeholderTextColor="#94a3b8"
                           />
                         </View>
                       </View>
-                    )}
 
-                    {/* Save Button */}
-                    <TouchableOpacity
-                      disabled={!isGarlandInputValid()}
-                      onPress={handleSaveGarland}
-                      style={[styles.saveRowBtn, !isGarlandInputValid() && { opacity: 0.5 }]}
-                    >
-                      <LinearGradient
-                        colors={['#FF6B35', '#F7931E']}
-                        style={styles.smallBtnGradient}
+                      {/* Radio: Flower Count or Garland Size */}
+                      <View style={[styles.row, { marginTop: 12 }]}>
+                        <TouchableOpacity
+                          onPress={() => setGarlandInput(prev => ({ ...prev, radioChoice: 'count' }))}
+                          style={[styles.radioPill, garlandInput.radioChoice === 'count' && styles.radioPillActive]}
+                        >
+                          <View style={[styles.radioCircle, garlandInput.radioChoice === 'count' && styles.radioCircleActive]}>
+                            {garlandInput.radioChoice === 'count' && <View style={styles.radioDot} />}
+                          </View>
+                          <Text style={[styles.radioText, garlandInput.radioChoice === 'count' && styles.radioTextActive]}>Flower Count</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          onPress={() => setGarlandInput(prev => ({ ...prev, radioChoice: 'size' }))}
+                          style={[styles.radioPill, garlandInput.radioChoice === 'size' && styles.radioPillActive]}
+                        >
+                          <View style={[styles.radioCircle, garlandInput.radioChoice === 'size' && styles.radioCircleActive]}>
+                            {garlandInput.radioChoice === 'size' && <View style={styles.radioDot} />}
+                          </View>
+                          <Text style={[styles.radioText, garlandInput.radioChoice === 'size' && styles.radioTextActive]}>Garland Size</Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Conditional Field */}
+                      {garlandInput.radioChoice === 'count' && (
+                        <View style={[styles.row, { marginTop: 10 }]}>
+                          <View style={[styles.col, { flex: 1 }]}>
+                            <Text style={styles.inputLabel}>Flower Count</Text>
+                            <TextInput
+                              style={styles.textInput}
+                              onChangeText={(text) => setGarlandInput(prev => ({ ...prev, garlandCount: text }))}
+                              value={garlandInput.garlandCount}
+                              keyboardType="numeric"
+                              placeholder="e.g. 50"
+                              placeholderTextColor="#94a3b8"
+                            />
+                          </View>
+                        </View>
+                      )}
+
+                      {garlandInput.radioChoice === 'size' && (
+                        <View style={[styles.row, { marginTop: 10 }]}>
+                          <View style={[styles.col, { flex: 1, zIndex: 2000, elevation: 2000 }]}>
+                            <Text style={styles.inputLabel}>Size</Text>
+                            <DropDownPicker
+                              open={garlandInput.garlandSizeOpen}
+                              value={garlandInput.garlandSize}
+                              items={garlandSizes}
+                              setOpen={(open) => setGarlandInput(prev => ({ ...prev, garlandSizeOpen: open }))}
+                              setValue={(next) => {
+                                const cur = garlandInput.garlandSize;
+                                const val = typeof next === 'function' ? next(cur) : next;
+                                setGarlandInput(prev => ({ ...prev, garlandSize: val }));
+                              }}
+                              placeholder="Select size"
+                              listMode="MODAL"
+                              style={styles.ddInput}
+                              dropDownContainerStyle={styles.ddContainer}
+                              zIndex={2000}
+                              zIndexInverse={2500}
+                            />
+                          </View>
+                        </View>
+                      )}
+
+                      {/* Save Button */}
+                      <TouchableOpacity
+                        disabled={!isGarlandInputValid()}
+                        onPress={handleSaveGarland}
+                        style={[styles.saveRowBtn, !isGarlandInputValid() && { opacity: 0.5 }]}
                       >
-                        <Text style={styles.smallBtnText}>Save</Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
+                        <LinearGradient
+                          colors={['#FF6B35', '#F7931E']}
+                          style={styles.smallBtnGradient}
+                        >
+                          <Text style={styles.smallBtnText}>Save</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                </View>
-              )}
+                )}
 
-              {/* Saved table */}
-              {renderFlowerTable()}
-              {/* Saved table */}
-              {renderGarlandTable()}
-            </View>
-          </View>
-          {/* ===================== END REWRITTEN SECTION ===================== */}
-
-          {/* Delivery Address And date & time */}
-          <View style={styles.address}>
-            <View style={{ width: '100%', marginBottom: 5 }}>
-              <Text style={styles.label}>Delivery Flower Date</Text>
-              <TouchableOpacity onPress={openDatePicker}>
-                <TextInput
-                  style={styles.input}
-                  value={dob ? moment(dob).format('DD-MM-YYYY') : ""}
-                  editable={false}
-                />
-                <MaterialCommunityIcons name="calendar-month" color={'#555454'} size={26} style={{ position: 'absolute', right: 10, top: 10 }} />
-              </TouchableOpacity>
-            </View>
-            <View style={{ width: '100%', marginBottom: 15 }}>
-              <Text style={styles.label}>Delivery Flower Time</Text>
-              <TouchableOpacity onPress={() => setOpenTimePicker(true)}>
-                <TextInput
-                  style={styles.input}
-                  value={deliveryTime ? moment(deliveryTime).format('hh:mm A') : ""}
-                  editable={false}
-                />
-                <MaterialCommunityIcons name="av-timer" color={'#555454'} size={26} style={{ position: 'absolute', right: 10, top: 10 }} />
-              </TouchableOpacity>
-              <DatePicker
-                modal
-                mode="time"
-                open={openTimePicker}
-                date={deliveryTime}
-                onConfirm={(date) => {
-                  setDeliveryTime(date);
-                  setOpenTimePicker(false);
-                }}
-                onCancel={() => setOpenTimePicker(false)}
-                minimumDate={dob?.toDateString() === new Date().toDateString() ? new Date(new Date().getTime() + 2 * 60 * 60 * 1000) : undefined}
-              />
-            </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-              <View style={{ width: '15%', height: 80, borderWidth: 0.8, borderRightWidth: 0, backgroundColor: '#fbfdff', alignItems: 'center', justifyContent: 'center', borderColor: '#edeff1', borderTopLeftRadius: 5, borderBottomLeftRadius: 5 }}>
-                <Feather name="message-square" color={'#495057'} size={20} />
-              </View>
-              <View style={{ width: '85%', height: 80, borderWidth: 0.8, borderColor: '#edeff1', borderTopRightRadius: 5, borderBottomRightRadius: 5 }}>
-                <TextInput
-                  style={{ flex: 1, paddingLeft: 15, fontSize: 15, textAlignVertical: 'top', color: '#000' }}
-                  onChangeText={setSuggestions}
-                  value={suggestions}
-                  multiline={true}
-                  type='text'
-                  placeholder="Any suggestions? We will pass it on..."
-                  placeholderTextColor="#888888"
-                  underlineColorAndroid='transparent'
-                />
+                {/* Saved table */}
+                {renderFlowerTable()}
+                {/* Saved table */}
+                {renderGarlandTable()}
               </View>
             </View>
-            <View style={{ flex: 1, marginTop: 15 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5, alignItems: 'center' }}>
-                <View style={{ width: '65%' }}>
-                  {addressErrorMessageVisible ?
-                    <Text style={{ color: '#f00c27', fontWeight: '500' }}>{addressError}</Text>
-                    : null
-                  }
-                </View>
-                <TouchableOpacity onPress={() => setAddAddressModal(true)}>
-                  <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.addressAddBtm}>
-                    <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>Add Address</Text>
-                  </LinearGradient>
+            {/* ===================== END REWRITTEN SECTION ===================== */}
+
+            {/* Delivery Address And date & time */}
+            <View style={styles.address}>
+              <View style={{ width: '100%', marginBottom: 5 }}>
+                <Text style={styles.label}>Delivery Flower Date</Text>
+                <TouchableOpacity onPress={openDatePicker}>
+                  <TextInput
+                    style={styles.input}
+                    value={dob ? moment(dob).format('DD-MM-YYYY') : ""}
+                    editable={false}
+                  />
+                  <MaterialCommunityIcons name="calendar-month" color={'#555454'} size={26} style={{ position: 'absolute', right: 10, top: 10 }} />
                 </TouchableOpacity>
               </View>
-              <FlatList
-                showsHorizontalScrollIndicator={false}
-                data={displayedAddresses}
-                scrollEnabled={false}
-                keyExtractor={(item) => item.id.toString()}
-                renderItem={(address) => {
-                  return (
-                    <TouchableOpacity onPress={() => handleAddressChange(address?.item?.id)} style={{ borderColor: '#edeff1', borderWidth: 1, padding: 10, flexDirection: 'row', alignItems: 'center', borderRadius: 8, marginVertical: 5 }}>
-                      <View style={{ width: '8%', alignSelf: 'flex-start', marginTop: 2 }}>
-                        {address?.item?.address_type === "Home" && <Feather name="home" color={'#555454'} size={18} />}
-                        {address?.item?.address_type === "Work" && <Feather name="briefcase" color={'#555454'} size={17} />}
-                        {address?.item?.address_type === "Other" && <Feather name="globe" color={'#555454'} size={17} />}
-                      </View>
-                      <View style={{ width: '82%' }}>
-                        <View>
-                          {address?.item?.address_type === "Home" && <Text style={{ color: '#000', fontSize: 15, fontWeight: '600' }}>Home</Text>}
-                          {address?.item?.address_type === "Work" && <Text style={{ color: '#000', fontSize: 15, fontWeight: '600' }}>Work</Text>}
-                          {address?.item?.address_type === "Other" && <Text style={{ color: '#000', fontSize: 15, fontWeight: '600' }}>Other</Text>}
+              <View style={{ width: '100%', marginBottom: 15 }}>
+                <Text style={styles.label}>Delivery Flower Time</Text>
+                <TouchableOpacity onPress={() => setOpenTimePicker(true)}>
+                  <TextInput
+                    style={styles.input}
+                    value={deliveryTime ? moment(deliveryTime).format('hh:mm A') : ""}
+                    editable={false}
+                  />
+                  <MaterialCommunityIcons name="av-timer" color={'#555454'} size={26} style={{ position: 'absolute', right: 10, top: 10 }} />
+                </TouchableOpacity>
+                <DatePicker
+                  modal
+                  mode="time"
+                  open={openTimePicker}
+                  date={deliveryTime}
+                  onConfirm={(date) => {
+                    setDeliveryTime(date);
+                    setOpenTimePicker(false);
+                  }}
+                  onCancel={() => setOpenTimePicker(false)}
+                  minimumDate={dob?.toDateString() === new Date().toDateString() ? new Date(new Date().getTime() + 2 * 60 * 60 * 1000) : undefined}
+                />
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                <View style={{ width: '15%', height: 80, borderWidth: 0.8, borderRightWidth: 0, backgroundColor: '#fbfdff', alignItems: 'center', justifyContent: 'center', borderColor: '#edeff1', borderTopLeftRadius: 5, borderBottomLeftRadius: 5 }}>
+                  <Feather name="message-square" color={'#495057'} size={20} />
+                </View>
+                <View style={{ width: '85%', height: 80, borderWidth: 0.8, borderColor: '#edeff1', borderTopRightRadius: 5, borderBottomRightRadius: 5 }}>
+                  <TextInput
+                    style={{ flex: 1, paddingLeft: 15, fontSize: 15, textAlignVertical: 'top', color: '#000' }}
+                    onChangeText={setSuggestions}
+                    value={suggestions}
+                    multiline={true}
+                    type='text'
+                    placeholder="Any suggestions? We will pass it on..."
+                    placeholderTextColor="#888888"
+                    underlineColorAndroid='transparent'
+                  />
+                </View>
+              </View>
+              <View style={{ flex: 1, marginTop: 15 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5, alignItems: 'center' }}>
+                  <View style={{ width: '65%' }}>
+                    {addressErrorMessageVisible ?
+                      <Text style={{ color: '#f00c27', fontWeight: '500' }}>{addressError}</Text>
+                      : null
+                    }
+                  </View>
+                  <TouchableOpacity onPress={() => setAddAddressModal(true)}>
+                    <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.addressAddBtm}>
+                      <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>Add Address</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
+                <FlatList
+                  showsHorizontalScrollIndicator={false}
+                  data={displayedAddresses}
+                  scrollEnabled={false}
+                  keyExtractor={(item) => item.id.toString()}
+                  renderItem={(address) => {
+                    return (
+                      <TouchableOpacity onPress={() => handleAddressChange(address?.item?.id)} style={{ borderColor: '#edeff1', borderWidth: 1, padding: 10, flexDirection: 'row', alignItems: 'center', borderRadius: 8, marginVertical: 5 }}>
+                        <View style={{ width: '8%', alignSelf: 'flex-start', marginTop: 2 }}>
+                          {address?.item?.address_type === "Home" && <Feather name="home" color={'#555454'} size={18} />}
+                          {address?.item?.address_type === "Work" && <Feather name="briefcase" color={'#555454'} size={17} />}
+                          {address?.item?.address_type === "Other" && <Feather name="globe" color={'#555454'} size={17} />}
                         </View>
-                        <Text style={{ color: '#555454', fontSize: 13 }}>{address?.item?.apartment_name},  {address?.item?.apartment_flat_plot},  {address?.item?.landmark}</Text>
-                        <Text style={{ color: '#555454', fontSize: 13 }}>{address?.item?.locality_details?.locality_name},  {address?.item?.city},  {address?.item?.state}</Text>
-                        <Text style={{ color: '#555454', fontSize: 13 }}>{address?.item?.pincode},  {address?.item?.place_category}</Text>
-                      </View>
-                      <View style={{ width: '10%', alignItems: 'center', justifyContent: 'center' }}>
-                        {selectedOption === address?.item?.id ?
-                          <MaterialCommunityIcons name="record-circle" color={'#ffcb44'} size={24} />
-                          :
-                          < Feather name="circle" color={'#555454'} size={20} />
-                        }
-                      </View>
+                        <View style={{ width: '82%' }}>
+                          <View>
+                            {address?.item?.address_type === "Home" && <Text style={{ color: '#000', fontSize: 15, fontWeight: '600' }}>Home</Text>}
+                            {address?.item?.address_type === "Work" && <Text style={{ color: '#000', fontSize: 15, fontWeight: '600' }}>Work</Text>}
+                            {address?.item?.address_type === "Other" && <Text style={{ color: '#000', fontSize: 15, fontWeight: '600' }}>Other</Text>}
+                          </View>
+                          <Text style={{ color: '#555454', fontSize: 13 }}>{address?.item?.apartment_name},  {address?.item?.apartment_flat_plot},  {address?.item?.landmark}</Text>
+                          <Text style={{ color: '#555454', fontSize: 13 }}>{address?.item?.locality_details?.locality_name},  {address?.item?.city},  {address?.item?.state}</Text>
+                          <Text style={{ color: '#555454', fontSize: 13 }}>{address?.item?.pincode},  {address?.item?.place_category}</Text>
+                        </View>
+                        <View style={{ width: '10%', alignItems: 'center', justifyContent: 'center' }}>
+                          {selectedOption === address?.item?.id ?
+                            <MaterialCommunityIcons name="record-circle" color={'#ffcb44'} size={24} />
+                            :
+                            < Feather name="circle" color={'#555454'} size={20} />
+                          }
+                        </View>
+                      </TouchableOpacity>
+                    )
+                  }}
+                />
+                {allAddresses.length > 1 && (
+                  !showAllAddresses ? (
+                    <TouchableOpacity onPress={toggleAddresses} style={{ backgroundColor: 'transparent', flexDirection: 'row', alignSelf: 'center', alignItems: 'center', marginTop: 5 }}>
+                      <Text style={{ color: '#000', fontSize: 15, fontWeight: '600', marginBottom: 3, marginRight: 3 }}>Show All Addresses</Text>
+                      <FontAwesome name="angle-double-down" color={'#000'} size={17} />
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity onPress={toggleAddresses} style={{ backgroundColor: 'transparent', flexDirection: 'row', alignSelf: 'center', alignItems: 'center', marginTop: 5 }}>
+                      <Text style={{ color: '#000', fontSize: 15, fontWeight: '600', marginBottom: 2, marginRight: 3 }}>Hide</Text>
+                      <FontAwesome name="angle-double-up" color={'#000'} size={17} />
                     </TouchableOpacity>
                   )
-                }}
-              />
-              {allAddresses.length > 1 && (
-                !showAllAddresses ? (
-                  <TouchableOpacity onPress={toggleAddresses} style={{ backgroundColor: 'transparent', flexDirection: 'row', alignSelf: 'center', alignItems: 'center', marginTop: 5 }}>
-                    <Text style={{ color: '#000', fontSize: 15, fontWeight: '600', marginBottom: 3, marginRight: 3 }}>Show All Addresses</Text>
-                    <FontAwesome name="angle-double-down" color={'#000'} size={17} />
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity onPress={toggleAddresses} style={{ backgroundColor: 'transparent', flexDirection: 'row', alignSelf: 'center', alignItems: 'center', marginTop: 5 }}>
-                    <Text style={{ color: '#000', fontSize: 15, fontWeight: '600', marginBottom: 2, marginRight: 3 }}>Hide</Text>
-                    <FontAwesome name="angle-double-up" color={'#000'} size={17} />
-                  </TouchableOpacity>
-                )
-              )}
+                )}
+              </View>
             </View>
-          </View>
-        </ScrollView>
+          </ScrollView>
+        </KeyboardAvoidingView>
 
         {isLoading ? (
           <ActivityIndicator size="large" color="#c80100" />
@@ -1310,7 +1322,7 @@ const Index = () => {
                   underlineColorAndroid='transparent'
                 />
               </View>
-              {/* {errors.plotFlatNumber && <Text style={styles.errorText}>{errors.plotFlatNumber}</Text>} */}
+              {errors.plotFlatNumber && <Text style={styles.errorText}>{errors.plotFlatNumber}</Text>}
             </View>
 
             <View style={{ width: '90%', alignSelf: 'center', marginBottom: 20 }}>
@@ -1439,7 +1451,7 @@ const Index = () => {
           <View style={styles.errorModalContainer}>
             <View style={{ width: '90%', alignSelf: 'center', marginBottom: 10 }}>
               <View style={{ alignItems: 'center' }}>
-                <MaterialIcons name="report-gmailerrorred" size={100} color="red" />
+                <MaterialIcons name="report-gmailerrorred" size={80} color="red" />
                 <Text style={{ color: '#000', fontSize: 20, fontWeight: 'bold', textAlign: 'center', letterSpacing: 0.3 }}>{errormasg}</Text>
               </View>
             </View>
@@ -1689,7 +1701,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   confirmDeleteBtn: {
-    backgroundColor: 'green',
+    backgroundColor: '#F59E0B',
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 7

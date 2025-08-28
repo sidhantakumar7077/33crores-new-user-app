@@ -8,8 +8,6 @@ import {
     TouchableOpacity,
     TextInput,
     Dimensions,
-    TouchableWithoutFeedback,
-    Keyboard,
     FlatList,
     Share,
     Linking,
@@ -17,7 +15,8 @@ import {
     ToastAndroid,
     ActivityIndicator,
     RefreshControl,
-    Animated
+    Animated,
+    KeyboardAvoidingView
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/FontAwesome5';
@@ -82,12 +81,17 @@ const NewHome = () => {
         }, 2000);
     }, []);
 
-    const buildReferralMessage = () => {
-        const link = 'https://play.google.com/store/apps/details?id=com.thirtythreecroresapp&hl=en';
+    const buildReferralMessage = (codeOverride = null) => {
+        const androidLink = 'https://play.google.com/store/apps/details?id=com.thirtythreecroresapp&hl=en';
+        const iosLink = 'https://apps.apple.com/in/app/33-crores/id6443912970';
+
         return (
-            `🪔 Join me on 33Crores!\n` +
-            `Use my referral code **${referralCode}** to get special benefits on your first order.\n\n` +
-            `Install / Open: ${link}`
+            `🙏 Namaskar\n` +
+            `I am delighted to share this new service.\n` +
+            `Order Fresh Pooja Flowers from 33Crores, free home delivery.\n\n` +
+            `Use my referral code ${referralCode} to get special benefits on your first flower subscription.\n\n` +
+            `📱 Android: ${androidLink}\n` +
+            `🍎 iOS: ${iosLink}`
         );
     };
 
@@ -230,6 +234,13 @@ const NewHome = () => {
         });
     };
 
+    // Handle changes to the referral code input
+    const handleChangeCode = (txt) => {
+        const sanitized = txt.replace(/[^a-zA-Z0-9]/g, '');
+        // guard to avoid pointless state updates on some keyboards
+        if (sanitized !== code) setCode(sanitized);
+    };
+
     const claimReferralCode = async () => {
         const access_token = await AsyncStorage.getItem('storeAccesstoken');
         setReferCodeSpinner(true);
@@ -280,12 +291,8 @@ const NewHome = () => {
         try {
             const res = await fetch(base_url + 'api/festivals', {
                 method: 'GET',
-                headers: {
-                    Accept: 'application/json',
-                    'Content-Type': 'application/json',
-                },
+                headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
             });
-
             const json = await res.json();
 
             if (!res.ok || !json?.success) {
@@ -294,30 +301,42 @@ const NewHome = () => {
 
             const today = moment().startOf('day');
 
-            // Normalize, keep only today and future dates, sort by date asc
-            const normalized = (json.data || [])
-                .map((f, idx) => {
-                    const date = moment(f.festival_date, 'YYYY-MM-DD', true);
-                    const daysLeft = date.isValid() ? Math.max(0, date.diff(today, 'days')) : null;
+            const normalized = (json.data || []).map((f, idx) => {
+                const m = moment(f.festival_date, 'YYYY-MM-DD', true);
+                const diff = m.isValid() ? m.diff(today, 'days') : null; // negative = past
+                const isOutdated = diff !== null && diff < 0;
 
-                    return {
-                        id: String(f.id),
-                        name: f.festival_name,
-                        date: date.isValid() ? date.format('DD MMM YYYY') : f.festival_date,
-                        rawDate: f.festival_date,
-                        daysLeft,
-                        description: f.description || '',
-                        gradient: pickGradient(idx),
-                        packages: f.packages || [],
-                        package_price: f.package_price,
-                        related_flower: f.related_flower,
-                        festival_image: f.festival_image,
-                    };
-                })
-                .filter(it => it.daysLeft !== null && it.daysLeft >= 0)
+                let status = 'unknown';
+                if (m.isValid()) {
+                    if (diff < 0) status = 'past';
+                    else if (diff === 0) status = 'today';
+                    else status = 'upcoming';
+                }
+
+                return {
+                    id: String(f.id),
+                    name: f.festival_name,
+                    date: m.isValid() ? m.format('DD MMM YYYY') : f.festival_date,
+                    rawDate: f.festival_date,
+                    daysLeft: diff,          // can be negative for past
+                    isOutdated,              // ✅ flag for expired
+                    status,                  // 'past' | 'today' | 'upcoming'
+                    description: f.description || '',
+                    gradient: pickGradient(idx),
+                    packages: f.packages || [],
+                    package_price: f.package_price,
+                    related_flower: f.related_flower,
+                    festival_image: f.festival_image,
+                };
+            })
+                // sort by actual date ascending
                 .sort((a, b) => moment(a.rawDate).diff(moment(b.rawDate)));
 
-            setFestivals(normalized); // or .slice(0, 3) if you only want first 3
+            // If you only want to show Today/Upcoming in the UI:
+            const upcomingOrToday = normalized.filter(it => !it.isOutdated);
+            const expired = normalized.filter(it => it.isOutdated);
+
+            setFestivals(upcomingOrToday);
         } catch (e) {
             setFestivalsError(String(e.message || e));
         } finally {
@@ -401,8 +420,12 @@ const NewHome = () => {
         <View style={styles.container}>
             <Notification />
             <Drawer visible={isModalVisible} navigation={navigation} onClose={closeModal} />
-            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                <ScrollView style={styles.scrollView} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />} showsVerticalScrollIndicator={false}>
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={0}
+            >
+                <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={styles.scrollView} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />} showsVerticalScrollIndicator={false}>
                     {/* Hero Header with Gradient */}
                     <LinearGradient colors={['#1E293B', '#334155', '#475569']} style={styles.header}>
                         <View style={styles.heroContent}>
@@ -486,7 +509,10 @@ const NewHome = () => {
                                                 placeholder="Enter Code"
                                                 placeholderTextColor="#9CA3AF"
                                                 value={code}
-                                                onChangeText={(txt) => setCode(txt.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                                                onChangeText={handleChangeCode}
+                                                autoCapitalize="characters"
+                                                autoCorrect={false}
+                                                autoComplete="off"
                                             />
                                         </View>
 
@@ -928,7 +954,7 @@ const NewHome = () => {
                         </>
                     }
                 </ScrollView>
-            </TouchableWithoutFeedback>
+            </KeyboardAvoidingView>
             {/* Pending payment fixed bottom bar */}
             {approvedRequest && (
                 <Animated.View

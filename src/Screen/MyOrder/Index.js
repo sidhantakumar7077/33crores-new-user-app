@@ -16,7 +16,7 @@ const Index = () => {
           <View style={styles.heroContent}>
             <TouchableOpacity style={styles.headerRow} onPress={() => navigation.goBack()}>
               <Icon name="arrow-left" size={24} color="#FFFFFF" style={styles.backIcon} />
-              <Text style={styles.heroTitle}>My Order</Text>
+              <Text style={styles.heroTitle}>Order History</Text>
             </TouchableOpacity>
             <Text style={styles.heroSubtitle}>
               View your order history and details
@@ -26,28 +26,28 @@ const Index = () => {
 
         <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Choose Your Order Type</Text>
+            <Text style={styles.sectionTitle}>Choose Your Order Type to see the history</Text>
 
             <TouchableOpacity style={styles.planCard} onPress={() => navigation.navigate('SubscriptionOrderHistory')}>
               <View style={styles.iconContainer}>
-                <Icon name="calendar-check" size={30} color="#FFF" />
+                <Icon name="calendar-check" size={25} color="#FFF" />
               </View>
               <View style={styles.planTextContent}>
                 <Text style={styles.planTitle}>Subscription Order</Text>
                 <Text style={styles.planDescription}>
-                  Receive fresh flowers at your doorstep every day.
+                  Click here to see all your subscription history.
                 </Text>
               </View>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.planCard} onPress={() => navigation.navigate('CustomOrderHistory')}>
               <View style={styles.iconContainer}>
-                <Icon name="edit" size={30} color="#FFF" />
+                <Icon name="edit" size={25} color="#FFF" />
               </View>
               <View style={styles.planTextContent}>
                 <Text style={styles.planTitle}>Custom Order</Text>
                 <Text style={styles.planDescription}>
-                  Choose flowers as per your unique preferences and occasions.
+                  Click here to see all your custom order history.
                 </Text>
               </View>
             </TouchableOpacity>
@@ -56,13 +56,13 @@ const Index = () => {
               style={styles.planCard}
               onPress={() => navigation.navigate('ProductHistory')}
             >
-              <View style={[styles.iconContainer, { backgroundColor: '#10B981' }]}>
-                <Icon name="pray" size={30} color="#FFF" />
+              <View style={styles.iconContainer}>
+                <Icon name="box-open" size={25} color="#FFF" />
               </View>
               <View style={styles.planTextContent}>
                 <Text style={styles.planTitle}>Puja Product Order</Text>
                 <Text style={styles.planDescription}>
-                  Browse purchased puja packs and items, and track their delivery status.
+                  Click here to see all your puja product order history.
                 </Text>
               </View>
             </TouchableOpacity>
@@ -134,6 +134,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1F2937',
     marginBottom: 24,
+    textAlign: 'center',
+    width: '80%'
   },
   planCard: {
     flexDirection: 'row',

@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   Animated, Easing,
   Linking,
+  KeyboardAvoidingView
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
@@ -307,7 +308,7 @@ const Index = (props) => {
     setTimeout(() => {
       setAddressErrorMessageVisible(false);
       setAddressError('');
-    }, 10000); // 10 seconds
+    }, 30000); // 30 seconds
   };
 
   const getProfile = async () => {
@@ -338,7 +339,9 @@ const Index = (props) => {
 
     try {
       if (selectedOption === "") {
-        displayErrorMessage("Please Select Your Address");
+        // displayErrorMessage("Please Select Your Address");
+        setErrormasg("Please Select Your Address");
+        setErrorModal(true);
         setIsLoading(false);
         return;
       }
@@ -445,6 +448,7 @@ const Index = (props) => {
 
   return (
     <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
+
       <View style={styles.scrollView}>
         <LinearGradient colors={['#1E293B', '#334155', '#475569']} style={styles.header}>
           <View style={styles.heroContent}>
@@ -458,135 +462,142 @@ const Index = (props) => {
           </View>
         </LinearGradient>
 
-        <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, marginBottom: 50 }}>
-          <View style={styles.productContainer}>
-            <View style={styles.productDetails}>
-              <View style={{ width: '35%', paddingVertical: 10 }}>
-                <View style={styles.flowerImage}>
-                  <Image
-                    style={{ flex: 1, borderRadius: 8, resizeMode: 'cover' }}
-                    source={{ uri: packageDetails.product_image }}
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+        >
+          <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false} style={{ flex: 1, marginBottom: 50 }}>
+            <View style={styles.productContainer}>
+              <View style={styles.productDetails}>
+                <View style={{ width: '35%', paddingVertical: 10 }}>
+                  <View style={styles.flowerImage}>
+                    <Image
+                      style={{ flex: 1, borderRadius: 8, resizeMode: 'cover' }}
+                      source={{ uri: packageDetails.product_image }}
+                    />
+                  </View>
+                </View>
+                <View style={{ width: '60%', justifyContent: 'center' }}>
+                  <Text style={{ color: '#000', fontSize: 18, fontWeight: '500', textTransform: 'capitalize' }}>
+                    {packageDetails.name}
+                  </Text>
+                  <Text style={{ color: '#000', fontSize: 14, fontWeight: '400', textTransform: 'capitalize', marginTop: 5 }}>
+                    Price : ₹{packageDetails.price}
+                  </Text>
+                </View>
+              </View>
+              {/* Benefits Section */}
+              {packageDetails.benefits && (
+                <View style={styles.planFeatures}>
+                  {packageDetails.benefits.split('#').map((benefit, idx) => (
+                    <View key={idx} style={styles.featureRow}>
+                      <Icon name="check" size={12} color="#059669" />
+                      <Text style={styles.featureText}>{benefit.trim()}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+            {/* Address, Date & Suggestion Section */}
+            <View style={styles.address}>
+              {/* Subscription Start Date */}
+              <View style={{ width: '100%', marginBottom: 5 }}>
+                <Text style={styles.label}>Subscription Start Date</Text>
+                <TouchableOpacity onPress={openDatePicker}>
+                  <TextInput
+                    style={styles.input}
+                    value={dob ? moment(dob).format('DD-MM-YYYY') : ""}
+                    editable={false}
+                  />
+                  <MaterialCommunityIcons name="calendar-month" color={'#555454'} size={26} style={{ position: 'absolute', right: 10, top: 10 }} />
+                </TouchableOpacity>
+              </View>
+              {/* Message & Suggestions */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                <View style={{ width: '15%', height: 80, borderWidth: 0.8, borderRightWidth: 0, backgroundColor: '#fbfdff', alignItems: 'center', justifyContent: 'center', borderColor: '#edeff1', borderTopLeftRadius: 5, borderBottomLeftRadius: 5 }}>
+                  <Feather name="message-square" color={'#495057'} size={20} />
+                </View>
+                <View style={{ width: '85%', height: 80, borderWidth: 0.8, borderColor: '#edeff1', borderTopRightRadius: 5, borderBottomRightRadius: 5 }}>
+                  <TextInput
+                    style={{ flex: 1, paddingLeft: 15, fontSize: 15, textAlignVertical: 'top', color: '#000' }}
+                    onChangeText={setSuggestions}
+                    value={suggestions}
+                    multiline={true}
+                    type='text'
+                    placeholder="Any suggestions? We will pass it on..."
+                    placeholderTextColor="#888888"
+                    underlineColorAndroid='transparent'
                   />
                 </View>
               </View>
-              <View style={{ width: '60%', justifyContent: 'center' }}>
-                <Text style={{ color: '#000', fontSize: 18, fontWeight: '500', textTransform: 'capitalize' }}>
-                  {packageDetails.name}
-                </Text>
-                <Text style={{ color: '#000', fontSize: 14, fontWeight: '400', textTransform: 'capitalize', marginTop: 5 }}>
-                  Price : ₹{packageDetails.price}
-                </Text>
-              </View>
-            </View>
-            {/* Benefits Section */}
-            {packageDetails.benefits && (
-              <View style={styles.planFeatures}>
-                {packageDetails.benefits.split('#').map((benefit, idx) => (
-                  <View key={idx} style={styles.featureRow}>
-                    <Icon name="check" size={12} color="#059669" />
-                    <Text style={styles.featureText}>{benefit.trim()}</Text>
+              {/* Address */}
+              <View style={{ flex: 1, marginTop: 15 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5, alignItems: 'center' }}>
+                  <View style={{ width: '65%' }}>
+                    {addressErrorMessageVisible ?
+                      <Text style={{ color: '#f00c27', fontWeight: '500' }}>{addressError}</Text>
+                      : null
+                    }
                   </View>
-                ))}
-              </View>
-            )}
-          </View>
-          {/* Address, Date & Suggestion Section */}
-          <View style={styles.address}>
-            {/* Subscription Start Date */}
-            <View style={{ width: '100%', marginBottom: 5 }}>
-              <Text style={styles.label}>Subscription Start Date</Text>
-              <TouchableOpacity onPress={openDatePicker}>
-                <TextInput
-                  style={styles.input}
-                  value={dob ? moment(dob).format('DD-MM-YYYY') : ""}
-                  editable={false}
-                />
-                <MaterialCommunityIcons name="calendar-month" color={'#555454'} size={26} style={{ position: 'absolute', right: 10, top: 10 }} />
-              </TouchableOpacity>
-            </View>
-            {/* Message & Suggestions */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-              <View style={{ width: '15%', height: 80, borderWidth: 0.8, borderRightWidth: 0, backgroundColor: '#fbfdff', alignItems: 'center', justifyContent: 'center', borderColor: '#edeff1', borderTopLeftRadius: 5, borderBottomLeftRadius: 5 }}>
-                <Feather name="message-square" color={'#495057'} size={20} />
-              </View>
-              <View style={{ width: '85%', height: 80, borderWidth: 0.8, borderColor: '#edeff1', borderTopRightRadius: 5, borderBottomRightRadius: 5 }}>
-                <TextInput
-                  style={{ flex: 1, paddingLeft: 15, fontSize: 15, textAlignVertical: 'top', color: '#000' }}
-                  onChangeText={setSuggestions}
-                  value={suggestions}
-                  multiline={true}
-                  type='text'
-                  placeholder="Any suggestions? We will pass it on..."
-                  placeholderTextColor="#888888"
-                  underlineColorAndroid='transparent'
-                />
-              </View>
-            </View>
-            {/* Address */}
-            <View style={{ flex: 1, marginTop: 15 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5, alignItems: 'center' }}>
-                <View style={{ width: '65%' }}>
-                  {addressErrorMessageVisible ?
-                    <Text style={{ color: '#f00c27', fontWeight: '500' }}>{addressError}</Text>
-                    : null
-                  }
+                  <TouchableOpacity onPress={() => setAddAddressModal(true)}>
+                    <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.addressAddBtm}>
+                      <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>Add Address</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity onPress={() => setAddAddressModal(true)}>
-                  <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.addressAddBtm}>
-                    <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>Add Address</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-              <FlatList
-                showsHorizontalScrollIndicator={false}
-                data={displayedAddresses}
-                scrollEnabled={false}
-                keyExtractor={(item) => item.id.toString()}
-                renderItem={(address) => {
-                  return (
-                    <TouchableOpacity onPress={() => handleAddressChange(address?.item?.id)} style={{ borderColor: '#edeff1', borderWidth: 1, padding: 10, flexDirection: 'row', alignItems: 'center', borderRadius: 8, marginVertical: 5 }}>
-                      <View style={{ width: '8%', alignSelf: 'flex-start', marginTop: 2 }}>
-                        {address?.item?.address_type === "Home" && <Feather name="home" color={'#555454'} size={18} />}
-                        {address?.item?.address_type === "Work" && <Feather name="briefcase" color={'#555454'} size={17} />}
-                        {address?.item?.address_type === "Other" && <Feather name="globe" color={'#555454'} size={17} />}
-                      </View>
-                      <View style={{ width: '82%' }}>
-                        <View>
-                          {address?.item?.address_type === "Home" && <Text style={{ color: '#000', fontSize: 15, fontWeight: '600' }}>Home</Text>}
-                          {address?.item?.address_type === "Work" && <Text style={{ color: '#000', fontSize: 15, fontWeight: '600' }}>Work</Text>}
-                          {address?.item?.address_type === "Other" && <Text style={{ color: '#000', fontSize: 15, fontWeight: '600' }}>Other</Text>}
+                <FlatList
+                  showsHorizontalScrollIndicator={false}
+                  data={displayedAddresses}
+                  scrollEnabled={false}
+                  keyExtractor={(item) => item.id.toString()}
+                  renderItem={(address) => {
+                    return (
+                      <TouchableOpacity onPress={() => handleAddressChange(address?.item?.id)} style={{ borderColor: '#edeff1', borderWidth: 1, padding: 10, flexDirection: 'row', alignItems: 'center', borderRadius: 8, marginVertical: 5 }}>
+                        <View style={{ width: '8%', alignSelf: 'flex-start', marginTop: 2 }}>
+                          {address?.item?.address_type === "Home" && <Feather name="home" color={'#555454'} size={18} />}
+                          {address?.item?.address_type === "Work" && <Feather name="briefcase" color={'#555454'} size={17} />}
+                          {address?.item?.address_type === "Other" && <Feather name="globe" color={'#555454'} size={17} />}
                         </View>
-                        <Text style={{ color: '#555454', fontSize: 13 }}>{address?.item?.apartment_name},  {address?.item?.apartment_flat_plot},  {address?.item?.landmark}</Text>
-                        <Text style={{ color: '#555454', fontSize: 13 }}>{address?.item?.locality_details?.locality_name},  {address?.item?.city},  {address?.item?.state}</Text>
-                        <Text style={{ color: '#555454', fontSize: 13 }}>{address?.item?.pincode},  {address?.item?.place_category}</Text>
-                      </View>
-                      <View style={{ width: '10%', alignItems: 'center', justifyContent: 'center' }}>
-                        {selectedOption === address?.item?.id ?
-                          <MaterialCommunityIcons name="record-circle" color={'#ffcb44'} size={24} />
-                          :
-                          < Feather name="circle" color={'#555454'} size={20} />
-                        }
-                      </View>
+                        <View style={{ width: '82%' }}>
+                          <View>
+                            {address?.item?.address_type === "Home" && <Text style={{ color: '#000', fontSize: 15, fontWeight: '600' }}>Home</Text>}
+                            {address?.item?.address_type === "Work" && <Text style={{ color: '#000', fontSize: 15, fontWeight: '600' }}>Work</Text>}
+                            {address?.item?.address_type === "Other" && <Text style={{ color: '#000', fontSize: 15, fontWeight: '600' }}>Other</Text>}
+                          </View>
+                          <Text style={{ color: '#555454', fontSize: 13 }}>{address?.item?.apartment_name},  {address?.item?.apartment_flat_plot},  {address?.item?.landmark}</Text>
+                          <Text style={{ color: '#555454', fontSize: 13 }}>{address?.item?.locality_details?.locality_name},  {address?.item?.city},  {address?.item?.state}</Text>
+                          <Text style={{ color: '#555454', fontSize: 13 }}>{address?.item?.pincode},  {address?.item?.place_category}</Text>
+                        </View>
+                        <View style={{ width: '10%', alignItems: 'center', justifyContent: 'center' }}>
+                          {selectedOption === address?.item?.id ?
+                            <MaterialCommunityIcons name="record-circle" color={'#ffcb44'} size={24} />
+                            :
+                            < Feather name="circle" color={'#555454'} size={20} />
+                          }
+                        </View>
+                      </TouchableOpacity>
+                    )
+                  }}
+                />
+                {allAddresses.length > 1 && (
+                  !showAllAddresses ? (
+                    <TouchableOpacity onPress={toggleAddresses} style={{ backgroundColor: 'transparent', flexDirection: 'row', alignSelf: 'center', alignItems: 'center', marginTop: 5 }}>
+                      <Text style={{ color: '#000', fontSize: 15, fontWeight: '600', marginBottom: 3, marginRight: 3 }}>Show All Addresses</Text>
+                      <FontAwesome name="angle-double-down" color={'#000'} size={17} />
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity onPress={toggleAddresses} style={{ backgroundColor: 'transparent', flexDirection: 'row', alignSelf: 'center', alignItems: 'center', marginTop: 5 }}>
+                      <Text style={{ color: '#000', fontSize: 15, fontWeight: '600', marginBottom: 2, marginRight: 3 }}>Hide</Text>
+                      <FontAwesome name="angle-double-up" color={'#000'} size={17} />
                     </TouchableOpacity>
                   )
-                }}
-              />
-              {allAddresses.length > 1 && (
-                !showAllAddresses ? (
-                  <TouchableOpacity onPress={toggleAddresses} style={{ backgroundColor: 'transparent', flexDirection: 'row', alignSelf: 'center', alignItems: 'center', marginTop: 5 }}>
-                    <Text style={{ color: '#000', fontSize: 15, fontWeight: '600', marginBottom: 3, marginRight: 3 }}>Show All Addresses</Text>
-                    <FontAwesome name="angle-double-down" color={'#000'} size={17} />
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity onPress={toggleAddresses} style={{ backgroundColor: 'transparent', flexDirection: 'row', alignSelf: 'center', alignItems: 'center', marginTop: 5 }}>
-                    <Text style={{ color: '#000', fontSize: 15, fontWeight: '600', marginBottom: 2, marginRight: 3 }}>Hide</Text>
-                    <FontAwesome name="angle-double-up" color={'#000'} size={17} />
-                  </TouchableOpacity>
-                )
-              )}
+                )}
+              </View>
             </View>
-          </View>
-        </ScrollView>
+          </ScrollView>
+        </KeyboardAvoidingView>
+
         {isLoading ? (
           <ActivityIndicator size="large" color="#c80100" />
         ) : (
@@ -924,6 +935,7 @@ const Index = (props) => {
           </View>
         </View>
       </Modal>
+
     </SafeAreaView>
   )
 }

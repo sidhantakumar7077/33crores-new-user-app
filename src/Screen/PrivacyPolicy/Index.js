@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 
-const SUPPORT_EMAIL = 'support@33crores.com';
+const SUPPORT_EMAIL = 'contact@33crores.com';
 
 const openMail = async () => {
   const url = `mailto:${SUPPORT_EMAIL}`;

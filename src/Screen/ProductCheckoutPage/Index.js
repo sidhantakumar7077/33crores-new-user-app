@@ -25,6 +25,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import RazorpayCheckout from 'react-native-razorpay';
@@ -198,6 +199,12 @@ export default function PackageCheckout(props) {
             setNewApartment('');
         }
     };
+
+    const joinParts = (...vals) =>
+        vals
+            .filter(v => v !== null && v !== undefined && String(v).trim() !== '')
+            .map(v => String(v).trim())
+            .join(',  ');
 
     const getAllAddress = async () => {
         const access_token = await AsyncStorage.getItem('storeAccesstoken');
@@ -423,7 +430,7 @@ export default function PackageCheckout(props) {
                         <Icon name="arrow-left" size={16} color="#fff" />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Product Checkout</Text>
-                    <View style={styles.headerIcon} />
+                    <View style={{ width: 25 }} />
                 </View>
                 <Text style={styles.headerSubtitle}>Review your package and complete the purchase.</Text>
             </LinearGradient>
@@ -543,6 +550,9 @@ export default function PackageCheckout(props) {
                             ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
                             renderItem={({ item }) => {
                                 const isSelected = String(selectedOption) === String(item.id);
+                                const line1 = joinParts(item?.apartment_name, item?.apartment_flat_plot, item?.landmark);
+                                const line2 = joinParts(item?.locality_details?.locality_name, item?.city, item?.state);
+                                const line3 = joinParts(item?.pincode, item?.place_category);
                                 return (
                                     <TouchableOpacity
                                         onPress={() => setSelectedOption(item.id)}
@@ -561,16 +571,17 @@ export default function PackageCheckout(props) {
                                         </View>
 
                                         <View style={{ flex: 1 }}>
-                                            <Text style={styles.addrTitle}>{item.address_type}</Text>
-                                            <Text style={styles.addrLine}>
-                                                {item.apartment_name}, {item.apartment_flat_plot}, {item.landmark}
-                                            </Text>
-                                            <Text style={styles.addrLine}>
-                                                {item?.locality_details?.locality_name}, {item.city}, {item.state}
-                                            </Text>
-                                            <Text style={styles.addrLine}>
-                                                {item.pincode} • {item.place_category}
-                                            </Text>
+                                            <View>
+                                                {item?.address_type ? (
+                                                    <Text style={{ color: '#000', fontSize: 15, fontWeight: '600' }}>
+                                                        {item.address_type}
+                                                    </Text>
+                                                ) : null}
+                                            </View>
+
+                                            {line1 ? <Text style={{ color: '#555454', fontSize: 13 }}>{line1}</Text> : null}
+                                            {line2 ? <Text style={{ color: '#555454', fontSize: 13 }}>{line2}</Text> : null}
+                                            {line3 ? <Text style={{ color: '#555454', fontSize: 13 }}>{line3}</Text> : null}
                                         </View>
 
                                         <View style={{ paddingLeft: 10 }}>
@@ -979,28 +990,37 @@ export default function PackageCheckout(props) {
 
             {/* Success Modal */}
             <Modal transparent visible={orderModalVisible} onRequestClose={() => setOrderModalVisible(false)}>
-                <View style={styles.pModalContainer}>
-                    <View style={styles.pModalContent}>
-                        <Animated.View style={[styles.pModalCheckCircle, { transform: [{ scale: scaleAnim }] }]}>
-                            <Icon name="check" color={'#fff'} size={42} />
+                <View style={styles.backdrop}>
+                    <View style={styles.modalCard}>
+                        <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+                            <LinearGradient colors={['#10B981', '#059669']} style={styles.checkCircle}>
+                                <FontAwesome name="check" color="#fff" size={42} />
+                            </LinearGradient>
                         </Animated.View>
-                        <Text style={styles.pModalCongratulationsText}>Congratulations!</Text>
-                        <Text style={styles.pModalDetailText}>Your order has been placed successfully.</Text>
-                        <Text style={[styles.pModalCallText, { marginTop: 10 }]}>
-                            For any inquiry call us at this number
+
+                        <Text style={styles.title}>Congratulations!</Text>
+                        <Text style={styles.body}>Your order has been placed successfully.</Text>
+                        <Text style={[styles.body, { marginTop: 6 }]}>
+                            For any inquiry, call us:
                         </Text>
-                        <TouchableOpacity onPress={() => Linking.openURL('tel:9776888887')}>
-                            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center', marginTop: 5 }}>
-                                9776888887
-                            </Text>
+
+                        <TouchableOpacity onPress={() => Linking.openURL('tel:9776888887')} activeOpacity={0.9} style={styles.phonePill}>
+                            <FontAwesome name="phone" size={12} color="#065F46" />
+                            <Text style={styles.phoneText}>9776 888 887</Text>
                         </TouchableOpacity>
+
+                        <View style={styles.actionsRow}>
+                            <TouchableOpacity onPress={() => navigation.replace('CustomOrderHistory')} activeOpacity={0.9} style={styles.primaryBtn}>
+                                <LinearGradient colors={['#F59E0B', '#F97316']} style={styles.primaryGrad}>
+                                    <Text style={styles.primaryText}>Order Details</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity onPress={() => { setOrderModalVisible(false); navigation.goBack() }} activeOpacity={0.9} style={styles.secondaryBtn}>
+                                <Text style={styles.secondaryText}>Done</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                    <TouchableOpacity
-                        onPress={() => navigation.replace('ProductHistory')}
-                        style={styles.pModalButton}
-                    >
-                        <Text style={styles.pModalButtonText}>Order Details</Text>
-                    </TouchableOpacity>
                 </View>
             </Modal>
 
@@ -1299,47 +1319,77 @@ const styles = StyleSheet.create({
     },
 
     // success modal
-    pModalContainer: {
+    backdrop: {
         flex: 1,
-        backgroundColor: '#141416',
-        alignItems: 'center',
-        justifyContent: 'space-evenly',
-    },
-    pModalContent: { alignItems: 'center', justifyContent: 'center' },
-    pModalCheckCircle: {
-        marginBottom: 20,
-        width: 120,
-        height: 120,
-        borderRadius: 100,
-        backgroundColor: '#4CAF50',
+        backgroundColor: 'rgba(15,23,42,0.65)', // slate overlay
         alignItems: 'center',
         justifyContent: 'center',
+        padding: 24,
     },
-    pModalCongratulationsText: {
-        fontSize: 22,
-        fontWeight: 'bold',
-        marginBottom: 10,
-        color: '#fff',
+    modalCard: {
+        width: '100%',
+        borderRadius: 20,
+        backgroundColor: '#fff',
+        paddingVertical: 22,
+        paddingHorizontal: 20,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOpacity: 0.15,
+        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 10 },
+        elevation: 10,
     },
-    pModalDetailText: {
-        fontSize: 16,
-        color: '#b6b6b6',
+    checkCircle: {
+        width: 96,
+        height: 96,
+        borderRadius: 48,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 14,
+    },
+    title: {
+        fontSize: 20,
+        fontWeight: '900',
+        color: '#0f172a',
         textAlign: 'center',
-        paddingHorizontal: 30,
     },
-    pModalCallText: {
-        color: '#b6b6b6',
+    body: {
         fontSize: 14,
+        color: '#475569',
         textAlign: 'center',
     },
-    pModalButton: {
-        backgroundColor: '#4CAF50',
-        paddingHorizontal: 30,
-        paddingVertical: 10,
-        borderRadius: 8,
-        top: 100,
+    phonePill: {
+        marginTop: 10,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 999,
+        backgroundColor: '#ECFDF5',
+        borderWidth: 1,
+        borderColor: '#D1FAE5',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
     },
-    pModalButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+    phoneText: { color: '#065F46', fontWeight: '800', letterSpacing: 0.2 },
+
+    actionsRow: {
+        flexDirection: 'row',
+        gap: 10,
+        marginTop: 18,
+    },
+    primaryBtn: { flex: 1, borderRadius: 12, overflow: 'hidden' },
+    primaryGrad: { paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
+    primaryText: { color: '#fff', fontSize: 15, fontWeight: '800' },
+
+    secondaryBtn: {
+        paddingVertical: 12,
+        paddingHorizontal: 18,
+        borderRadius: 12,
+        borderWidth: 2,
+        borderColor: '#E5E7EB',
+        backgroundColor: '#fff',
+    },
+    secondaryText: { color: '#334155', fontWeight: '800' },
 
     // error modal
     errorModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },

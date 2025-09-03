@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -198,6 +198,12 @@ const Index = () => {
       console.log('Locality not found in list.');
     }
   };
+
+  const joinParts = (...vals) =>
+    vals
+      .filter(v => v !== null && v !== undefined && String(v).trim() !== '')
+      .map(v => String(v).trim())
+      .join(',  ');
 
   const validateFields = () => {
     let valid = true;
@@ -682,6 +688,122 @@ const Index = () => {
     );
   };
 
+  // Modal toggles for pickers
+  const [modalFlowerName, setModalFlowerName] = useState(false);
+  const [modalFlowerUnit, setModalFlowerUnit] = useState(false);
+  const [modalGarlandName, setModalGarlandName] = useState(false);
+  const [modalGarlandSize, setModalGarlandSize] = useState(false);
+
+  // Reusable modal selector with search + list
+  const SelectModal = ({
+    visible,
+    title = 'Select',
+    data = [],             // [{label, value}]
+    selectedValue = null,  // current value
+    onClose,
+    onSelect,
+    showSearch = true,
+  }) => {
+    const [query, setQuery] = useState('');
+    const filtered = useMemo(() => {
+      if (!query.trim()) return data;
+      const q = query.toLowerCase();
+      return data.filter(i => String(i.label).toLowerCase().includes(q));
+    }, [query, data]);
+
+    return (
+      <Modal animationType="slide" transparent visible={visible} onRequestClose={onClose}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
+          {/* sheet */}
+          <View style={{
+            backgroundColor: '#fff',
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            paddingHorizontal: 16,
+            paddingTop: 12,
+            paddingBottom: 18,
+            maxHeight: '75%',
+          }}>
+            {/* handle */}
+            <View style={{
+              alignSelf: 'center',
+              width: 40, height: 4, borderRadius: 999, backgroundColor: '#E5E7EB', marginBottom: 10,
+            }} />
+
+            {/* header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+              <Text style={{ flex: 1, fontSize: 18, fontWeight: '900', color: '#0f172a' }}>{title}</Text>
+              <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Feather name="x" size={24} color="#0f172a" />
+              </TouchableOpacity>
+            </View>
+
+            {/* search */}
+            {showSearch && (
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10,
+                paddingHorizontal: 10, backgroundColor: '#f8fafc', marginBottom: 10
+              }}>
+                <Feather name="search" size={16} color="#475569" />
+                <TextInput
+                  style={{ height: 42, flex: 1, paddingLeft: 8, color: '#0f172a' }}
+                  placeholder="Search..."
+                  placeholderTextColor="#94a3b8"
+                  value={query}
+                  onChangeText={setQuery}
+                />
+                {query ? (
+                  <TouchableOpacity onPress={() => setQuery('')}>
+                    <Feather name="x-circle" size={18} color="#94a3b8" />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            )}
+
+            {/* list */}
+            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              {filtered.map((item, idx) => {
+                const isActive = selectedValue === item.value;
+                return (
+                  <TouchableOpacity
+                    key={`${item.value}-${idx}`}
+                    onPress={() => { onSelect(item.value); onClose(); }}
+                    activeOpacity={0.8}
+                    style={{
+                      flexDirection: 'row', alignItems: 'center',
+                      paddingVertical: 12, paddingHorizontal: 6,
+                      borderBottomWidth: idx === filtered.length - 1 ? 0 : 1,
+                      borderBottomColor: '#eef2f7'
+                    }}
+                  >
+                    <View style={{
+                      width: 28, height: 28, borderRadius: 14,
+                      alignItems: 'center', justifyContent: 'center',
+                      backgroundColor: isActive ? '#e0f2fe' : '#f1f5f9', marginRight: 10
+                    }}>
+                      <Feather name="tag" size={14} color={isActive ? '#0284c7' : '#475569'} />
+                    </View>
+                    <Text style={{ flex: 1, color: '#0f172a', fontSize: 15, fontWeight: isActive ? '800' : '600' }}>
+                      {item.label}
+                    </Text>
+                    {isActive ? <Feather name="check" size={18} color="#16a34a" /> : null}
+                  </TouchableOpacity>
+                );
+              })}
+              {!filtered.length && (
+                <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+                  <Text style={{ color: '#64748b', fontWeight: '700' }}>No results</Text>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   return (
     <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
       <View style={styles.scrollView}>
@@ -784,25 +906,25 @@ const Index = () => {
                     <View style={{ marginTop: 12 }}>
                       {/* Flower & Quantity in one row */}
                       <View style={styles.row}>
-                        <View style={[styles.col, { flex: 1, zIndex: 3000, elevation: 3000 }]}>
+                        <View style={[styles.col, { flex: 1 }]}>
                           <Text style={styles.inputLabel}>Flower</Text>
-                          <DropDownPicker
-                            open={flowerInput.flowerNameOpen}
-                            value={flowerInput.flowerName}
-                            items={flowerNames}
-                            setOpen={(open) => setFlowerInput(prev => ({ ...prev, flowerNameOpen: open }))}
-                            setValue={(next) => {
-                              const cur = flowerInput.flowerName;
-                              const val = typeof next === 'function' ? next(cur) : next;
-                              setFlowerInput(prev => ({ ...prev, flowerName: val }));
-                            }}
-                            placeholder="Select flower"
-                            listMode="MODAL"
-                            style={styles.ddInput}
-                            dropDownContainerStyle={styles.ddContainer}
-                            zIndex={3000}
-                            zIndexInverse={1000}
-                          />
+                          <TouchableOpacity
+                            activeOpacity={0.8}
+                            onPress={() => setModalFlowerName(true)}
+                            style={styles.textInput}
+                          >
+                            <Text style={{ color: flowerInput.flowerName ? '#0f172a' : '#94a3b8', fontSize: 15, marginTop: 8 }}>
+                              {flowerInput.flowerName
+                                ? (flowerNames.find(f => f.value === flowerInput.flowerName)?.label || flowerInput.flowerName)
+                                : 'Select flower'}
+                            </Text>
+                            <Feather
+                              name="chevron-down"
+                              size={18}
+                              color="#64748B"
+                              style={{ position: 'absolute', right: 12, top: 13 }}
+                            />
+                          </TouchableOpacity>
                         </View>
 
                         <View style={[styles.col, { flex: 1 }]}>
@@ -820,25 +942,25 @@ const Index = () => {
 
                       {/* Unit & Save Button in one row */}
                       <View style={styles.row}>
-                        <View style={[styles.col, { flex: 1, zIndex: 2500, elevation: 2500 }]}>
+                        <View style={[styles.col, { flex: 1 }]}>
                           <Text style={styles.inputLabel}>Unit</Text>
-                          <DropDownPicker
-                            open={flowerInput.flowerUnitOpen}
-                            value={flowerInput.flowerUnit}
-                            items={flowerUnits}
-                            setOpen={(open) => setFlowerInput(prev => ({ ...prev, flowerUnitOpen: open }))}
-                            setValue={(next) => {
-                              const cur = flowerInput.flowerUnit;
-                              const val = typeof next === 'function' ? next(cur) : next;
-                              setFlowerInput(prev => ({ ...prev, flowerUnit: val }));
-                            }}
-                            placeholder="Select unit"
-                            listMode="MODAL"
-                            style={styles.ddInput}
-                            dropDownContainerStyle={styles.ddContainer}
-                            zIndex={2500}
-                            zIndexInverse={3000}
-                          />
+                          <TouchableOpacity
+                            activeOpacity={0.8}
+                            onPress={() => setModalFlowerUnit(true)}
+                            style={styles.textInput}
+                          >
+                            <Text style={{ color: flowerInput.flowerUnit ? '#0f172a' : '#94a3b8', fontSize: 15, marginTop: 8 }}>
+                              {flowerInput.flowerUnit
+                                ? (flowerUnits.find(u => u.value === flowerInput.flowerUnit)?.label || flowerInput.flowerUnit)
+                                : 'Select unit'}
+                            </Text>
+                            <Feather
+                              name="chevron-down"
+                              size={18}
+                              color="#64748B"
+                              style={{ position: 'absolute', right: 12, top: 13 }}
+                            />
+                          </TouchableOpacity>
                         </View>
 
                         {/* fixed width save column to avoid being pushed off-screen */}
@@ -877,25 +999,25 @@ const Index = () => {
                     <View style={{ marginTop: 12 }}>
                       {/* Garland (Flower name) */}
                       <View style={styles.row}>
-                        <View style={[styles.col, { flex: 1.2, zIndex: 3000, elevation: 3000 }]}>
+                        <View style={[styles.col, { flex: 1.2 }]}>
                           <Text style={styles.inputLabel}>Flower</Text>
-                          <DropDownPicker
-                            open={garlandInput.garlandNameOpen}
-                            value={garlandInput.garlandName}
-                            items={flowerNames} // reuse same list
-                            setOpen={(open) => setGarlandInput(prev => ({ ...prev, garlandNameOpen: open }))}
-                            setValue={(next) => {
-                              const cur = garlandInput.garlandName;
-                              const val = typeof next === 'function' ? next(cur) : next;
-                              setGarlandInput(prev => ({ ...prev, garlandName: val }));
-                            }}
-                            placeholder="Select flower"
-                            listMode="MODAL"
-                            style={styles.ddInput}
-                            dropDownContainerStyle={styles.ddContainer}
-                            zIndex={3000}
-                            zIndexInverse={1000}
-                          />
+                          <TouchableOpacity
+                            activeOpacity={0.8}
+                            onPress={() => setModalGarlandName(true)}
+                            style={styles.textInput}
+                          >
+                            <Text style={{ color: garlandInput.garlandName ? '#0f172a' : '#94a3b8', fontSize: 15, marginTop: 8 }}>
+                              {garlandInput.garlandName
+                                ? (flowerNames.find(f => f.value === garlandInput.garlandName)?.label || garlandInput.garlandName)
+                                : 'Select flower'}
+                            </Text>
+                            <Feather
+                              name="chevron-down"
+                              size={18}
+                              color="#64748B"
+                              style={{ position: 'absolute', right: 12, top: 13 }}
+                            />
+                          </TouchableOpacity>
                         </View>
                         {/* Number of Garlands */}
                         <View style={[styles.col, { flex: 0.8 }]}>
@@ -953,25 +1075,25 @@ const Index = () => {
 
                       {garlandInput.radioChoice === 'size' && (
                         <View style={[styles.row, { marginTop: 10 }]}>
-                          <View style={[styles.col, { flex: 1, zIndex: 2000, elevation: 2000 }]}>
+                          <View style={[styles.col, { flex: 1 }]}>
                             <Text style={styles.inputLabel}>Size</Text>
-                            <DropDownPicker
-                              open={garlandInput.garlandSizeOpen}
-                              value={garlandInput.garlandSize}
-                              items={garlandSizes}
-                              setOpen={(open) => setGarlandInput(prev => ({ ...prev, garlandSizeOpen: open }))}
-                              setValue={(next) => {
-                                const cur = garlandInput.garlandSize;
-                                const val = typeof next === 'function' ? next(cur) : next;
-                                setGarlandInput(prev => ({ ...prev, garlandSize: val }));
-                              }}
-                              placeholder="Select size"
-                              listMode="MODAL"
-                              style={styles.ddInput}
-                              dropDownContainerStyle={styles.ddContainer}
-                              zIndex={2000}
-                              zIndexInverse={2500}
-                            />
+                            <TouchableOpacity
+                              activeOpacity={0.8}
+                              onPress={() => setModalGarlandSize(true)}
+                              style={styles.textInput}
+                            >
+                              <Text style={{ color: garlandInput.garlandSize ? '#0f172a' : '#94a3b8', fontSize: 15, marginTop: 8 }}>
+                                {garlandInput.garlandSize
+                                  ? (garlandSizes.find(s => s.value === garlandInput.garlandSize)?.label || `${garlandInput.garlandSize}`)
+                                  : 'Select size'}
+                              </Text>
+                              <Feather
+                                name="chevron-down"
+                                size={18}
+                                color="#64748B"
+                                style={{ position: 'absolute', right: 12, top: 13 }}
+                              />
+                            </TouchableOpacity>
                           </View>
                         </View>
                       )}
@@ -1072,34 +1194,54 @@ const Index = () => {
                   showsHorizontalScrollIndicator={false}
                   data={displayedAddresses}
                   scrollEnabled={false}
-                  keyExtractor={(item) => item.id.toString()}
-                  renderItem={(address) => {
+                  keyExtractor={(item) => item.id?.toString?.()}
+                  renderItem={({ item }) => {
+                    const line1 = joinParts(item?.apartment_name, item?.apartment_flat_plot, item?.landmark);
+                    const line2 = joinParts(item?.locality_details?.locality_name, item?.city, item?.state);
+                    const line3 = joinParts(item?.pincode, item?.place_category);
+
                     return (
-                      <TouchableOpacity onPress={() => handleAddressChange(address?.item?.id)} style={{ borderColor: '#edeff1', borderWidth: 1, padding: 10, flexDirection: 'row', alignItems: 'center', borderRadius: 8, marginVertical: 5 }}>
+                      <TouchableOpacity
+                        onPress={() => handleAddressChange(item?.id)}
+                        style={{
+                          borderColor: '#edeff1',
+                          borderWidth: 1,
+                          padding: 10,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          borderRadius: 8,
+                          marginVertical: 5,
+                        }}
+                      >
                         <View style={{ width: '8%', alignSelf: 'flex-start', marginTop: 2 }}>
-                          {address?.item?.address_type === "Home" && <Feather name="home" color={'#555454'} size={18} />}
-                          {address?.item?.address_type === "Work" && <Feather name="briefcase" color={'#555454'} size={17} />}
-                          {address?.item?.address_type === "Other" && <Feather name="globe" color={'#555454'} size={17} />}
+                          {item?.address_type === 'Home' && <Feather name="home" color={'#555454'} size={18} />}
+                          {item?.address_type === 'Work' && <Feather name="briefcase" color={'#555454'} size={17} />}
+                          {item?.address_type === 'Other' && <Feather name="globe" color={'#555454'} size={17} />}
                         </View>
+
                         <View style={{ width: '82%' }}>
                           <View>
-                            {address?.item?.address_type === "Home" && <Text style={{ color: '#000', fontSize: 15, fontWeight: '600' }}>Home</Text>}
-                            {address?.item?.address_type === "Work" && <Text style={{ color: '#000', fontSize: 15, fontWeight: '600' }}>Work</Text>}
-                            {address?.item?.address_type === "Other" && <Text style={{ color: '#000', fontSize: 15, fontWeight: '600' }}>Other</Text>}
+                            {item?.address_type ? (
+                              <Text style={{ color: '#000', fontSize: 15, fontWeight: '600' }}>
+                                {item.address_type}
+                              </Text>
+                            ) : null}
                           </View>
-                          <Text style={{ color: '#555454', fontSize: 13 }}>{address?.item?.apartment_name},  {address?.item?.apartment_flat_plot},  {address?.item?.landmark}</Text>
-                          <Text style={{ color: '#555454', fontSize: 13 }}>{address?.item?.locality_details?.locality_name},  {address?.item?.city},  {address?.item?.state}</Text>
-                          <Text style={{ color: '#555454', fontSize: 13 }}>{address?.item?.pincode},  {address?.item?.place_category}</Text>
+
+                          {line1 ? <Text style={{ color: '#555454', fontSize: 13 }}>{line1}</Text> : null}
+                          {line2 ? <Text style={{ color: '#555454', fontSize: 13 }}>{line2}</Text> : null}
+                          {line3 ? <Text style={{ color: '#555454', fontSize: 13 }}>{line3}</Text> : null}
                         </View>
+
                         <View style={{ width: '10%', alignItems: 'center', justifyContent: 'center' }}>
-                          {selectedOption === address?.item?.id ?
+                          {selectedOption === item?.id ? (
                             <MaterialCommunityIcons name="record-circle" color={'#ffcb44'} size={24} />
-                            :
-                            < Feather name="circle" color={'#555454'} size={20} />
-                          }
+                          ) : (
+                            <Feather name="circle" color={'#555454'} size={20} />
+                          )}
                         </View>
                       </TouchableOpacity>
-                    )
+                    );
                   }}
                 />
                 {allAddresses.length > 1 && (
@@ -1417,26 +1559,42 @@ const Index = () => {
 
       {/* Flower Request Modal */}
       <Modal
-        animationType="slide"
-        transparent={true}
+        animationType="fade"
+        transparent
         visible={flowerRequestModalVisible}
         onRequestClose={closeFlowerRequestModal}
       >
-        <View style={styles.pModalContainer}>
-          <View style={styles.pModalContent}>
-            <Animated.View style={[styles.pModalCheckCircle, { transform: [{ scale: scaleAnim }] }]}>
-              <FontAwesome name='check' color={'#fff'} size={60} />
+        <View style={styles.backdrop}>
+          <View style={styles.modalCard}>
+            <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+              <LinearGradient colors={['#10B981', '#059669']} style={styles.checkCircle}>
+                <FontAwesome name="check" color="#fff" size={42} />
+              </LinearGradient>
             </Animated.View>
-            <Text style={styles.pModalCongratulationsText}>Congratulations!</Text>
-            <Text style={styles.pModalDetailText}>Your order has been placed successfully.</Text>
-            <Text style={[styles.pModalDetailText, { marginTop: 10 }]}>For any inquiry call us at this number</Text>
-            <TouchableOpacity onPress={() => Linking.openURL('tel:9776888887')}>
-              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '500', textAlign: 'center', marginTop: 5 }}>9776888887</Text>
+
+            <Text style={styles.title}>Congratulations!</Text>
+            <Text style={styles.body}>Your order has been placed successfully.</Text>
+            <Text style={[styles.body, { marginTop: 6 }]}>
+              For any inquiry, call us:
+            </Text>
+
+            <TouchableOpacity onPress={() => Linking.openURL('tel:9776888887')} activeOpacity={0.9} style={styles.phonePill}>
+              <FontAwesome name="phone" size={12} color="#065F46" />
+              <Text style={styles.phoneText}>9776 888 887</Text>
             </TouchableOpacity>
+
+            <View style={styles.actionsRow}>
+              <TouchableOpacity onPress={() => navigation.replace('CustomOrderHistory')} activeOpacity={0.9} style={styles.primaryBtn}>
+                <LinearGradient colors={['#F59E0B', '#F97316']} style={styles.primaryGrad}>
+                  <Text style={styles.primaryText}>Order Details</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => { closeFlowerRequestModal(); navigation.goBack() }} activeOpacity={0.9} style={styles.secondaryBtn}>
+                <Text style={styles.secondaryText}>Done</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          <TouchableOpacity onPress={() => navigation.replace('CustomOrderHistory')} style={styles.pModalButton}>
-            <Text style={styles.pModalButtonText}>Order Details</Text>
-          </TouchableOpacity>
         </View>
       </Modal>
 
@@ -1463,6 +1621,47 @@ const Index = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Modal: Select Flower (Flower section) */}
+      <SelectModal
+        visible={modalFlowerName}
+        title="Select Flower"
+        data={flowerNames}
+        selectedValue={flowerInput.flowerName}
+        onClose={() => setModalFlowerName(false)}
+        onSelect={(val) => setFlowerInput(prev => ({ ...prev, flowerName: val }))}
+      />
+
+      {/* Modal: Select Unit (Flower section) */}
+      <SelectModal
+        visible={modalFlowerUnit}
+        title="Select Unit"
+        data={flowerUnits}
+        selectedValue={flowerInput.flowerUnit}
+        onClose={() => setModalFlowerUnit(false)}
+        onSelect={(val) => setFlowerInput(prev => ({ ...prev, flowerUnit: val }))}
+      />
+
+      {/* Modal: Select Flower (Garland section) */}
+      <SelectModal
+        visible={modalGarlandName}
+        title="Select Flower"
+        data={flowerNames}
+        selectedValue={garlandInput.garlandName}
+        onClose={() => setModalGarlandName(false)}
+        onSelect={(val) => setGarlandInput(prev => ({ ...prev, garlandName: val }))}
+      />
+
+      {/* Modal: Select Size (Garland section) */}
+      <SelectModal
+        visible={modalGarlandSize}
+        title="Select Garland Size"
+        data={garlandSizes}
+        selectedValue={garlandInput.garlandSize}
+        onClose={() => setModalGarlandSize(false)}
+        onSelect={(val) => setGarlandInput(prev => ({ ...prev, garlandSize: val }))}
+      />
+
     </SafeAreaView>
   )
 }
@@ -1640,49 +1839,77 @@ const styles = StyleSheet.create({
   },
 
   // Success Modal styles
-  pModalContainer: {
+  backdrop: {
     flex: 1,
-    backgroundColor: '#141416',
-    alignItems: 'center',
-    justifyContent: 'space-evenly',
-  },
-  pModalContent: {
+    backgroundColor: 'rgba(15,23,42,0.65)', // slate overlay
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 24,
   },
-  pModalCheckCircle: {
-    marginBottom: 20,
-    width: 120,
-    height: 120,
-    borderRadius: 100,
-    backgroundColor: '#4CAF50',
+  modalCard: {
+    width: '100%',
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    paddingVertical: 22,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 10,
+  },
+  checkCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 14,
   },
-  pModalCongratulationsText: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#fff'
-  },
-  pModalDetailText: {
-    fontSize: 16,
-    color: '#b6b6b6',
+  title: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#0f172a',
     textAlign: 'center',
-    paddingHorizontal: 30,
   },
-  pModalButton: {
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 30,
-    paddingVertical: 10,
-    borderRadius: 8,
-    top: 100
+  body: {
+    fontSize: 14,
+    color: '#475569',
+    textAlign: 'center',
   },
-  pModalButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+  phonePill: {
+    marginTop: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
+  phoneText: { color: '#065F46', fontWeight: '800', letterSpacing: 0.2 },
+
+  actionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 18,
+  },
+  primaryBtn: { flex: 1, borderRadius: 12, overflow: 'hidden' },
+  primaryGrad: { paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
+  primaryText: { color: '#fff', fontSize: 15, fontWeight: '800' },
+
+  secondaryBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#fff',
+  },
+  secondaryText: { color: '#334155', fontWeight: '800' },
   errorModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

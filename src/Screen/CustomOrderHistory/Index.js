@@ -1,15 +1,17 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
     StyleSheet,
     Text,
     View,
     SafeAreaView,
     TouchableOpacity,
-    ScrollView,
-    Image,
     FlatList,
     RefreshControl,
     ActivityIndicator,
+    Image,
+    Modal,
+    TextInput,
+    Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
@@ -53,13 +55,14 @@ export default function Index() {
     const [refreshing, setRefreshing] = useState(false);
     const [requested_orderList, setRequested_orderList] = useState([]);
 
-    const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'pending' | 'approved' | ...
+    const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'pending' | 'approved' | 'paid' | 'rejected'
 
-    const onRefresh = React.useCallback(() => {
+    const onRefresh = useCallback(() => {
         setRefreshing(true);
         getCustomeOrderList().finally(() => setRefreshing(false));
     }, []);
 
+    // Auto-refresh every 30 seconds
     useEffect(() => {
         const interval = setInterval(() => {
             getCustomeOrderList();
@@ -81,7 +84,9 @@ export default function Index() {
             });
             const json = await res.json();
             if (json?.success) {
-                setRequested_orderList(Array.isArray(json?.data?.requested_orders) ? json.data.requested_orders : []);
+                setRequested_orderList(
+                    Array.isArray(json?.data?.requested_orders) ? json.data.requested_orders : []
+                );
             } else {
                 console.error('Failed to fetch orders:', json?.message);
             }
@@ -96,14 +101,19 @@ export default function Index() {
         if (isFocused) getCustomeOrderList();
     }, [isFocused]);
 
+    // -------- Stats + filtering (with REJECTED) ----------
     const stats = useMemo(() => {
         const all = requested_orderList.length;
-        const by = (s) => requested_orderList.filter((x) => String(x?.status || '').toLowerCase() === s).length;
+        const by = (s) =>
+            requested_orderList.filter(
+                (x) => String(x?.status || '').toLowerCase() === s
+            ).length;
         return {
             all,
             pending: by('pending'),
             approved: by('approved'),
             paid: by('paid'),
+            rejected: by('rejected'),
         };
     }, [requested_orderList]);
 
@@ -114,10 +124,71 @@ export default function Index() {
         );
     }, [requested_orderList, activeFilter]);
 
+    // -------- Cancel modal state ----------
+    const [cancelVisible, setCancelVisible] = useState(false);
+    const [cancelLoading, setCancelLoading] = useState(false);
+    const [cancelReason, setCancelReason] = useState('');
+    const [cancelTarget, setCancelTarget] = useState(null); // item / minimal { request_id }
+
+    const openCancelModal = (item) => {
+        setCancelTarget(item);
+        setCancelReason('');
+        setCancelVisible(true);
+    };
+    const closeCancelModal = () => {
+        if (!cancelLoading) {
+            setCancelVisible(false);
+            setCancelTarget(null);
+            setCancelReason('');
+        }
+    };
+
+    const submitCancel = async () => {
+        if (!cancelTarget?.request_id) {
+            Alert.alert('Error', 'Missing request id');
+            return;
+        }
+        if (!cancelReason.trim()) {
+            Alert.alert('Error', 'Please enter a reason');
+            return;
+        }
+
+        const access_token = await AsyncStorage.getItem('storeAccesstoken');
+        setCancelLoading(true);
+        try {
+            const url = `${base_url}api/flower-requests/cancel/${cancelTarget.request_id}`;
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    Authorization: 'Bearer ' + access_token,
+                },
+                body: JSON.stringify({
+                    cancel_by: 'user',
+                    cancel_reason: cancelReason.trim(),
+                }),
+            });
+            const json = await res.json();
+            if (res.ok) {
+                closeCancelModal();
+                getCustomeOrderList();
+            } else {
+                Alert.alert('Error', json?.message || 'Unable to cancel the order');
+            }
+        } catch (e) {
+            Alert.alert('Error', 'Something went wrong');
+        } finally {
+            setCancelLoading(false);
+        }
+    };
+
+    // -------- Render item ----------
     const renderCard = ({ item }) => {
         const status = String(item?.status || '').toLowerCase();
         const price = item?.order?.total_price;
         const canPay = status === 'approved';
+        const canCancel = status === 'approved';
 
         const badgeColors = STATUS_COLORS[status] || STATUS_COLORS.default;
 
@@ -127,18 +198,21 @@ export default function Index() {
                 onPress={() => navigation.navigate('CustomOrderDetailsPage', item)}
                 style={styles.card}
             >
-                {/* left image */}
+                {/* Left image */}
                 <View style={styles.imageWrap}>
-                    <Image
-                        source={{ uri: item?.flower_product?.product_image_url }}
-                        style={styles.image}
-                    />
+                    {item?.flower_product?.product_image_url ? (
+                        <Image source={{ uri: item.flower_product.product_image_url }} style={styles.image} />
+                    ) : (
+                        <View style={[styles.image, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F4F6' }]}>
+                            <Icon name="leaf" size={18} color="#6B7280" />
+                        </View>
+                    )}
                     <View style={styles.ribbon}>
                         <Text style={styles.ribbonText}>#{item?.request_id}</Text>
                     </View>
                 </View>
 
-                {/* right content */}
+                {/* Right content */}
                 <View style={{ flex: 1 }}>
                     <Text numberOfLines={2} style={styles.title}>
                         {item?.flower_product?.name ?? 'Custom Flower Request'}
@@ -152,27 +226,33 @@ export default function Index() {
                         </View>
                     </View>
 
-                    {/* contextual hint */}
+                    {/* Contextual hint */}
                     {status === 'pending' && (
                         <View style={styles.hint}>
                             <Icon name="clock" size={10} color="#9A3412" />
-                            <Text style={styles.hintText}>We’re calculating your cost. You’ll be notified shortly.</Text>
+                            <Text style={styles.hintText}>
+                                We’re calculating your cost. You’ll be notified shortly.
+                            </Text>
                         </View>
                     )}
 
-                    {/* actions */}
+                    {/* Actions */}
                     <View style={styles.actionsRow}>
+                        {/* Always show View Details full width */}
                         <TouchableOpacity
                             onPress={() => navigation.navigate('CustomOrderDetailsPage', item)}
-                            style={styles.outlineBtn}
+                            style={[styles.outlineBtn, { flex: 1 }]}
                         >
                             <Text style={styles.outlineBtnText}>View Details</Text>
                         </TouchableOpacity>
+                    </View>
 
-                        {canPay && (
+                    {/* When approved → show Pay + Cancel in a new row */}
+                    {status === 'approved' && (
+                        <View style={[styles.actionsRow, { marginTop: 8 }]}>
                             <TouchableOpacity
                                 onPress={() => navigation.navigate('CustomOrderDetailsPage', item)}
-                                style={styles.payBtn}
+                                style={[styles.payBtn, { flex: 1 }]}
                                 activeOpacity={0.9}
                             >
                                 <LinearGradient colors={['#22C55E', '#16A34A']} style={styles.payGrad}>
@@ -180,8 +260,19 @@ export default function Index() {
                                     <Text style={styles.payText}>Pay</Text>
                                 </LinearGradient>
                             </TouchableOpacity>
-                        )}
-                    </View>
+
+                            <TouchableOpacity
+                                onPress={() => openCancelModal(item)}
+                                style={[styles.cancelBtn, { flex: 1 }]}
+                                activeOpacity={0.9}
+                            >
+                                <LinearGradient colors={['#fb7185', '#ef4444']} style={styles.cancelGrad}>
+                                    <Icon name="times" size={12} color="#fff" style={{ marginRight: 6 }} />
+                                    <Text style={styles.cancelText}>Cancel</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </View>
+                    )}
                 </View>
             </TouchableOpacity>
         );
@@ -203,7 +294,7 @@ export default function Index() {
                     Track your flower requests, pricing, and payments.
                 </Text>
 
-                {/* quick stats */}
+                {/* Quick stats (includes Rejected) */}
                 <View style={styles.statsRow}>
                     <View style={styles.statCard}>
                         <Text style={styles.statNumber}>{stats.all}</Text>
@@ -219,11 +310,16 @@ export default function Index() {
                         <Text style={styles.statNumber}>{stats.approved}</Text>
                         <Text style={styles.statLabel}>Approved</Text>
                     </View>
+                    <View style={styles.statDivider} />
+                    <View style={styles.statCard}>
+                        <Text style={styles.statNumber}>{stats.rejected}</Text>
+                        <Text style={styles.statLabel}>Rejected</Text>
+                    </View>
                 </View>
 
-                {/* filter chips */}
+                {/* Filter chips (added Rejected) */}
                 <View style={styles.filters}>
-                    {['all', 'pending', 'approved', 'paid'].map((f) => {
+                    {['all', 'pending', 'approved', 'paid', 'rejected'].map((f) => {
                         const active = activeFilter === f;
                         return (
                             <TouchableOpacity
@@ -269,6 +365,78 @@ export default function Index() {
                     showsVerticalScrollIndicator={false}
                 />
             )}
+
+            {/* Cancel modal */}
+            <Modal
+                animationType="slide"
+                transparent
+                visible={cancelVisible}
+                onRequestClose={closeCancelModal}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalCard}>
+                        {/* Close */}
+                        <TouchableOpacity onPress={closeCancelModal} style={{ alignSelf: 'flex-end' }}>
+                            <Icon name="times" size={22} color="#111827" />
+                        </TouchableOpacity>
+
+                        {/* Icon */}
+                        <LinearGradient colors={['#fb7185', '#ef4444']} style={styles.modalIcon}>
+                            <Icon name="ban" size={22} color="#fff" />
+                        </LinearGradient>
+
+                        <Text style={styles.modalTitle}>Cancel this order?</Text>
+                        <Text style={styles.modalDesc}>
+                            Please tell us why you’re cancelling. This helps us improve.
+                        </Text>
+
+                        {/* Request ID pill */}
+                        {!!cancelTarget?.request_id && (
+                            <View style={styles.modalIdPill}>
+                                <Icon name="hashtag" size={12} color="#6B7280" />
+                                <Text style={styles.modalIdText}>Request ID: {cancelTarget.request_id}</Text>
+                            </View>
+                        )}
+
+                        {/* Input */}
+                        <Text style={styles.fieldLabel}>Reason</Text>
+                        <View style={styles.inputWrap}>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="e.g., Changed my plan"
+                                placeholderTextColor="#94A3B8"
+                                value={cancelReason}
+                                onChangeText={setCancelReason}
+                                multiline
+                            />
+                        </View>
+
+                        {/* Actions */}
+                        <View style={styles.modalActions}>
+                            <TouchableOpacity
+                                onPress={closeCancelModal}
+                                disabled={cancelLoading}
+                                style={styles.modalOutlineBtn}
+                            >
+                                <Text style={styles.modalOutlineText}>Keep Order</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                onPress={submitCancel}
+                                disabled={cancelLoading}
+                                style={styles.modalDangerBtn}
+                                activeOpacity={0.9}
+                            >
+                                {cancelLoading ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                    <Text style={styles.modalDangerText}>Cancel Order</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -283,15 +451,14 @@ const styles = StyleSheet.create({
         borderBottomLeftRadius: 24,
         borderBottomRightRadius: 24,
     },
-    headerTop: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
+    headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     backBtn: {
-        width: 36, height: 36, borderRadius: 18,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         backgroundColor: 'rgba(255,255,255,0.15)',
-        alignItems: 'center', justifyContent: 'center',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     headerTitle: { color: '#fff', fontSize: 22, fontWeight: '800' },
     headerSubtitle: { color: '#E5E7EB', marginTop: 8 },
@@ -309,11 +476,14 @@ const styles = StyleSheet.create({
     statLabel: { color: '#E5E7EB', fontSize: 12 },
     statDivider: { width: 1, height: 26, backgroundColor: 'rgba(255,255,255,0.2)' },
 
-    filters: { flexDirection: 'row', gap: 8, marginTop: 12 },
+    filters: { flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' },
     filterChip: {
-        paddingHorizontal: 12, paddingVertical: 6,
-        borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.12)',
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 999,
+        backgroundColor: 'rgba(255,255,255,0.12)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.18)',
     },
     filterChipActive: { backgroundColor: '#fff' },
     filterText: { color: '#E5E7EB', fontWeight: '700', fontSize: 12 },
@@ -340,9 +510,13 @@ const styles = StyleSheet.create({
     imageWrap: { width: 90, height: 90, borderRadius: 12, overflow: 'hidden' },
     image: { width: '100%', height: '100%' },
     ribbon: {
-        position: 'absolute', left: 8, top: 0, right: 0,
+        position: 'absolute',
+        left: 8,
+        top: 0,
+        right: 0,
         backgroundColor: 'rgba(0,0,0,0.65)',
-        paddingHorizontal: 8, paddingVertical: 2,
+        paddingHorizontal: 8,
+        paddingVertical: 2,
         borderRadius: 6,
     },
     ribbonText: { color: '#fff', fontSize: 10, fontWeight: '800' },
@@ -363,9 +537,14 @@ const styles = StyleSheet.create({
     badgeText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
 
     pricePill: {
-        flexDirection: 'row', alignItems: 'center', gap: 6,
-        borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5,
-        backgroundColor: '#F8FAFC', borderWidth: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        borderRadius: 999,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        backgroundColor: '#F8FAFC',
+        borderWidth: 1,
     },
     priceText: { color: '#0f172a', fontWeight: '900', fontSize: 12 },
 
@@ -405,14 +584,104 @@ const styles = StyleSheet.create({
     },
     payText: { color: '#fff', fontWeight: '900' },
 
-    // empty
+    cancelBtn: { flex: 1, borderRadius: 12, overflow: 'hidden' },
+    cancelGrad: {
+        paddingVertical: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'row',
+    },
+    cancelText: { color: '#fff', fontWeight: '900' },
+
+    // Empty
     emptyWrap: { alignItems: 'center', marginTop: 60, paddingHorizontal: 24 },
     emptyBadge: {
-        width: 72, height: 72, borderRadius: 36,
-        backgroundColor: '#FFF7ED', borderWidth: 1, borderColor: '#FED7AA',
-        alignItems: 'center', justifyContent: 'center', marginBottom: 12,
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+        backgroundColor: '#FFF7ED',
+        borderWidth: 1,
+        borderColor: '#FED7AA',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 12,
     },
     emptyEmoji: { fontSize: 30 },
     emptyTitle: { color: '#0f172a', fontSize: 18, fontWeight: '900', marginBottom: 4 },
     emptyText: { color: '#64748B', textAlign: 'center', fontWeight: '600' },
+
+    // Modal
+    modalOverlay: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0,0,0,0.45)',
+    },
+    modalCard: {
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        paddingHorizontal: 18,
+        paddingTop: 10,
+        paddingBottom: 18,
+        borderTopWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    modalIcon: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 10,
+    },
+    modalTitle: { fontSize: 18, fontWeight: '900', color: '#111827' },
+    modalDesc: { marginTop: 6, color: '#374151', lineHeight: 20, fontWeight: '600' },
+
+    modalIdPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        backgroundColor: '#F9FAFB',
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        borderRadius: 12,
+        marginTop: 12,
+    },
+    modalIdText: { color: '#374151', fontWeight: '700' },
+
+    fieldLabel: { fontSize: 13, fontWeight: '800', color: '#111827', marginTop: 12, marginBottom: 6 },
+    inputWrap: {
+        borderWidth: 1,
+        borderColor: '#CBD5E1',
+        borderRadius: 12,
+        backgroundColor: '#F8FAFC',
+    },
+    input: {
+        minHeight: 80,
+        padding: 12,
+        color: '#111827',
+        fontWeight: '700',
+    },
+
+    modalActions: { flexDirection: 'row', gap: 10, marginTop: 16 },
+    modalOutlineBtn: {
+        flex: 1,
+        borderWidth: 1.5,
+        borderColor: '#CBD5E1',
+        backgroundColor: '#fff',
+        paddingVertical: 12,
+        borderRadius: 12,
+        alignItems: 'center',
+    },
+    modalOutlineText: { color: '#111827', fontWeight: '900', fontSize: 14 },
+    modalDangerBtn: {
+        flex: 1,
+        borderRadius: 12,
+        alignItems: 'center',
+        paddingVertical: 12,
+        backgroundColor: '#ef4444',
+    },
+    modalDangerText: { color: '#fff', fontWeight: '900', fontSize: 14 },
 });

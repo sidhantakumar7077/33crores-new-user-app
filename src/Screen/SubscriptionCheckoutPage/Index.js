@@ -112,6 +112,12 @@ const Index = (props) => {
     }
   }
 
+  const joinParts = (...vals) =>
+    vals
+      .filter(v => v !== null && v !== undefined && String(v).trim() !== '')
+      .map(v => String(v).trim())
+      .join(',  ');
+
   useEffect(() => {
     // When 'allAddresses' changes, update 'displayedAddresses' with the first address
     if (allAddresses.length > 0) {
@@ -550,34 +556,54 @@ const Index = (props) => {
                   showsHorizontalScrollIndicator={false}
                   data={displayedAddresses}
                   scrollEnabled={false}
-                  keyExtractor={(item) => item.id.toString()}
-                  renderItem={(address) => {
+                  keyExtractor={(item) => item.id?.toString?.()}
+                  renderItem={({ item }) => {
+                    const line1 = joinParts(item?.apartment_name, item?.apartment_flat_plot, item?.landmark);
+                    const line2 = joinParts(item?.locality_details?.locality_name, item?.city, item?.state);
+                    const line3 = joinParts(item?.pincode, item?.place_category);
+
                     return (
-                      <TouchableOpacity onPress={() => handleAddressChange(address?.item?.id)} style={{ borderColor: '#edeff1', borderWidth: 1, padding: 10, flexDirection: 'row', alignItems: 'center', borderRadius: 8, marginVertical: 5 }}>
+                      <TouchableOpacity
+                        onPress={() => handleAddressChange(item?.id)}
+                        style={{
+                          borderColor: '#edeff1',
+                          borderWidth: 1,
+                          padding: 10,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          borderRadius: 8,
+                          marginVertical: 5,
+                        }}
+                      >
                         <View style={{ width: '8%', alignSelf: 'flex-start', marginTop: 2 }}>
-                          {address?.item?.address_type === "Home" && <Feather name="home" color={'#555454'} size={18} />}
-                          {address?.item?.address_type === "Work" && <Feather name="briefcase" color={'#555454'} size={17} />}
-                          {address?.item?.address_type === "Other" && <Feather name="globe" color={'#555454'} size={17} />}
+                          {item?.address_type === 'Home' && <Feather name="home" color={'#555454'} size={18} />}
+                          {item?.address_type === 'Work' && <Feather name="briefcase" color={'#555454'} size={17} />}
+                          {item?.address_type === 'Other' && <Feather name="globe" color={'#555454'} size={17} />}
                         </View>
+
                         <View style={{ width: '82%' }}>
                           <View>
-                            {address?.item?.address_type === "Home" && <Text style={{ color: '#000', fontSize: 15, fontWeight: '600' }}>Home</Text>}
-                            {address?.item?.address_type === "Work" && <Text style={{ color: '#000', fontSize: 15, fontWeight: '600' }}>Work</Text>}
-                            {address?.item?.address_type === "Other" && <Text style={{ color: '#000', fontSize: 15, fontWeight: '600' }}>Other</Text>}
+                            {item?.address_type ? (
+                              <Text style={{ color: '#000', fontSize: 15, fontWeight: '600' }}>
+                                {item.address_type}
+                              </Text>
+                            ) : null}
                           </View>
-                          <Text style={{ color: '#555454', fontSize: 13 }}>{address?.item?.apartment_name},  {address?.item?.apartment_flat_plot},  {address?.item?.landmark}</Text>
-                          <Text style={{ color: '#555454', fontSize: 13 }}>{address?.item?.locality_details?.locality_name},  {address?.item?.city},  {address?.item?.state}</Text>
-                          <Text style={{ color: '#555454', fontSize: 13 }}>{address?.item?.pincode},  {address?.item?.place_category}</Text>
+
+                          {line1 ? <Text style={{ color: '#555454', fontSize: 13 }}>{line1}</Text> : null}
+                          {line2 ? <Text style={{ color: '#555454', fontSize: 13 }}>{line2}</Text> : null}
+                          {line3 ? <Text style={{ color: '#555454', fontSize: 13 }}>{line3}</Text> : null}
                         </View>
+
                         <View style={{ width: '10%', alignItems: 'center', justifyContent: 'center' }}>
-                          {selectedOption === address?.item?.id ?
+                          {selectedOption === item?.id ? (
                             <MaterialCommunityIcons name="record-circle" color={'#ffcb44'} size={24} />
-                            :
-                            < Feather name="circle" color={'#555454'} size={20} />
-                          }
+                          ) : (
+                            <Feather name="circle" color={'#555454'} size={20} />
+                          )}
                         </View>
                       </TouchableOpacity>
-                    )
+                    );
                   }}
                 />
                 {allAddresses.length > 1 && (
@@ -894,21 +920,37 @@ const Index = (props) => {
         visible={orderModalVisible}
         onRequestClose={closeOrderModal}
       >
-        <View style={styles.pModalContainer}>
-          <View style={styles.pModalContent}>
-            <Animated.View style={[styles.pModalCheckCircle, { transform: [{ scale: scaleAnim }] }]}>
-              <FontAwesome name='check' color={'#fff'} size={60} />
+        <View style={styles.backdrop}>
+          <View style={styles.modalCard}>
+            <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+              <LinearGradient colors={['#10B981', '#059669']} style={styles.checkCircle}>
+                <FontAwesome name="check" color="#fff" size={42} />
+              </LinearGradient>
             </Animated.View>
-            <Text style={styles.pModalCongratulationsText}>Congratulations!</Text>
-            <Text style={styles.pModalDetailText}>Your order has been placed successfully.</Text>
-            <Text style={[styles.pModalCallText, { marginTop: 10 }]}>For any inquiry call us at this number</Text>
-            <TouchableOpacity onPress={() => Linking.openURL('tel:9776888887')}>
-              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '500', textAlign: 'center', marginTop: 5 }}>9776888887</Text>
+
+            <Text style={styles.title}>Congratulations!</Text>
+            <Text style={styles.body}>Your order has been placed successfully.</Text>
+            <Text style={[styles.body, { marginTop: 6 }]}>
+              For any inquiry, call us:
+            </Text>
+
+            <TouchableOpacity onPress={() => Linking.openURL('tel:9776888887')} activeOpacity={0.9} style={styles.phonePill}>
+              <FontAwesome name="phone" size={12} color="#065F46" />
+              <Text style={styles.phoneText}>9776 888 887</Text>
             </TouchableOpacity>
+
+            <View style={styles.actionsRow}>
+              <TouchableOpacity onPress={() => navigation.replace('CustomOrderHistory')} activeOpacity={0.9} style={styles.primaryBtn}>
+                <LinearGradient colors={['#F59E0B', '#F97316']} style={styles.primaryGrad}>
+                  <Text style={styles.primaryText}>Order Details</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => { closeOrderModal(); navigation.goBack() }} activeOpacity={0.9} style={styles.secondaryBtn}>
+                <Text style={styles.secondaryText}>Done</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          <TouchableOpacity onPress={() => navigation.replace('SubscriptionOrderHistory')} style={styles.pModalButton}>
-            <Text style={styles.pModalButtonText}>Order Details</Text>
-          </TouchableOpacity>
         </View>
       </Modal>
 
@@ -1154,49 +1196,77 @@ const styles = StyleSheet.create({
     bottom: 0
   },
   // Order Modal
-  pModalContainer: {
+  backdrop: {
     flex: 1,
-    backgroundColor: '#141416',
-    alignItems: 'center',
-    justifyContent: 'space-evenly',
-  },
-  pModalContent: {
+    backgroundColor: 'rgba(15,23,42,0.65)', // slate overlay
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 24,
   },
-  pModalCheckCircle: {
-    marginBottom: 20,
-    width: 120,
-    height: 120,
-    borderRadius: 100,
-    backgroundColor: '#4CAF50',
+  modalCard: {
+    width: '100%',
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    paddingVertical: 22,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 10,
+  },
+  checkCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 14,
   },
-  pModalCongratulationsText: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#fff'
-  },
-  pModalDetailText: {
-    fontSize: 16,
-    color: '#b6b6b6',
+  title: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#0f172a',
     textAlign: 'center',
-    paddingHorizontal: 30,
   },
-  pModalButton: {
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 30,
-    paddingVertical: 10,
-    borderRadius: 8,
-    top: 100
+  body: {
+    fontSize: 14,
+    color: '#475569',
+    textAlign: 'center',
   },
-  pModalButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+  phonePill: {
+    marginTop: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
+  phoneText: { color: '#065F46', fontWeight: '800', letterSpacing: 0.2 },
+
+  actionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 18,
+  },
+  primaryBtn: { flex: 1, borderRadius: 12, overflow: 'hidden' },
+  primaryGrad: { paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
+  primaryText: { color: '#fff', fontSize: 15, fontWeight: '800' },
+
+  secondaryBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#fff',
+  },
+  secondaryText: { color: '#334155', fontWeight: '800' },
   // Error Modal
   errorModalOverlay: {
     flex: 1,
@@ -1221,7 +1291,7 @@ const styles = StyleSheet.create({
     fontWeight: '600'
   },
   confirmDeleteBtn: {
-    backgroundColor: 'green',
+    backgroundColor: '#FF6B35',
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 7

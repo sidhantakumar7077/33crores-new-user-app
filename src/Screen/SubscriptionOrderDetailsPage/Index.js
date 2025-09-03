@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -10,6 +10,7 @@ import {
   TextInput,
   Modal,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
@@ -22,6 +23,7 @@ import moment from 'moment';
 import { base_url } from '../../../App';
 
 const Index = (props) => {
+
   const navigation = useNavigation();
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
@@ -34,6 +36,93 @@ const Index = (props) => {
   const [endDate, setEndDate] = useState(
     new Date(new Date().setDate(new Date().getDate() + 1))
   );
+
+  const fmt = (d, f = 'DD MMM YYYY') => (d ? moment(d).format(f) : '—');
+
+  // sort newest first
+  const historyData = useMemo(() => {
+    const arr = packageDetails?.pause_resume_log ?? [];
+    return [...arr].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  }, [packageDetails]);
+
+  // --- CURRENT PAUSE (if today falls within a paused window and not resumed) ---
+  const currentPause = useMemo(() => {
+    if (!packageDetails) return null;
+    const logs = packageDetails.pause_resume_log ?? [];
+    const today = moment().startOf('day');
+
+    // 1) Prefer top-level status if available
+    if (
+      packageDetails.status === 'paused' &&
+      packageDetails.pause_start_date &&
+      packageDetails.pause_end_date
+    ) {
+      const s = moment(packageDetails.pause_start_date, 'YYYY-MM-DD');
+      const e = moment(packageDetails.pause_end_date, 'YYYY-MM-DD');
+      if (s.isValid() && e.isValid() && today.isBetween(s, e, 'day', '[]')) {
+        return {
+          pause_start_date: packageDetails.pause_start_date,
+          pause_end_date: packageDetails.pause_end_date,
+        };
+      }
+    }
+
+    // 2) Derive from logs (paused windows that include today)
+    const pausedWindows = logs
+      .filter(l => l.action === 'paused' && l.pause_start_date && l.pause_end_date)
+      .filter(l => {
+        const s = moment(l.pause_start_date, 'YYYY-MM-DD');
+        const e = moment(l.pause_end_date, 'YYYY-MM-DD');
+        return s.isValid() && e.isValid() && today.isBetween(s, e, 'day', '[]');
+      });
+
+    if (!pausedWindows.length) return null;
+
+    // Exclude those that have a resume inside the window on/before today
+    const resumes = logs.filter(l => l.action === 'resumed' && l.resume_date);
+    const active = pausedWindows.filter(p => {
+      const s = moment(p.pause_start_date, 'YYYY-MM-DD');
+      const e = moment(p.pause_end_date, 'YYYY-MM-DD');
+      return !resumes.some(r => {
+        const rd = moment(r.resume_date, 'YYYY-MM-DD');
+        // if resumed anytime from start up to today, treat as not currently paused
+        return rd.isValid() && rd.isSameOrAfter(s, 'day') && rd.isSameOrBefore(today, 'day');
+      });
+    });
+
+    if (!active.length) return null;
+
+    active.sort((a, b) =>
+      moment(a.pause_start_date, 'YYYY-MM-DD').diff(moment(b.pause_start_date, 'YYYY-MM-DD'))
+    );
+    return {
+      pause_start_date: active[0].pause_start_date,
+      pause_end_date: active[0].pause_end_date,
+    };
+  }, [packageDetails]);
+
+  const upcomingPause = useMemo(() => {
+    const logs = packageDetails?.pause_resume_log ?? [];
+    const today = moment().startOf('day');
+
+    // only pauses that start AFTER today (exclude today)
+    const futurePauses = logs.filter(l =>
+      l.action === 'paused' &&
+      l.pause_start_date &&
+      moment(l.pause_start_date, 'YYYY-MM-DD').isAfter(today, 'day')
+    );
+
+    if (!futurePauses.length) return null;
+
+    // pick the soonest one
+    const [soonest] = [...futurePauses].sort((a, b) =>
+      moment(a.pause_start_date, 'YYYY-MM-DD').diff(moment(b.pause_start_date, 'YYYY-MM-DD'))
+    );
+
+    return soonest;
+  }, [packageDetails]);
 
   useEffect(() => {
     if (endDate < startDate) {
@@ -118,6 +207,12 @@ const Index = (props) => {
   const openEndDatePicker = () => setIsEndDateModalOpen(true);
   const closeEndDatePicker = () => setIsEndDateModalOpen(false);
 
+  // Cancel Pause (confirm sheet)
+  const [isCancelModalVisible, setCancelModalVisible] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const openCancelModal = () => setCancelModalVisible(true);
+  const closeCancelModal = () => { if (!cancelLoading) setCancelModalVisible(false); };
+
   const submitPauseDates = async () => {
     try {
       const access_token = await AsyncStorage.getItem('storeAccesstoken');
@@ -147,6 +242,37 @@ const Index = (props) => {
     }
   };
 
+  const cancelScheduledPause = async () => {
+    try {
+      setCancelLoading(true);
+      const access_token = await AsyncStorage.getItem('storeAccesstoken');
+      const response = await fetch(
+        `${base_url}api/subscriptions/delete-pause/${props.route.params.order_id}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${access_token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+      if (response.status === 200) {
+        // Alert.alert('Success', 'Scheduled pause has been cancelled.');
+        setCancelModalVisible(false);
+        // refresh local details and go back or just update UI
+        navigation.goBack(); // (or re-fetch and setPackageDetails if you prefer)
+      } else {
+        Alert.alert('Error', data?.message || 'Unable to cancel scheduled pause');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Something went wrong');
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
   const handleStartDatePress = (day) => {
     setStartDate(new Date(day.dateString));
     closeStartDatePicker();
@@ -164,8 +290,8 @@ const Index = (props) => {
   // ===== Image fallback =====
   const [imgError, setImgError] = useState(false);
   const productImageSource =
-    !imgError && packageDetails?.flower_products?.product_image_url
-      ? { uri: packageDetails.flower_products.product_image_url }
+    !imgError && packageDetails?.flower_products?.product_image
+      ? { uri: packageDetails.flower_products.product_image }
       : require('../../assets/images/flower.png'); // default/fallback
 
   return (
@@ -266,6 +392,215 @@ const Index = (props) => {
             </View>
           </View>
 
+          {/* Current pause banner */}
+          {currentPause && (
+            <View
+              style={[
+                styles.noticeCard,
+                { backgroundColor: '#FEE2E2', borderColor: '#FCA5A5' },
+              ]}
+            >
+              <Feather name="pause-circle" size={16} color="#B91C1C" style={{ marginRight: 8 }} />
+              <Text style={[styles.noticeText, { color: '#B91C1C' }]}>
+                Your subscription is paused Now (
+                {moment(currentPause.pause_start_date).format('DD MMM YYYY')}
+                {' to '}
+                {moment(currentPause.pause_end_date).format('DD MMM YYYY')}
+                ).
+              </Text>
+            </View>
+          )}
+
+          {/* Upcoming pause banner */}
+          {upcomingPause && (
+            <View style={[styles.noticeCard, { alignItems: 'center' }]}>
+              <Feather name="alert-triangle" size={16} color="#92400E" style={{ marginRight: 8 }} />
+              <Text style={[styles.noticeText, { marginRight: 8 }]}>
+                Upcoming pause scheduled from{' '}
+                {moment(upcomingPause.pause_start_date).format('DD MMM YYYY')}
+                {upcomingPause.pause_end_date
+                  ? ` to ${moment(upcomingPause.pause_end_date).format('DD MMM YYYY')}`
+                  : ''}
+                .
+              </Text>
+
+              {/* Cancel Pause trigger (only if start is today or later) */}
+              {/* {moment(upcomingPause.pause_start_date, 'YYYY-MM-DD').isSameOrAfter(moment().startOf('day')) && (
+                <TouchableOpacity
+                  onPress={openCancelModal}
+                  activeOpacity={0.9}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    borderRadius: 10,
+                    backgroundColor: '#ef4444',
+                    borderWidth: 1,
+                    borderColor: '#fca5a5',
+                  }}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '900', fontSize: 12 }}>Cancel Pause</Text>
+                </TouchableOpacity>
+              )} */}
+            </View>
+          )}
+
+          {/* Pause / Resume */}
+          {/* {moment(packageDetails?.start_date).format('YYYY-MM-DD') <= moment().format('YYYY-MM-DD') && (
+            <View
+              style={{
+                width: '90%',
+                alignSelf: 'center',
+                backgroundColor: '#FFFFFF',
+                borderRadius: 14,
+                padding: 14,
+                marginTop: 12,
+                borderWidth: 1,
+                borderColor: '#E2E8F0',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.06,
+                shadowRadius: 8,
+                elevation: 2,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                <Feather
+                  name={packageDetails?.status === 'active' ? 'pause-circle' : 'play-circle'}
+                  size={18}
+                  color="#0f172a"
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={{ fontSize: 16, fontWeight: '800', color: '#0f172a' }}>
+                  {packageDetails?.status === 'active' ? 'Pause Subscription' : 'Resume Subscription'}
+                </Text>
+              </View>
+
+              {packageDetails?.status === 'active' ? (
+                <View>
+                  <Text style={{ fontSize: 13, color: '#475569', marginBottom: 8 }}>
+                    Choose the dates you want to pause deliveries.
+                  </Text>
+
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: '700',
+                      color: '#334155',
+                      marginTop: 4,
+                      marginBottom: 6,
+                    }}
+                  >
+                    Pause Start Date
+                  </Text>
+                  <TouchableOpacity
+                    onPress={openStartDatePicker}
+                    activeOpacity={0.8}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: '#E2E8F0',
+                      borderRadius: 10,
+                      paddingHorizontal: 12,
+                      paddingVertical: 12,
+                      backgroundColor: '#F8FAFC',
+                      marginBottom: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Feather name="calendar" size={16} color="#0f172a" style={{ marginRight: 8 }} />
+                    <Text style={{ color: '#0f172a', fontSize: 14, fontWeight: '600' }}>
+                      {startDate.toLocaleDateString()}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: '700',
+                      color: '#334155',
+                      marginBottom: 6,
+                    }}
+                  >
+                    Pause End Date
+                  </Text>
+                  <TouchableOpacity
+                    onPress={openEndDatePicker}
+                    activeOpacity={0.8}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: '#E2E8F0',
+                      borderRadius: 10,
+                      paddingHorizontal: 12,
+                      paddingVertical: 12,
+                      backgroundColor: '#F8FAFC',
+                      marginBottom: 16,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Feather name="calendar" size={16} color="#0f172a" style={{ marginRight: 8 }} />
+                    <Text style={{ color: '#0f172a', fontSize: 14, fontWeight: '600' }}>
+                      {endDate.toLocaleDateString()}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={submitPauseDates}
+                    activeOpacity={0.9}
+                    style={{ borderRadius: 12, overflow: 'hidden' }}
+                  >
+                    <LinearGradient
+                      colors={['#c9170a', '#f0837f']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={{ paddingVertical: 14, alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      <Text style={{ color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 0.4 }}>
+                        Submit
+                      </Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
+              ) : packageDetails?.status === 'paused' ? (
+                <View>
+                  <View
+                    style={{
+                      backgroundColor: '#FEE2E2',
+                      borderColor: '#FCA5A5',
+                      borderWidth: 1,
+                      borderRadius: 10,
+                      padding: 12,
+                      marginBottom: 12,
+                    }}
+                  >
+                    <Text style={{ color: '#B91C1C', fontSize: 14, fontWeight: '700' }}>
+                      Your subscription is paused from{' '}
+                      {moment(packageDetails?.pause_start_date).format('DD-MM-YYYY')} to{' '}
+                      {moment(packageDetails?.pause_end_date).format('DD-MM-YYYY')}
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    onPress={handleResumeButton}
+                    activeOpacity={0.9}
+                    style={{ borderRadius: 12, overflow: 'hidden' }}
+                  >
+                    <LinearGradient
+                      colors={['#10B981', '#34D399']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={{ paddingVertical: 14, alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      <Text style={{ color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 0.4 }}>
+                        Resume
+                      </Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+            </View>
+          )} */}
+
           {/* Details */}
           <View style={styles.detailsCard}>
             <View style={styles.infoRow}>
@@ -325,50 +660,44 @@ const Index = (props) => {
             </View>
           )}
 
-          {/* Pause / Resume */}
-          {moment(packageDetails?.start_date).format('YYYY-MM-DD') <=
-            moment().format('YYYY-MM-DD') && (
-              <View style={styles.detailsCard}>
-                {packageDetails?.status === 'active' ? (
-                  <View style={{ marginHorizontal: 10 }}>
-                    <Text style={styles.label}>Pause Start Date</Text>
-                    <TouchableOpacity onPress={openStartDatePicker}>
-                      <TextInput
-                        style={styles.input}
-                        value={startDate.toLocaleDateString()}
-                        editable={false}
-                      />
-                    </TouchableOpacity>
+          {Array.isArray(historyData) && historyData.length > 0 && (
+            <View style={styles.historyCard}>
+              <Text style={styles.subtitle}>Pause / Resume History</Text>
 
-                    <Text style={styles.label}>Pause End Date</Text>
-                    <TouchableOpacity onPress={openEndDatePicker}>
-                      <TextInput
-                        style={styles.input}
-                        value={endDate.toLocaleDateString()}
-                        editable={false}
-                      />
-                    </TouchableOpacity>
+              {historyData.map((log, idx) => {
+                const isPaused = log.action === 'paused';
+                const iconName = isPaused ? 'pause-circle' : 'play-circle';
+                const iconColor = isPaused ? '#F59E0B' : '#16A34A';
 
-                    <TouchableOpacity style={styles.dateButton} onPress={submitPauseDates}>
-                      <Text style={styles.dateText}>Submit</Text>
-                    </TouchableOpacity>
+                // primary line
+                const title = isPaused
+                  ? `Paused ${fmt(log.pause_start_date)}${log.pause_end_date ? `–${fmt(log.pause_end_date)}` : ''}`
+                  : `Resumed on ${fmt(log.resume_date)}`;
+
+                // secondary line
+                const meta = `Paused days: ${log.paused_days ?? '—'}  •  New end date: ${fmt(log.new_end_date)}`;
+
+                // timestamp line
+                const stamp = `Logged ${fmt(log.created_at, 'DD MMM YYYY, HH:mm')}`;
+
+                return (
+                  <View key={log.id ?? idx} style={styles.historyRow}>
+                    {/* Left line for timeline effect */}
+                    <View style={styles.historyLine} />
+                    <View style={styles.historyDotWrap}>
+                      <Feather name={iconName} size={18} color={iconColor} />
+                    </View>
+
+                    <View style={styles.historyContent}>
+                      <Text style={styles.historyTitle}>{title}</Text>
+                      <Text style={styles.historyMeta}>{meta}</Text>
+                      <Text style={styles.historyStamp}>{stamp}</Text>
+                    </View>
                   </View>
-                ) : packageDetails?.status === 'paused' ? (
-                  <View style={{ marginHorizontal: 10 }}>
-                    <Text style={{ color: '#c9170a', fontSize: 16, fontWeight: '800' }}>
-                      Your subscription is paused from{' '}
-                      {moment(packageDetails?.pause_start_date).format('DD-MM-YYYY')} to{' '}
-                      {moment(packageDetails?.pause_end_date).format('DD-MM-YYYY')}
-                    </Text>
-                    <TouchableOpacity onPress={handleResumeButton}>
-                      <LinearGradient colors={['#c9170a', '#f0837f']} style={styles.submitButton}>
-                        <Text style={styles.submitText}>Resume</Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  </View>
-                ) : null}
-              </View>
-            )}
+                );
+              })}
+            </View>
+          )}
         </ScrollView>
         {/* ===== Redesigned content ends here ===== */}
       </View>
@@ -417,6 +746,131 @@ const Index = (props) => {
               }}
               minDate={moment().add(1, 'days').format('YYYY-MM-DD')}
             />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Cancel Pause – Confirm Bottom Sheet */}
+      <Modal
+        animationType="slide"
+        transparent
+        visible={isCancelModalVisible}
+        onRequestClose={closeCancelModal}
+      >
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' }}>
+          {/* Backdrop */}
+          <TouchableOpacity
+            style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
+            activeOpacity={1}
+            onPress={!cancelLoading ? closeCancelModal : undefined}
+          />
+
+          {/* Sheet */}
+          <View
+            style={{
+              backgroundColor: '#fff',
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              paddingHorizontal: 18,
+              paddingTop: 10,
+              paddingBottom: 18,
+              borderTopWidth: 1,
+              borderColor: '#E5E7EB',
+            }}
+          >
+            {/* Handle */}
+            <View
+              style={{
+                alignSelf: 'center',
+                width: 40,
+                height: 4,
+                borderRadius: 999,
+                backgroundColor: '#E5E7EB',
+                marginBottom: 12,
+              }}
+            />
+
+            {/* Icon badge */}
+            <LinearGradient
+              colors={['#fb7185', '#ef4444']}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 12,
+              }}
+            >
+              <Feather name="pause-circle" size={26} color="#fff" />
+            </LinearGradient>
+
+            <Text style={{ fontSize: 18, fontWeight: '900', color: '#111827' }}>
+              Cancel scheduled pause?
+            </Text>
+            <Text style={{ marginTop: 6, color: '#374151', lineHeight: 20, fontWeight: '600' }}>
+              This will remove the upcoming pause for this subscription. You can schedule a new pause later.
+            </Text>
+
+            {/* Info row */}
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                paddingVertical: 10,
+                paddingHorizontal: 12,
+                backgroundColor: '#F9FAFB',
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+                borderRadius: 12,
+                marginTop: 12,
+              }}
+            >
+              <Feather name="hash" size={16} color="#6B7280" />
+              <Text style={{ color: '#374151', fontWeight: '700' }}>
+                Order ID: {props.route.params.order_id}
+              </Text>
+            </View>
+
+            {/* Actions */}
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  borderWidth: 1.5,
+                  borderColor: '#CBD5E1',
+                  backgroundColor: '#fff',
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                }}
+                onPress={closeCancelModal}
+                disabled={cancelLoading}
+              >
+                <Text style={{ color: '#111827', fontWeight: '900', fontSize: 14 }}>
+                  No, keep pause
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  paddingVertical: 12,
+                  backgroundColor: '#ef4444',
+                }}
+                onPress={cancelScheduledPause}
+                disabled={cancelLoading}
+              >
+                {cancelLoading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={{ color: '#fff', fontWeight: '900', fontSize: 14 }}>Yes, cancel</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -657,5 +1111,58 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 10,
     elevation: 5,
+  },
+  historyCard: {
+    width: '90%',
+    alignSelf: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 14,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  historyRow: {
+    flexDirection: 'row',
+    paddingVertical: 10,
+    position: 'relative',
+  },
+  historyLine: {
+    position: 'absolute',
+    left: 9, // aligns with dot center
+    top: 0,
+    bottom: 0,
+    width: 2,
+    backgroundColor: '#E2E8F0',
+  },
+  historyDotWrap: {
+    width: 20,
+    alignItems: 'center',
+    marginRight: 10,
+    zIndex: 1,
+  },
+  historyContent: { flex: 1 },
+  historyTitle: { color: '#0f172a', fontSize: 14, fontWeight: '800' },
+  historyMeta: { color: '#475569', fontSize: 13, marginTop: 2 },
+  historyStamp: { color: '#64748B', fontSize: 12, marginTop: 4 },
+  noticeCard: {
+    width: '90%',
+    alignSelf: 'center',
+    marginTop: 10,
+    // marginBottom: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: '#FEF3C7', // warm amber
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  noticeText: {
+    flex: 1,
+    color: '#92400E',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

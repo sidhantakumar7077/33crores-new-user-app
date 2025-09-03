@@ -357,27 +357,40 @@ const NewProfile = () => {
                         </View>
                         :
                         <View style={styles.profileCard}>
-                            {imageSource ?
-                                <Image
-                                    source={{ uri: imageSource }}
-                                    style={styles.avatar}
-                                />
-                                :
-                                <Image
-                                    source={require('../../assets/images/user.png')}
-                                    style={styles.avatar}
-                                />
-                            }
+                            {/* Avatar */}
+                            {imageSource ? (
+                                <Image source={{ uri: imageSource }} style={styles.avatar} />
+                            ) : (
+                                <Image source={require('../../assets/images/user.png')} style={styles.avatar} />
+                            )}
+
+                            {/* User Info */}
                             <View style={styles.userInfo}>
                                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    {profileDetails?.name && <Text style={{ color: '#000', fontSize: 16, fontWeight: '500', marginRight: 4 }}>{profileDetails?.name}</Text>}
-                                    {profileDetails?.email && !profileDetails?.name && <Text style={{ color: '#000', fontSize: 16, fontWeight: '500', marginRight: 4 }}>{profileDetails?.email}</Text>}
-                                    {profileDetails?.mobile_number && !profileDetails?.email && !profileDetails?.name && <Text style={{ color: '#000', fontSize: 16, fontWeight: '500', marginRight: 4 }}>{profileDetails?.mobile_number}</Text>}
-                                    <Feather name="check-circle" color={'#28a745'} size={16} />
+                                    {profileDetails?.name && (
+                                        <Text style={styles.userName}>{profileDetails?.name}</Text>
+                                    )}
+                                    {profileDetails?.email && !profileDetails?.name && (
+                                        <Text style={styles.userName}>{profileDetails?.email}</Text>
+                                    )}
+                                    {profileDetails?.mobile_number && !profileDetails?.email && !profileDetails?.name && (
+                                        <Text style={styles.userName}>{profileDetails?.mobile_number}</Text>
+                                    )}
+                                    <Feather name="check-circle" color={'#28a745'} size={16} style={{ marginLeft: 4 }} />
                                 </View>
-                                {profileDetails?.email && profileDetails?.name && <Text style={{ color: '#555454', fontSize: 12, fontWeight: '400' }}>{profileDetails?.email}</Text>}
-                                {profileDetails?.mobile_number && profileDetails?.email && profileDetails?.name && <Text style={{ color: '#555454', fontSize: 12, fontWeight: '400' }}>{profileDetails?.mobile_number}</Text>}
+
+                                {profileDetails?.email && profileDetails?.name && (
+                                    <Text style={styles.userEmail}>{profileDetails?.email}</Text>
+                                )}
+                                {profileDetails?.mobile_number && profileDetails?.email && profileDetails?.name && (
+                                    <Text style={styles.userEmail}>{profileDetails?.mobile_number}</Text>
+                                )}
                             </View>
+
+                            {/* Edit Icon */}
+                            <TouchableOpacity onPress={() => setProfileModal(true)} style={styles.editIconBtn}>
+                                <Feather name="edit" size={25} color="#EF4444" />
+                            </TouchableOpacity>
                         </View>
                     }
 
@@ -469,17 +482,6 @@ const NewProfile = () => {
                             </View>
                         </LinearGradient>
                     </View> */}
-
-                    {/* Enhanced Edit Profile Button */}
-                    <TouchableOpacity style={styles.logoutButton} onPress={() => setProfileModal(true)}>
-                        <LinearGradient
-                            colors={['#FFFFFF', '#F8FAFC']}
-                            style={styles.logoutGradient}
-                        >
-                            <Icon name="user-edit" size={20} color="#EF4444" />
-                            <Text style={styles.logoutText}>Edit Profile</Text>
-                        </LinearGradient>
-                    </TouchableOpacity>
                 </ScrollView>
             </View>
 
@@ -677,23 +679,39 @@ const styles = StyleSheet.create({
     profileCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        margin: 20
+        margin: 20,
+        padding: 10,
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        shadowColor: '#000',
+        shadowOpacity: 0.05,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 3,
     },
     avatar: {
-        width: 80,
-        height: 80,
+        width: 70,
+        height: 70,
         borderRadius: 20,
-        marginRight: 16
+        marginRight: 14,
     },
-    userInfo: {},
+    userInfo: {
+        flex: 1,
+    },
     userName: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#1F2937'
+        color: '#0f172a',
+        fontSize: 16,
+        fontWeight: '600',
     },
     userEmail: {
-        fontSize: 14,
-        color: '#6B7280'
+        color: '#6B7280',
+        fontSize: 13,
+        marginTop: 2,
+    },
+    editIconBtn: {
+        padding: 8,
     },
     statsContainer: {
         flexDirection: 'row',
@@ -904,6 +922,7 @@ const styles = StyleSheet.create({
     referralWrap: {
         paddingHorizontal: 20,
         marginTop: 6,
+        marginBottom: 12,
     },
     referralCard: {
         borderRadius: 20,

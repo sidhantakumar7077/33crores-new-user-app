@@ -16,13 +16,17 @@ import {
     ActivityIndicator,
     RefreshControl,
     Animated,
-    KeyboardAvoidingView
+    KeyboardAvoidingView,
+    Modal,
+    Alert
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/FontAwesome5';
+import Feather from 'react-native-vector-icons/Feather';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Clipboard from '@react-native-clipboard/clipboard';
+import { Calendar } from 'react-native-calendars';
 import { base_url } from '../../../App';
 import { useTab } from '../TabContext';
 import Drawer from '../../component/Drawer'
@@ -192,8 +196,75 @@ const NewHome = () => {
         }
     };
 
-    const [activeSubscription, setActiveSubscription] = useState(null);
+    const [activeSubscription, setActiveSubscription] = useState([]);
     const [approvedRequest, setApprovedRequest] = useState(null);
+    const [currentIndex, setCurrentIndex] = useState(0);
+
+    // Cancel modal state
+    const [cancelRequestModalVisible, setCancelRequestModalVisible] = useState(false);
+    const [cancelReason, setCancelReason] = useState('');
+    const [cancelRequestLoading, setCancelRequestLoading] = useState(false);
+
+    // helpers
+    const openCancelOrderModal = () => {
+        setCancelReason('');
+        setCancelRequestModalVisible(true);
+    };
+
+    const closeCancelRequestModal = () => {
+        if (!cancelRequestLoading) setCancelRequestModalVisible(false);
+    };
+
+    const cancelApprovedRequest = async () => {
+        if (!approvedRequest) return;
+        const requestId = approvedRequest?.request_id;
+        if (!requestId) {
+            // Alert.alert('Error', 'Missing request id');
+            ToastAndroid.show('Missing request id', ToastAndroid.SHORT);
+            return;
+        }
+        if (!cancelReason.trim()) {
+            // Alert.alert('Reason required', 'Please enter a reason for cancellation.');
+            ToastAndroid.show('Reason required', ToastAndroid.SHORT);
+            return;
+        }
+
+        try {
+            setCancelRequestLoading(true);
+            const access_token = await AsyncStorage.getItem('storeAccesstoken');
+            const res = await fetch(`${base_url}api/flower-requests/cancel/${requestId}`, {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    ...(access_token ? { Authorization: `Bearer ${access_token}` } : {}),
+                },
+                body: JSON.stringify({
+                    cancel_by: 'user',
+                    cancel_reason: cancelReason.trim(),
+                }),
+            });
+
+            const json = await res.json();
+            if (res.ok || res.status === 200) {
+                // success
+                closeCancelRequestModal();
+                // refresh lists and clear the pending bar
+                console.log("Cancelled Successfully", json);
+                await getCurrentOrder?.();
+                setApprovedRequest(null);
+                // Alert.alert('Cancelled', 'Your request has been cancelled.');
+                ToastAndroid.show('Your request has been cancelled.', ToastAndroid.SHORT);
+            } else {
+                // Alert.alert('Error', json?.message || 'Unable to cancel the order');
+                ToastAndroid.show(json?.message || 'Unable to cancel the order', ToastAndroid.SHORT);
+            }
+        } catch (e) {
+            ToastAndroid.show(e?.message || 'Something went wrong', ToastAndroid.SHORT);
+        } finally {
+            setCancelRequestLoading(false);
+        }
+    };
 
     const getCurrentOrder = async () => {
         var access_token = await AsyncStorage.getItem('storeAccesstoken');
@@ -213,12 +284,15 @@ const NewHome = () => {
                 const subs = Array.isArray(response?.data?.subscriptions_order)
                     ? response.data.subscriptions_order
                     : [];
-                // first subscription with status 'active' or 'paused' (to show controls)
-                const subCandidate =
-                    subs.find(s => (s?.status || '').toLowerCase() === 'active') ||
-                    subs.find(s => (s?.status || '').toLowerCase() === 'paused') ||
-                    null;
-                setActiveSubscription(subCandidate);
+
+                // filter all active or paused subscriptions
+                const activeOrPausedSubs = subs.filter(
+                    s =>
+                        (s?.status || '').toLowerCase() === 'active' ||
+                        (s?.status || '').toLowerCase() === 'paused'
+                );
+
+                setActiveSubscription(activeOrPausedSubs);
 
                 const reqs = Array.isArray(response?.data?.requested_orders)
                     ? response.data.requested_orders
@@ -401,20 +475,146 @@ const NewHome = () => {
         return () => loop.stop();
     }, [pulse]);
 
-    // ==== Active subscription derived values (place right before return) ====
-    const subStatus = (activeSubscription?.status || '').toLowerCase();
-    const start = moment(activeSubscription?.start_date);
-    const end = moment(activeSubscription?.new_date || activeSubscription?.end_date);
-    const today = moment();
+    // Pause range
+    const [startDate, setStartDate] = useState(new Date(new Date().setDate(new Date().getDate() + 1)));
+    const [endDate, setEndDate] = useState(new Date(new Date().setDate(new Date().getDate() + 1)));
+    useEffect(() => { if (endDate < startDate) setEndDate(startDate); }, [startDate, endDate]);
 
-    const totalDays = start.isValid() && end.isValid()
-        ? Math.max(1, end.diff(start, 'days') + 1)
-        : 1;
-    const usedDays = start.isValid()
-        ? Math.min(totalDays, Math.max(0, today.diff(start, 'days') + 1))
-        : 0;
-    const remainingDays = Math.max(0, totalDays - usedDays);
-    const progressPct = Math.round((usedDays / totalDays) * 100);
+    // Pause modal
+    const [isPauseModalVisible, setPauseModalVisible] = useState(false);
+    const openPauseModal = () => setPauseModalVisible(true);
+    const closePauseModal = () => setPauseModalVisible(false);
+    const [selectedPackageId, setSelectedPackageId] = useState(null);
+    const [isPausedEdit, setIsPausedEdit] = useState('no'); // "no" | "yes"
+    const [selectedPauseLogId, setSelectedPauseLogId] = useState(null);
+
+    // Date pickers for pause
+    const [isStartDateModalOpen, setIsStartDateModalOpen] = useState(false);
+    const openStartDatePicker = () => setIsStartDateModalOpen(true);
+    const closeStartDatePicker = () => setIsStartDateModalOpen(false);
+
+    const [isEndDateModalOpen, setIsEndDateModalOpen] = useState(false);
+    const openEndDatePicker = () => setIsEndDateModalOpen(true);
+    const closeEndDatePicker = () => setIsEndDateModalOpen(false);
+
+    // Resume flow
+    const [isResumeModalVisible, setResumeModalVisible] = useState(false);
+    const openResumeModal = () => setResumeModalVisible(true);
+    const closeResumeModal = () => setResumeModalVisible(false);
+    const [selectedResumePackageId, setSelectedResumePackageId] = useState(null);
+
+    const [resumeDate, setResumeDate] = useState(null);
+    const [pause_start_date, setPause_start_date] = useState(null); // bounds for resume
+    const [pause_end_date, setPause_end_date] = useState(null);
+
+    const [isResumeDateModalOpen, setIsResumeDateModalOpen] = useState(false);
+    const openResumeDatePicker = () => setIsResumeDateModalOpen(true);
+    const closeResumeDatePicker = () => setIsResumeDateModalOpen(false);
+
+    // Cancel-pause confirm modal
+    const [isCancelModalVisible, setCancelModalVisible] = useState(false);
+    const [cancelTargetId, setCancelTargetId] = useState(null);
+    const [cancelLoading, setCancelLoading] = useState(false);
+
+    // Trigger Pause (from card buttons)
+    const handlePauseButton = (order_id) => {
+        setSelectedPackageId(order_id);
+        openPauseModal();
+    };
+
+    // Pickers
+    const handleStartDatePress = (day) => { setStartDate(new Date(day.dateString)); closeStartDatePicker(); };
+    const handleEndDatePress = (day) => { setEndDate(new Date(day.dateString)); closeEndDatePicker(); };
+
+    // Submit Pause / Edit-Pause
+    const submitPauseDates = async () => {
+        const access_token = await AsyncStorage.getItem('storeAccesstoken');
+        try {
+            const response = await fetch(`${base_url}api/subscription/pause/${selectedPackageId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${access_token}` },
+                body: JSON.stringify({
+                    pause_start_date: moment(startDate).format('YYYY-MM-DD'),
+                    pause_end_date: moment(endDate).format('YYYY-MM-DD'),
+                    edit: isPausedEdit,
+                    pause_log_id: selectedPauseLogId
+                }),
+            });
+            const data = await response.json();
+            if (response.status === 200) {
+                closePauseModal();
+                getCurrentOrder(); // refresh list if you already have this function
+            } else {
+                Alert.alert('Error', data?.message || 'Unable to pause');
+            }
+        } catch (e) {
+            Alert.alert('Error', 'Something went wrong');
+        }
+    };
+
+    // Resume button on card
+    const handleResumeButton = (item) => {
+        setSelectedResumePackageId(item.order_id);
+        setPause_start_date(item.pause_start_date);
+        setPause_end_date(item.pause_end_date);
+        // Default resumeDate = max(today+1, pause_start_date)
+        if (item.pause_start_date) {
+            const today = new Date();
+            const psd = new Date(item.pause_start_date);
+            setResumeDate(today > psd ? new Date(today.setDate(today.getDate() + 1)) : psd);
+        } else {
+            setResumeDate(new Date());
+        }
+        openResumeModal();
+    };
+
+    const handleResumDatePress = (day) => { setResumeDate(new Date(day.dateString)); closeResumeDatePicker(); };
+
+    const submitResumeDates = async () => {
+        const access_token = await AsyncStorage.getItem('storeAccesstoken');
+        try {
+            const response = await fetch(`${base_url}api/subscription/resume/${selectedResumePackageId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${access_token}` },
+                body: JSON.stringify({ resume_date: moment(resumeDate).format('YYYY-MM-DD') }),
+            });
+            const data = await response.json();
+            if (response.status === 200) {
+                closeResumeModal();
+                getCurrentOrder();
+            } else {
+                Alert.alert('Error', data?.message || 'Unable to resume');
+            }
+        } catch (e) {
+            Alert.alert('Error', 'Something went wrong');
+        }
+    };
+
+    // Cancel scheduled pause
+    const openCancelModal = (orderId) => { setCancelTargetId(orderId); setCancelModalVisible(true); };
+    const closeCancelModal = () => { if (!cancelLoading) { setCancelModalVisible(false); setCancelTargetId(null); } };
+
+    const cancelScheduledPause = async (orderId) => {
+        const access_token = await AsyncStorage.getItem('storeAccesstoken');
+        try {
+            setCancelLoading(true);
+            const response = await fetch(`${base_url}api/subscriptions/delete-pause/${orderId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${access_token}` },
+            });
+            const data = await response.json();
+            if (response.status === 200) {
+                getCurrentOrder();
+                closeCancelModal();
+            } else {
+                Alert.alert('Error', data?.message || 'Unable to cancel the scheduled pause');
+            }
+        } catch (e) {
+            Alert.alert('Error', 'Something went wrong');
+        } finally {
+            setCancelLoading(false);
+        }
+    };
 
     return (
         <View style={styles.container}>
@@ -458,20 +658,6 @@ const NewHome = () => {
                             </View>
                         </View>
                     </LinearGradient>
-
-                    {/* Search Bar */}
-                    {/* <View style={styles.searchContainer}>
-                        <View style={styles.searchInputContainer}>
-                            <TextInput
-                                style={styles.searchInput}
-                                placeholder="Subscribe or Customize Your Order"
-                                editable={false}
-                                value={searchQuery}
-                                onChangeText={setSearchQuery}
-                                placeholderTextColor="#000"
-                            />
-                        </View>
-                    </View> */}
 
                     {/* Quick Actions */}
                     <View style={styles.quickActionsContainer}>
@@ -534,109 +720,199 @@ const NewHome = () => {
                             )}
 
                             {/* Active Subscription — Attractive Highlight */}
-                            {activeSubscription && (
-                                <View style={styles.sectionWrap}>
-                                    {/* <Text style={styles.sectionHeader}>Your Subscription</Text> */}
+                            {Array.isArray(activeSubscription) && activeSubscription.length > 0 && (
+                                <>
+                                    <FlatList
+                                        data={activeSubscription}
+                                        keyExtractor={(item, idx) => String(item?.order_id ?? idx)}
+                                        horizontal
+                                        pagingEnabled
+                                        showsHorizontalScrollIndicator={false}
+                                        snapToAlignment="center"
+                                        decelerationRate="fast"
+                                        renderItem={({ item }) => {
+                                            // ---- per-item derived values ----
+                                            const subStatus = String(item?.status || '').toLowerCase();
 
-                                    <View style={styles.subCardNew}>
-                                        {/* Gradient hero band */}
-                                        <LinearGradient
-                                            colors={subStatus === 'active' ? ['#F59E0B', '#F97316'] : ['#CBD5E1', '#94A3B8']}
-                                            start={{ x: 0, y: 0 }}
-                                            end={{ x: 1, y: 1 }}
-                                            style={styles.subHero}
-                                        >
-                                            <View style={styles.subHeroLeft}>
-                                                <View style={styles.subHeroIcon}>
-                                                    <Icon name="leaf" size={14} color="#065F46" />
-                                                </View>
-                                                <View>
-                                                    <Text style={styles.subHeroTitle} numberOfLines={1}>
-                                                        {activeSubscription?.flower_products?.name || 'Subscription'}
-                                                    </Text>
-                                                    <Text style={styles.subHeroMeta}>
-                                                        {`${moment(activeSubscription?.start_date).format('DD MMM YYYY')} → ${moment(
-                                                            activeSubscription?.new_date || activeSubscription?.end_date
-                                                        ).format('DD MMM YYYY')}`}
-                                                    </Text>
-                                                </View>
-                                            </View>
+                                            const dur = Number(item?.flower_products?.duration);
+                                            const totalDays = ({ 1: 30, 3: 90, 6: 180 }[dur]) ?? 0;
 
+                                            const start = moment(item?.start_date, 'YYYY-MM-DD');
+                                            const end = moment(item?.new_date || item?.end_date, 'YYYY-MM-DD');
+                                            const today = moment().startOf('day');
+                                            const until = end.isValid() ? moment.min(today, end) : today;
+
+                                            const usedDays = start.isValid()
+                                                ? Math.min(totalDays, Math.max(0, until.diff(start, 'days') + 1))
+                                                : 0;
+
+                                            const remainingDays = Math.max(0, totalDays - usedDays);
+                                            const progressPct = totalDays ? Math.round((usedDays / totalDays) * 100) : 0;
+
+                                            // flags
+                                            const showPause = subStatus === 'active';
+                                            const showResume = subStatus === 'paused';
+                                            const showEditPause = subStatus === 'active' && !!item?.pause_start_date;
+                                            const isScheduledPause =
+                                                subStatus === 'active' &&
+                                                item?.pause_start_date &&
+                                                new Date(item.pause_start_date) > new Date();
+
+                                            return (
+                                                <View style={{ width }}>
+                                                    <View style={styles.subCardNew}>
+                                                        {/* Gradient hero band */}
+                                                        <LinearGradient
+                                                            colors={subStatus === 'active' ? ['#F59E0B', '#F97316'] : ['#CBD5E1', '#94A3B8']}
+                                                            start={{ x: 0, y: 0 }}
+                                                            end={{ x: 1, y: 1 }}
+                                                            style={styles.subHero}
+                                                        >
+                                                            <View style={styles.subHeroLeft}>
+                                                                <View style={styles.subHeroIcon}>
+                                                                    <Icon name="leaf" size={14} color="#065F46" />
+                                                                </View>
+                                                                <View>
+                                                                    <Text style={styles.subHeroTitle} numberOfLines={1}>
+                                                                        {item?.flower_products?.name || 'Subscription'}
+                                                                    </Text>
+                                                                    <Text style={styles.subHeroMeta}>
+                                                                        {`${moment(item?.start_date).format('DD MMM YYYY')} → ${moment(
+                                                                            item?.new_date || item?.end_date
+                                                                        ).format('DD MMM YYYY')}`}
+                                                                    </Text>
+                                                                </View>
+                                                            </View>
+
+                                                            <View
+                                                                style={[
+                                                                    styles.subStatusChip,
+                                                                    subStatus === 'active' ? styles.subChipActive : styles.subChipPaused,
+                                                                ]}
+                                                            >
+                                                                <Text style={styles.subStatusText}>{(item?.status || '').toUpperCase()}</Text>
+                                                            </View>
+                                                        </LinearGradient>
+
+                                                        {/* Progress + stats */}
+                                                        <View style={styles.subBody}>
+                                                            <View style={styles.progressRow}>
+                                                                <View style={styles.progressTrack}>
+                                                                    <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
+                                                                </View>
+                                                                <Text style={styles.progressPct}>{progressPct}%</Text>
+                                                            </View>
+
+                                                            <View style={styles.statsRow}>
+                                                                <View style={styles.statBadge}>
+                                                                    <Icon name="calendar-day" size={10} color="#0F172A" />
+                                                                    <Text style={styles.statText}>Total {totalDays}d</Text>
+                                                                </View>
+                                                                <View style={styles.statBadge}>
+                                                                    <Icon name="check-circle" size={10} color="#0F172A" />
+                                                                    <Text style={styles.statText}>Used {usedDays}d</Text>
+                                                                </View>
+                                                                <View style={[styles.statBadge, styles.statBadgeEm]}>
+                                                                    <Icon name="hourglass-half" size={10} color="#065F46" />
+                                                                    <Text style={[styles.statText, { color: '#065F46' }]}>Left {remainingDays}d</Text>
+                                                                </View>
+                                                            </View>
+
+                                                            {/* Actions */}
+                                                            <View style={styles.actionsRow}>
+                                                                <TouchableOpacity
+                                                                    style={styles.outlineBtn}
+                                                                    onPress={() => navigation.navigate('SubscriptionOrderDetailsPage', item)}
+                                                                >
+                                                                    <Text style={styles.outlineText}>View Details</Text>
+                                                                </TouchableOpacity>
+
+                                                                {showPause && !showEditPause && (
+                                                                    <TouchableOpacity
+                                                                        style={styles.actionGradBtn}
+                                                                        onPress={() => {
+                                                                            handlePauseButton(item?.order_id);
+                                                                            setIsPausedEdit('no');
+                                                                            setSelectedPauseLogId(null);
+                                                                        }}
+                                                                    >
+                                                                        <LinearGradient colors={['#16A34A', '#10B981']} style={styles.gradInner}>
+                                                                            <Icon name="pause" size={12} color="#fff" />
+                                                                            <Text style={styles.gradText}>Pause</Text>
+                                                                        </LinearGradient>
+                                                                    </TouchableOpacity>
+                                                                )}
+
+                                                                {showEditPause && (
+                                                                    <TouchableOpacity
+                                                                        style={styles.actionGradBtn}
+                                                                        onPress={() => {
+                                                                            handlePauseButton(item?.order_id);
+                                                                            setIsPausedEdit('yes');
+                                                                            const logs = item?.pause_resume_log;
+                                                                            if (logs && logs.length > 0) {
+                                                                                setSelectedPauseLogId(logs[logs.length - 1]?.id);
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        <LinearGradient colors={['#F59E0B', '#D97706']} style={styles.gradInner}>
+                                                                            <Icon name="edit" size={12} color="#fff" />
+                                                                            <Text style={styles.gradText}>Edit Pause</Text>
+                                                                        </LinearGradient>
+                                                                    </TouchableOpacity>
+                                                                )}
+
+                                                                {isScheduledPause && (
+                                                                    <TouchableOpacity
+                                                                        style={styles.actionGradBtn}
+                                                                        onPress={() => openCancelModal(item?.order_id)}
+                                                                    >
+                                                                        <LinearGradient colors={['#DC2626', '#EF4444']} style={styles.gradInner}>
+                                                                            <Icon name="times" size={12} color="#fff" />
+                                                                            <Text style={styles.gradText}>Cancel Pause</Text>
+                                                                        </LinearGradient>
+                                                                    </TouchableOpacity>
+                                                                )}
+
+                                                                {showResume && (
+                                                                    <TouchableOpacity
+                                                                        style={styles.actionGradBtn}
+                                                                        onPress={() => handleResumeButton(item)}
+                                                                    >
+                                                                        <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.gradInner}>
+                                                                            <Icon name="play" size={12} color="#fff" />
+                                                                            <Text style={styles.gradText}>Resume</Text>
+                                                                        </LinearGradient>
+                                                                    </TouchableOpacity>
+                                                                )}
+                                                            </View>
+                                                        </View>
+                                                    </View>
+                                                </View>
+                                            );
+                                        }}
+                                        onScroll={e => {
+                                            const slideIndex = Math.round(e.nativeEvent.contentOffset.x / width);
+                                            setCurrentIndex(slideIndex);
+                                        }}
+                                        scrollEventThrottle={16}
+                                    />
+                                    {/* Slider dots */}
+                                    <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 16 }}>
+                                        {activeSubscription.map((_, idx) => (
                                             <View
-                                                style={[
-                                                    styles.subStatusChip,
-                                                    subStatus === 'active' ? styles.subChipActive : styles.subChipPaused,
-                                                ]}
-                                            >
-                                                <Text style={styles.subStatusText}>{(activeSubscription?.status || '').toUpperCase()}</Text>
-                                            </View>
-                                        </LinearGradient>
-
-                                        {/* Progress + stats */}
-                                        <View style={styles.subBody}>
-                                            <View style={styles.progressRow}>
-                                                <View style={styles.progressTrack}>
-                                                    <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
-                                                </View>
-                                                <Text style={styles.progressPct}>{progressPct}%</Text>
-                                            </View>
-
-                                            <View style={styles.statsRow}>
-                                                <View style={styles.statBadge}>
-                                                    <Icon name="calendar-day" size={10} color="#0F172A" />
-                                                    <Text style={styles.statText}>Total {totalDays}d</Text>
-                                                </View>
-                                                <View style={styles.statBadge}>
-                                                    <Icon name="check-circle" size={10} color="#0F172A" />
-                                                    <Text style={styles.statText}>Used {usedDays}d</Text>
-                                                </View>
-                                                <View style={[styles.statBadge, styles.statBadgeEm]}>
-                                                    <Icon name="hourglass-half" size={10} color="#065F46" />
-                                                    <Text style={[styles.statText, { color: '#065F46' }]}>Left {remainingDays}d</Text>
-                                                </View>
-                                            </View>
-
-                                            {/* CTAs */}
-                                            <View style={styles.subActionsRow}>
-                                                {/* Primary CTA depends on status */}
-                                                <TouchableOpacity
-                                                    activeOpacity={0.9}
-                                                    onPress={() => navigation.navigate('SubscriptionOrderDetailsPage', activeSubscription)}
-                                                    disabled={subStatus !== 'active'}
-                                                    style={[
-                                                        styles.primaryBtn,
-                                                        subStatus !== 'active' && { opacity: 0.55 },
-                                                    ]}
-                                                >
-                                                    <LinearGradient
-                                                        colors={['#F97316', '#EF4444']}
-                                                        start={{ x: 0, y: 0 }}
-                                                        end={{ x: 1, y: 1 }}
-                                                        style={styles.primaryGrad}
-                                                    >
-                                                        <Icon name="pause" size={12} color="#fff" style={{ marginRight: 8 }} />
-                                                        <Text style={styles.primaryText}>Pause</Text>
-                                                    </LinearGradient>
-                                                </TouchableOpacity>
-
-                                                <TouchableOpacity
-                                                    activeOpacity={0.9}
-                                                    onPress={() => navigation.navigate('SubscriptionOrderDetailsPage', activeSubscription)}
-                                                    disabled={subStatus !== 'paused'}
-                                                    style={[
-                                                        styles.secondaryBtn,
-                                                        subStatus !== 'paused' && { opacity: 0.55 },
-                                                    ]}
-                                                >
-                                                    <Icon name="play" size={12} color={subStatus === 'paused' ? '#065F46' : '#64748B'} style={{ marginRight: 8 }} />
-                                                    <Text style={[styles.secondaryText, subStatus === 'paused' ? { color: '#065F46' } : { color: '#64748B' }]}>
-                                                        Resume
-                                                    </Text>
-                                                </TouchableOpacity>
-                                            </View>
-                                        </View>
+                                                key={idx}
+                                                style={{
+                                                    width: currentIndex === idx ? 15 : 8,
+                                                    height: 8,
+                                                    borderRadius: 4,
+                                                    marginHorizontal: 4,
+                                                    backgroundColor: currentIndex === idx ? '#F97316' : '#D1D5DB',
+                                                }}
+                                            />
+                                        ))}
                                     </View>
-                                </View>
+                                </>
                             )}
 
                             {/* Premium Subscription Card */}
@@ -955,6 +1231,7 @@ const NewHome = () => {
                     }
                 </ScrollView>
             </KeyboardAvoidingView>
+
             {/* Pending payment fixed bottom bar */}
             {approvedRequest && (
                 <Animated.View
@@ -962,12 +1239,7 @@ const NewHome = () => {
                     style={[
                         styles.pendingBarWrap,
                         {
-                            paddingBottom: 5,
-                            transform: [
-                                {
-                                    scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.02] }),
-                                },
-                            ],
+                            transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.02] }) }],
                             opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 0.96] }),
                         },
                     ]}
@@ -979,9 +1251,7 @@ const NewHome = () => {
                         style={styles.pendingBar}
                     >
                         <View style={{ flex: 1 }}>
-                            <Text style={styles.pendingTitle}>
-                                Pending Payment
-                            </Text>
+                            <Text style={styles.pendingTitle}>Pending Payment</Text>
                             <Text style={styles.pendingMeta} numberOfLines={1}>
                                 {(approvedRequest?.flower_product?.name ||
                                     approvedRequest?.flower_products?.name ||
@@ -997,16 +1267,304 @@ const NewHome = () => {
                             </Text>
                         )}
 
-                        <TouchableOpacity
-                            style={styles.payBtn}
-                            onPress={() => navigation.navigate('CustomOrderDetailsPage', approvedRequest)}
-                            activeOpacity={0.9}
-                        >
-                            <Text style={styles.payBtnText}>Pay</Text>
-                        </TouchableOpacity>
+                        {/* NEW: Cancel + Pay buttons */}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <TouchableOpacity
+                                style={{
+                                    paddingHorizontal: 14,
+                                    paddingVertical: 10,
+                                    borderRadius: 10,
+                                    borderWidth: 1.5,
+                                    borderColor: 'rgba(255,255,255,0.9)',
+                                    backgroundColor: 'transparent',
+                                }}
+                                onPress={openCancelOrderModal}
+                                activeOpacity={0.9}
+                            >
+                                <Text style={{ color: '#fff', fontWeight: '900' }}>Cancel</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.payBtn}
+                                onPress={() => navigation.navigate('CustomOrderDetailsPage', approvedRequest)}
+                                activeOpacity={0.9}
+                            >
+                                <Text style={styles.payBtnText}>Pay</Text>
+                            </TouchableOpacity>
+                        </View>
                     </LinearGradient>
                 </Animated.View>
             )}
+
+            {/* Pause modal */}
+            <Modal animationType="slide" transparent visible={isPauseModalVisible} onRequestClose={closePauseModal}>
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                    <View style={{ width: '90%', backgroundColor: '#fff', padding: 20, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB' }}>
+                        <TouchableOpacity style={{ alignSelf: 'flex-end' }} onPress={closePauseModal}>
+                            <Feather name="x" color="#000" size={26} />
+                        </TouchableOpacity>
+
+                        <Text style={{ fontSize: 14, fontWeight: '800', color: '#111827', marginTop: 6 }}>Pause Start Date</Text>
+                        <TouchableOpacity onPress={openStartDatePicker}>
+                            <TextInput style={{ borderBottomWidth: 1, borderBottomColor: '#CBD5E1', marginBottom: 10, color: '#0f172a', paddingVertical: 6, fontWeight: '700' }} value={moment(startDate).format('DD MMM YYYY')} editable={false} />
+                        </TouchableOpacity>
+
+                        <Text style={{ fontSize: 14, fontWeight: '800', color: '#111827', marginTop: 6 }}>Pause End Date</Text>
+                        <TouchableOpacity onPress={openEndDatePicker}>
+                            <TextInput style={{ borderBottomWidth: 1, borderBottomColor: '#CBD5E1', marginBottom: 10, color: '#0f172a', paddingVertical: 6, fontWeight: '700' }} value={moment(endDate).format('DD MMM YYYY')} editable={false} />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity onPress={submitPauseDates}>
+                            <LinearGradient colors={['#FF6B35', '#F7931E']} style={{ marginTop: 8, borderRadius: 10, overflow: 'hidden', alignItems: 'center', paddingVertical: 12 }}>
+                                <Text style={{ color: '#fff', fontWeight: '900', fontSize: 14 }}>Submit</Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Start date picker */}
+            <Modal animationType="slide" transparent visible={isStartDateModalOpen} onRequestClose={closeStartDatePicker}>
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                    <View style={{ width: '90%', padding: 20, backgroundColor: 'white', borderRadius: 10, elevation: 5 }}>
+                        <Calendar
+                            onDayPress={handleStartDatePress}
+                            markedDates={{ [moment(startDate).format('YYYY-MM-DD')]: { selected: true, marked: true, selectedColor: 'blue' } }}
+                            minDate={moment().add(1, 'days').format('YYYY-MM-DD')}
+                        />
+                    </View>
+                </View>
+            </Modal>
+
+            {/* End date picker */}
+            <Modal animationType="slide" transparent visible={isEndDateModalOpen} onRequestClose={closeEndDatePicker}>
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                    <View style={{ width: '90%', padding: 20, backgroundColor: 'white', borderRadius: 10, elevation: 5 }}>
+                        <Calendar
+                            onDayPress={handleEndDatePress}
+                            markedDates={{ [moment(endDate).format('YYYY-MM-DD')]: { selected: true, marked: true, selectedColor: 'blue' } }}
+                            minDate={moment().add(1, 'days').format('YYYY-MM-DD')}
+                        />
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Cancel Pause confirm modal */}
+            <Modal animationType="slide" transparent visible={isCancelModalVisible} onRequestClose={closeCancelModal}>
+                <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' }}>
+                    <TouchableOpacity style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} activeOpacity={1} onPress={!cancelLoading ? closeCancelModal : undefined} />
+                    <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 18, paddingTop: 10, paddingBottom: 18, borderTopWidth: 1, borderColor: '#E5E7EB' }}>
+                        <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 999, backgroundColor: '#E5E7EB', marginBottom: 12 }} />
+                        <LinearGradient colors={['#fb7185', '#ef4444']} style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                            <Feather name="pause-circle" size={26} color="#fff" />
+                        </LinearGradient>
+                        <Text style={{ fontSize: 18, fontWeight: '900', color: '#111827' }}>Cancel scheduled pause?</Text>
+                        <Text style={{ marginTop: 6, color: '#374151', lineHeight: 20, fontWeight: '600' }}>
+                            This will remove the upcoming pause for this subscription. You can schedule a new pause later.
+                        </Text>
+                        {!!cancelTargetId && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, paddingHorizontal: 12, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, marginTop: 12 }}>
+                                <Feather name="hash" size={16} color="#6B7280" />
+                                <Text style={{ color: '#374151', fontWeight: '700' }}>Order ID: {cancelTargetId}</Text>
+                            </View>
+                        )}
+                        <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+                            <TouchableOpacity
+                                style={{ flex: 1, borderWidth: 1.5, borderColor: '#CBD5E1', backgroundColor: '#fff', paddingVertical: 12, borderRadius: 12, alignItems: 'center' }}
+                                onPress={closeCancelModal}
+                                disabled={cancelLoading}
+                            >
+                                <Text style={{ color: '#111827', fontWeight: '900', fontSize: 14 }}>No, keep pause</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={{ flex: 1, borderRadius: 12, alignItems: 'center', paddingVertical: 12, backgroundColor: '#ef4444' }}
+                                onPress={() => cancelScheduledPause(cancelTargetId)}
+                                disabled={cancelLoading}
+                            >
+                                {cancelLoading ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '900', fontSize: 14 }}>Yes, cancel</Text>}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Resume modal */}
+            <Modal animationType="slide" transparent visible={isResumeModalVisible} onRequestClose={closeResumeModal}>
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                    <View style={{ width: '90%', backgroundColor: '#fff', padding: 20, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB' }}>
+                        <TouchableOpacity style={{ alignSelf: 'flex-end' }} onPress={closeResumeModal}>
+                            <Feather name="x" color="#000" size={26} />
+                        </TouchableOpacity>
+
+                        <Text style={{ fontSize: 14, fontWeight: '800', color: '#111827', marginTop: 6 }}>Resume Date</Text>
+                        <TouchableOpacity onPress={openResumeDatePicker}>
+                            <Text style={{ borderBottomWidth: 1, borderBottomColor: '#CBD5E1', marginBottom: 10, color: '#0f172a', paddingVertical: 10, fontWeight: '700' }}>
+                                {resumeDate ? moment(resumeDate).format('DD MMM YYYY') : 'Select a date'}
+                            </Text>
+                        </TouchableOpacity>
+                        {!resumeDate && <Text style={{ color: 'red', marginBottom: 8 }}>Please select a resume date</Text>}
+
+                        <TouchableOpacity onPress={submitResumeDates}>
+                            <LinearGradient colors={['#FF6B35', '#F7931E']} style={{ marginTop: 8, borderRadius: 10, overflow: 'hidden', alignItems: 'center', paddingVertical: 12 }}>
+                                <Text style={{ color: '#fff', fontWeight: '900', fontSize: 14 }}>Submit</Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Resume date picker (bounded by pause range) */}
+            <Modal animationType="slide" transparent visible={isResumeDateModalOpen} onRequestClose={closeResumeDatePicker}>
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                    <View style={{ width: '90%', padding: 20, backgroundColor: 'white', borderRadius: 10, elevation: 5 }}>
+                        <Calendar
+                            onDayPress={handleResumDatePress}
+                            markedDates={{ [moment(resumeDate || pause_start_date).format('YYYY-MM-DD')]: { selected: true, marked: true, selectedColor: 'blue' } }}
+                            minDate={moment(pause_start_date).format('YYYY-MM-DD')}
+                            maxDate={moment(pause_end_date).format('YYYY-MM-DD')}
+                        />
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Cancel Custome Oreder */}
+            <Modal
+                animationType="slide"
+                transparent
+                visible={cancelRequestModalVisible}
+                onRequestClose={closeCancelRequestModal}
+            >
+                <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' }}>
+                    {/* backdrop */}
+                    <TouchableOpacity
+                        style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
+                        activeOpacity={1}
+                        onPress={!cancelRequestLoading ? closeCancelRequestModal : undefined}
+                    />
+
+                    <View
+                        style={{
+                            backgroundColor: '#fff',
+                            borderTopLeftRadius: 20,
+                            borderTopRightRadius: 20,
+                            paddingHorizontal: 18,
+                            paddingTop: 10,
+                            paddingBottom: 18,
+                            borderTopWidth: 1,
+                            borderColor: '#E5E7EB',
+                        }}
+                    >
+                        {/* handle bar */}
+                        <View
+                            style={{
+                                alignSelf: 'center',
+                                width: 40,
+                                height: 4,
+                                borderRadius: 999,
+                                backgroundColor: '#E5E7EB',
+                                marginBottom: 12,
+                            }}
+                        />
+
+                        {/* icon */}
+                        <LinearGradient
+                            colors={['#fb7185', '#ef4444']}
+                            style={{
+                                width: 44,
+                                height: 44,
+                                borderRadius: 22,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                marginBottom: 12,
+                            }}
+                        >
+                            <Feather name="x-circle" size={26} color="#fff" />
+                        </LinearGradient>
+
+                        {/* title + desc */}
+                        <Text style={{ fontSize: 18, fontWeight: '900', color: '#111827' }}>
+                            Cancel this order?
+                        </Text>
+                        <Text style={{ marginTop: 6, color: '#374151', lineHeight: 20, fontWeight: '600' }}>
+                            Please share a reason for cancelling. This helps us improve.
+                        </Text>
+
+                        {/* Request ID pill */}
+                        {!!approvedRequest?.request_id && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, marginTop: 12 }}>
+                                <Icon name="hashtag" size={12} color="#6B7280" />
+                                <Text style={{ color: '#374151', fontWeight: '700' }}>Request ID: {approvedRequest.request_id}</Text>
+                            </View>
+                        )}
+
+                        {/* reason input */}
+                        <View
+                            style={{
+                                marginTop: 12,
+                                borderWidth: 1,
+                                borderColor: '#CBD5E1',
+                                borderRadius: 10,
+                                backgroundColor: '#F9FAFB',
+                            }}
+                        >
+                            <TextInput
+                                style={{
+                                    minHeight: 90,
+                                    paddingHorizontal: 12,
+                                    paddingVertical: 10,
+                                    color: '#0f172a',
+                                }}
+                                placeholder="Type your reason..."
+                                placeholderTextColor="#9CA3AF"
+                                multiline
+                                value={cancelReason}
+                                onChangeText={setCancelReason}
+                                editable={!cancelRequestLoading}
+                            />
+                        </View>
+
+                        {/* action buttons */}
+                        <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+                            <TouchableOpacity
+                                style={{
+                                    flex: 1,
+                                    borderWidth: 1.5,
+                                    borderColor: '#CBD5E1',
+                                    backgroundColor: '#fff',
+                                    paddingVertical: 12,
+                                    borderRadius: 12,
+                                    alignItems: 'center',
+                                }}
+                                onPress={closeCancelRequestModal}
+                                disabled={cancelRequestLoading}
+                            >
+                                <Text style={{ color: '#111827', fontWeight: '900', fontSize: 14 }}>
+                                    No, keep order
+                                </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={{
+                                    flex: 1,
+                                    borderRadius: 12,
+                                    alignItems: 'center',
+                                    paddingVertical: 12,
+                                    backgroundColor: '#ef4444',
+                                    opacity: cancelRequestLoading ? 0.7 : 1,
+                                }}
+                                onPress={cancelApprovedRequest}
+                                disabled={cancelRequestLoading}
+                            >
+                                {cancelRequestLoading ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                    <Text style={{ color: '#fff', fontWeight: '900', fontSize: 14 }}>Yes, cancel</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 };
@@ -1701,7 +2259,7 @@ const styles = StyleSheet.create({
     subCardNew: {
         width: '90%',
         alignSelf: 'center',
-        marginBottom: 20,
+        marginBottom: 16,
         backgroundColor: '#FFFFFF',
         borderRadius: 18,
         overflow: 'hidden',
@@ -1755,7 +2313,7 @@ const styles = StyleSheet.create({
     },
 
     subStatusChip: {
-        paddingHorizontal: 10,
+        paddingHorizontal: 8,
         paddingVertical: 6,
         borderRadius: 999,
         borderWidth: 1,
@@ -1846,6 +2404,20 @@ const styles = StyleSheet.create({
         gap: 10,
     },
 
+    actionsRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 12, gap: 10 },
+    outlineBtn: {
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#CBD5E1',
+        backgroundColor: '#fff',
+    },
+    outlineText: { color: '#111827', fontWeight: '800', fontSize: 12 },
+    actionGradBtn: { borderRadius: 10, overflow: 'hidden' },
+    gradInner: { paddingHorizontal: 10, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 4 },
+    gradText: { color: '#fff', fontWeight: '900', fontSize: 12 },
+
     primaryBtn: {
         flex: 1,
         height: 44,
@@ -1888,58 +2460,21 @@ const styles = StyleSheet.create({
     // --- Pending payment fixed bar ---
     pendingBarWrap: {
         position: 'absolute',
-        left: 16,
-        right: 16,
-        bottom: 0,
+        left: 0, right: 0, bottom: -5,
         zIndex: 100,
     },
     pendingBar: {
-        minHeight: 64,
+        margin: 12,
         borderRadius: 16,
-        paddingHorizontal: 14,
         paddingVertical: 12,
+        paddingHorizontal: 14,
         flexDirection: 'row',
         alignItems: 'center',
-        // “highlight” feel:
-        shadowColor: '#F97316',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.35,
-        shadowRadius: 16,
-        elevation: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(0,0,0,0.08)',
+        gap: 10,
     },
-    pendingTitle: {
-        color: '#ffffffff',
-        fontWeight: '600',
-        fontSize: 14,
-    },
-    pendingMeta: {
-        marginTop: 2,
-        color: '#ffffffff',
-        fontWeight: '600',
-        opacity: 0.9,
-        fontSize: 12,
-    },
-    pendingPrice: {
-        marginHorizontal: 10,
-        color: '#0A4D1A',
-        backgroundColor: 'rgba(255,255,255,0.9)',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 8,
-        fontWeight: '900',
-    },
-    payBtn: {
-        backgroundColor: '#0F172A',
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderRadius: 12,
-    },
-    payBtnText: {
-        color: '#fff',
-        fontWeight: '800',
-        fontSize: 13,
-        letterSpacing: 0.3,
-    },
+    pendingTitle: { color: '#fff', fontWeight: '900', fontSize: 14 },
+    pendingMeta: { color: 'rgba(255,255,255,0.9)', fontWeight: '600', fontSize: 12 },
+    pendingPrice: { color: '#fff', fontWeight: '900', marginRight: 8 },
+    payBtn: { backgroundColor: '#111827', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 },
+    payBtnText: { color: '#fff', fontWeight: '900' },
 });

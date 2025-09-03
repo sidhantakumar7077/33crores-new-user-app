@@ -17,7 +17,6 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Feather from 'react-native-vector-icons/Feather';
-import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import DeviceInfo from 'react-native-device-info';
 import { useNavigation } from '@react-navigation/native';
 import { getMessaging, getToken, requestPermission, AuthorizationStatus } from '@react-native-firebase/messaging';
@@ -94,9 +93,7 @@ const NewLogin = () => {
         })();
     }, []);
 
-    // Start / reset resend timer on OTP step
-    useEffect(() => {
-        if (step !== 'otp') return;
+    const startResendTimer = () => {
         setResendTimer(30);
         if (timerRef.current) clearInterval(timerRef.current);
         timerRef.current = setInterval(() => {
@@ -108,6 +105,23 @@ const NewLogin = () => {
                 return t - 1;
             });
         }, 1000);
+    };
+
+    // Start / reset resend timer on OTP step
+    useEffect(() => {
+        if (step !== 'otp') return;
+        // setResendTimer(30);
+        // if (timerRef.current) clearInterval(timerRef.current);
+        // timerRef.current = setInterval(() => {
+        //     setResendTimer((t) => {
+        //         if (t <= 1) {
+        //             clearInterval(timerRef.current);
+        //             return 0;
+        //         }
+        //         return t - 1;
+        //     });
+        // }, 1000);
+        startResendTimer();
         return () => timerRef.current && clearInterval(timerRef.current);
     }, [step]);
 
@@ -120,7 +134,7 @@ const NewLogin = () => {
     const handleSendOtp = async () => {
         if (!canSend) {
             showError('Please enter a valid WhatsApp number (e.g., +919876543210)');
-            return;
+            return false;
         }
         setLoading(true);
         try {
@@ -131,12 +145,14 @@ const NewLogin = () => {
             const data = await res.json();
             if (!res.ok) {
                 showError(data?.message || 'Failed to send OTP. Please try again.');
-                return;
+                return false;
             }
             setStep('otp');
             setOtp('');
+            return true;
         } catch (e) {
             showError('Failed to send OTP. Please try again.');
+            return false;
         } finally {
             setLoading(false);
         }
@@ -167,7 +183,7 @@ const NewLogin = () => {
                 await AsyncStorage.setItem('storeAccesstoken', data.token);
                 await AsyncStorage.setItem('isReferCodeApply', JSON.stringify(data.user.code_status));
                 await AsyncStorage.setItem('userData', JSON.stringify(data.user));
-                if(!data.user.name){
+                if (!data.user.name) {
                     navigation.navigate('ProfileSetup', { phone });
                 } else {
                     navigation.replace('BTN_Layout');
@@ -184,7 +200,12 @@ const NewLogin = () => {
 
     const handleResend = async () => {
         if (resendTimer > 0) return;
-        await handleSendOtp();
+        // await handleSendOtp();
+        const ok = await handleSendOtp();
+        // When already on 'otp', the step doesn't change, so manually restart the timer
+        if (ok && step === 'otp') {
+            startResendTimer();
+        }
     };
 
     return (

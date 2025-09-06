@@ -137,7 +137,7 @@ export default function SubscriptionScreen() {
                             {allPackages.map((plan) => (
                                 <TouchableOpacity
                                     key={plan.product_id}
-                                    onPress={() => {setSelectedPlan(plan.product_id); setSelectedPackage(plan)}}
+                                    onPress={() => { setSelectedPlan(plan.product_id); setSelectedPackage(plan) }}
                                     style={[
                                         styles.planCard,
                                         selectedPlan === plan.product_id && styles.planCardSelected,
@@ -170,7 +170,7 @@ export default function SubscriptionScreen() {
 
                         {/* Subscribe Button */}
                         <View style={styles.subscribe}>
-                            <TouchableOpacity style={styles.subscribeBtn} onPress={() => navigation.navigate('SubscriptionCheckoutPage', selectedPackage)}>
+                            <TouchableOpacity style={styles.subscribeBtn} onPress={() => navigation.navigate('SubscriptionCheckoutPage', { flowerData: selectedPackage, order_id: "", preEndData: null })} disabled={!selectedPlan}>
                                 <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.subscribeGradient}>
                                     <Text style={styles.subscribeText}>
                                         {allPackages.find(p => p.product_id === selectedPlan)?.name} - ₹{allPackages.find(p => p.product_id === selectedPlan)?.price}/{allPackages.find(p => p.product_id === selectedPlan)?.interval}

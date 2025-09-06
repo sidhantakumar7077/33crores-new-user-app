@@ -130,7 +130,7 @@ const Index = () => {
   useEffect(() => { if (isFocused) getSubscriptionList(); }, [isFocused]);
 
   const handlePauseButton = (order_id) => { setSelectedPackageId(order_id); openPauseModal(); };
-  
+
   const handleResumeButton = (item) => {
     setSelectedResumePackageId(item.order_id);
     setPause_start_date(item.pause_start_date);
@@ -231,6 +231,15 @@ const Index = () => {
     }
   };
 
+  const handleRenewal = (item) => {
+    // console.log("Renewal for:", item);
+    navigation.navigate('SubscriptionCheckoutPage', {
+      flowerData: item?.flower_products,
+      order_id: item?.order_id,                          // <-- pass existing order_id
+      preEndDate: item?.new_date || item?.end_date || null, // <-- last active day
+    });
+  };
+
   const renderItem = ({ item }) => {
     const product = item?.flower_products || {};
     const chip = chipForStatus(item?.status);
@@ -243,6 +252,25 @@ const Index = () => {
       String(item?.status).toLowerCase() === 'active' && !!item?.pause_start_date;
     const isScheduledPause =
       String(item?.status).toLowerCase() === 'active' && item?.pause_start_date && new Date(item.pause_start_date) > new Date();
+
+    // --- NEW: compute remaining days
+    const start = moment(item?.start_date, 'YYYY-MM-DD');
+    const end = moment(item?.new_date || item?.end_date, 'YYYY-MM-DD');
+    const today = moment().startOf('day');
+    const until = end.isValid() ? moment.min(today, end) : today;
+
+    const dur = Number(product?.duration);
+    const totalDays = ({ 1: 30, 3: 90, 6: 180 }[dur]) ?? 0;
+
+    const usedDays = start.isValid()
+      ? Math.min(totalDays, Math.max(0, until.diff(start, 'days') + 1))
+      : 0;
+
+    const remainingDays = Math.max(0, totalDays - usedDays);
+
+    // --- NEW: check for pending renewals
+    const hasPendingRenewal =
+      item?.pending_renewals && Object.keys(item.pending_renewals).length > 0;
 
     return (
       <TouchableOpacity
@@ -269,7 +297,7 @@ const Index = () => {
             <View style={styles.badgesRow}>
               {product?.price ? (
                 <View style={[styles.chip, styles.moneyChip]}>
-                  <Text style={styles.moneyText}>₹ {Number(product.price).toFixed(2)}</Text>
+                  <Text style={styles.moneyText}>₹ {Number(item?.order?.total_price).toFixed(2)}</Text>
                 </View>
               ) : null}
 
@@ -357,6 +385,20 @@ const Index = () => {
             </TouchableOpacity>
           )}
         </View>
+
+        {/* --- NEW Renew section --- */}
+        {remainingDays <= 5 && !hasPendingRenewal && (
+          <TouchableOpacity
+            style={styles.renewCtaFull}
+            onPress={() => handleRenewal(item)}
+            activeOpacity={0.9}
+          >
+            <LinearGradient colors={['#F59E0B', '#F97316']} style={styles.renewGrad}>
+              <Icon name="redo" size={14} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={styles.renewText}>Renew</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
       </TouchableOpacity>
     );
   };
@@ -383,7 +425,7 @@ const Index = () => {
       ) : (
         <FlatList
           data={subscriptionList}
-          keyExtractor={(item, idx) => String(item?.order_id ?? idx)}
+          keyExtractor={(item, idx) => String(idx)}
           renderItem={renderItem}
           contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -749,4 +791,16 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   primaryText: { color: '#fff', fontWeight: '900', fontSize: 14 },
+  renewCtaFull: {
+    marginTop: 12,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  renewGrad: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+  },
+  renewText: { color: '#fff', fontWeight: '900', fontSize: 14 },
 });

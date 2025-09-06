@@ -616,6 +616,15 @@ const NewHome = () => {
         }
     };
 
+    const handleRenewal = (item) => {
+        // console.log("Renewal for:", item);
+        navigation.navigate('SubscriptionCheckoutPage', {
+            flowerData: item?.flower_products,
+            order_id: item?.order_id,                          // <-- pass existing order_id
+            preEndDate: item?.new_date || item?.end_date || null, // <-- last active day
+        });
+    };
+
     return (
         <View style={styles.container}>
             <Notification />
@@ -757,6 +766,7 @@ const NewHome = () => {
                                                 subStatus === 'active' &&
                                                 item?.pause_start_date &&
                                                 new Date(item.pause_start_date) > new Date();
+                                            const hasPendingRenewal = item?.pending_renewals && Object.keys(item.pending_renewals).length > 0;
 
                                             return (
                                                 <View style={{ width }}>
@@ -886,6 +896,41 @@ const NewHome = () => {
                                                                     </TouchableOpacity>
                                                                 )}
                                                             </View>
+
+                                                            {remainingDays <= 5 && !hasPendingRenewal && (
+                                                                <View style={styles.renewWrap}>
+                                                                    <TouchableOpacity
+                                                                        activeOpacity={0.92}
+                                                                        style={styles.renewBtnOuter}
+                                                                        onPress={() => handleRenewal(item)}
+                                                                    >
+                                                                        <LinearGradient
+                                                                            colors={['#3B82F6', '#2563EB']}
+                                                                            start={{ x: 0, y: 0 }}
+                                                                            end={{ x: 1, y: 1 }}
+                                                                            style={styles.renewGradFull}
+                                                                        >
+                                                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                                                                <Icon name="redo" size={16} color="#fff" />
+                                                                                <Text style={styles.renewTitle}>Renew Subscription</Text>
+                                                                            </View>
+
+                                                                            <View style={styles.renewPill}>
+                                                                                <Text style={styles.renewPillText}>
+                                                                                    {remainingDays > 0 ? `${remainingDays} day${remainingDays === 1 ? '' : 's'} left` : 'Ends today'}
+                                                                                </Text>
+                                                                            </View>
+                                                                        </LinearGradient>
+                                                                    </TouchableOpacity>
+                                                                </View>
+                                                            )}
+
+                                                            {remainingDays <= 5 && hasPendingRenewal && (
+                                                                <View style={styles.renewPendingPill}>
+                                                                    <Icon name="clock" size={12} color="#92400E" style={{ marginRight: 6 }} />
+                                                                    <Text style={styles.renewPendingText}>Renewal scheduled</Text>
+                                                                </View>
+                                                            )}
                                                         </View>
                                                     </View>
                                                 </View>
@@ -915,8 +960,8 @@ const NewHome = () => {
                                 </>
                             )}
 
-                            {/* Premium Subscription Card */}
-                            {!activeSubscription &&
+                            {/* Premium Subscription Card — only when no active/paused subs */}
+                            {(!Array.isArray(activeSubscription) || activeSubscription.length === 0) && Array.isArray(allPackages) && allPackages.length > 0 && (
                                 <View style={{ marginBottom: 18 }}>
                                     <FlatList
                                         ref={flatListRef}
@@ -941,7 +986,7 @@ const NewHome = () => {
                                                             </View>
                                                             <TouchableOpacity
                                                                 style={styles.subscribeButton}
-                                                                onPress={() => navigation.navigate('SubscriptionCheckoutPage', item)}
+                                                                onPress={() => navigation.navigate('SubscriptionCheckoutPage', { flowerData: item, order_id: "", preEndData: null })}
                                                             >
                                                                 <Text style={styles.subscribeButtonText}>Subscribe Now</Text>
                                                             </TouchableOpacity>
@@ -969,7 +1014,7 @@ const NewHome = () => {
                                         ))}
                                     </View>
                                 </View>
-                            }
+                            )}
 
                             {/* Refer & Earn */}
                             <View style={styles.referralWrap}>
@@ -1239,7 +1284,7 @@ const NewHome = () => {
                     style={[
                         styles.pendingBarWrap,
                         {
-                            transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.02] }) }],
+                            transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] }) }],
                             opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 0.96] }),
                         },
                     ]}
@@ -2417,14 +2462,12 @@ const styles = StyleSheet.create({
     actionGradBtn: { borderRadius: 10, overflow: 'hidden' },
     gradInner: { paddingHorizontal: 10, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 4 },
     gradText: { color: '#fff', fontWeight: '900', fontSize: 12 },
-
     primaryBtn: {
         flex: 1,
         height: 44,
         borderRadius: 12,
         overflow: 'hidden',
     },
-
     primaryGrad: {
         flex: 1,
         borderRadius: 12,
@@ -2432,14 +2475,12 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         flexDirection: 'row',
     },
-
     primaryText: {
         color: '#FFFFFF',
         fontWeight: '900',
         fontSize: 13,
         letterSpacing: 0.3,
     },
-
     secondaryBtn: {
         height: 44,
         paddingHorizontal: 16,
@@ -2451,12 +2492,66 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-
     secondaryText: {
         fontWeight: '900',
         fontSize: 13,
         letterSpacing: 0.3,
     },
+    renewWrap: {
+        marginTop: 10,
+    },
+    renewBtnOuter: {
+        borderRadius: 14,
+        overflow: 'hidden',
+        // shadow / elevation for highlight
+        shadowColor: '#000',
+        shadowOpacity: 0.12,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+        elevation: 5,
+    },
+    renewGradFull: {
+        width: '100%',
+        paddingVertical: 14,
+        paddingHorizontal: 14,
+        borderRadius: 14,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    renewTitle: {
+        color: '#fff',
+        fontWeight: '900',
+        fontSize: 14,
+        letterSpacing: 0.3,
+    },
+    renewPill: {
+        backgroundColor: 'rgba(255,255,255,0.18)',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.35)',
+    },
+    renewPillText: {
+        color: '#fff',
+        fontWeight: '800',
+        fontSize: 12,
+    },
+    renewPendingPill: {
+        marginTop: 12,
+        alignSelf: 'stretch',
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        backgroundColor: '#FEF3C7',
+        borderWidth: 1,
+        borderColor: '#FDE68A',
+        borderRadius: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    renewPendingText: { color: '#92400E', fontWeight: '800', fontSize: 12 },
     // --- Pending payment fixed bar ---
     pendingBarWrap: {
         position: 'absolute',

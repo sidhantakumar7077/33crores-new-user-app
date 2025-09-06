@@ -283,6 +283,31 @@ const Index = (props) => {
     closeEndDatePicker();
   };
 
+  // days left + pending renewal check
+  const { remainingDays, hasPendingRenewal } = useMemo(() => {
+    const prod = packageDetails?.flower_products || {};
+    const dur = Number(prod?.duration);
+    const totalDays = ({ 1: 30, 3: 90, 6: 180 }[dur]) ?? 0;
+
+    const start = moment(packageDetails?.start_date, 'YYYY-MM-DD');
+    const end = moment(packageDetails?.new_date || packageDetails?.end_date, 'YYYY-MM-DD');
+
+    const today = moment().startOf('day');
+    const until = end.isValid() ? moment.min(today, end) : today;
+
+    const usedDays = start.isValid()
+      ? Math.min(totalDays, Math.max(0, until.diff(start, 'days') + 1))
+      : 0;
+
+    const left = Math.max(0, totalDays - usedDays);
+
+    const pending =
+      packageDetails?.pending_renewals &&
+      Object.keys(packageDetails.pending_renewals).length > 0;
+
+    return { remainingDays: left, hasPendingRenewal: pending };
+  }, [packageDetails]);
+
   useEffect(() => {
     setPackageDetails(props.route.params);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -700,6 +725,24 @@ const Index = (props) => {
           )}
         </ScrollView>
         {/* ===== Redesigned content ends here ===== */}
+
+        {/* Full-width Renew CTA (only when ≤5 days left and no pending renewal) */}
+        {remainingDays <= 5 && !hasPendingRenewal && (
+          <TouchableOpacity
+            onPress={() =>
+              navigation.navigate('SubscriptionCheckoutPage', {
+                flowerData: packageDetails?.flower_products,
+                order_id: packageDetails?.order_id || "",
+                preEndData: packageDetails?.new_date || packageDetails?.end_date || null,
+              })
+            }
+            activeOpacity={0.9}
+          >
+            <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.renewButton}>
+              <Text style={styles.renewButtonText}>Renew Subscription</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Start Date Modal */}
@@ -1164,5 +1207,26 @@ const styles = StyleSheet.create({
     color: '#92400E',
     fontSize: 13,
     fontWeight: '700',
+  },
+  renewButton: {
+    position: 'absolute',
+    bottom: 10,
+    left: 20,
+    right: 20,
+    // backgroundColor: '#ef4444',
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    elevation: 5,
+  },
+  renewButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.4,
   },
 });

@@ -34,11 +34,14 @@ import { base_url } from '../../../App';
 
 const Index = (props) => {
 
+  const { flowerData = {}, order_id = "", preEndDate = null } = props?.route?.params || {};
+
   const navigation = useNavigation();
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const [packageDetails, setPackageDetails] = useState({});
-  const [dob, setDob] = useState(new Date(new Date().setDate(new Date().getDate() + 1)));
+  const defaultStart = preEndDate ? moment(preEndDate, 'YYYY-MM-DD').add(1, 'day').toDate() : moment().add(1, 'day').toDate();
+  const [dob, setDob] = useState(defaultStart);
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
   const openDatePicker = () => { setDatePickerVisibility(true) };
   const closeDatePicker = () => { setDatePickerVisibility(false) };
@@ -353,13 +356,13 @@ const Index = (props) => {
       }
 
       const options = {
-        description: props.route.params.name,
+        description: props.route.params.flowerData.name,
         image: '',
         currency: 'INR',
         key: 'rzp_live_m8GAuZDtZ9W0AI',
-        amount: props.route.params.price * 100,
+        amount: props.route.params.flowerData.price * 100,
         name: profileDetails.name,
-        order_id: '', // Consider generating this on the server if needed
+        order_id: '',
         prefill: {
           email: profileDetails.email,
           contact: profileDetails.mobile_number,
@@ -370,13 +373,13 @@ const Index = (props) => {
       const data = await RazorpayCheckout.open(options);
 
       // const Data = {
-      //     product_id: props.route.params.product_id,
+      //     product_id: props.route.params.flowerData.product_id,
       //     order_id: props.route.params.orderId || "", // capture Razorpay order ID if available
       //     address_id: selectedOption,
       //     payment_id: data.razorpay_payment_id || "", // capture Razorpay payment ID if available
       //     // payment_id: "pay_29QQoUBi66xm2f",
-      //     paid_amount: props.route.params.price,
-      //     duration: props.route.params.duration,
+      //     paid_amount: props.route.params.flowerData.price,
+      //     duration: props.route.params.flowerData.duration,
       //     suggestion: suggestions,
       //     start_date: moment(dob).format('YYYY-MM-DD')
       // }
@@ -392,13 +395,13 @@ const Index = (props) => {
           'Authorization': `Bearer ${access_token}`
         },
         body: JSON.stringify({
-          product_id: props.route.params.product_id,
-          order_id: props.route.params.orderId || "", // capture Razorpay order ID if available
+          product_id: props.route.params.flowerData.product_id,
+          order_id: props.route.params.orderId || "",
           address_id: selectedOption,
-          payment_id: data.razorpay_payment_id || "", // capture Razorpay payment ID if available
+          payment_id: data.razorpay_payment_id || "",
           // payment_id: "pay_29QQoUBi66xm2f",
-          paid_amount: props.route.params.price,
-          duration: props.route.params.duration,
+          paid_amount: props.route.params.flowerData.price,
+          duration: props.route.params.flowerData.duration,
           suggestion: suggestions,
           start_date: moment(dob).format('YYYY-MM-DD')
         }),
@@ -445,12 +448,25 @@ const Index = (props) => {
   useEffect(() => {
     if (isFocused) {
       // console.log("Get Subscription Details By props", props.route.params);
-      setPackageDetails(props.route.params || {});
+      setPackageDetails(flowerData || {});
       getAllAddress();
       getAllLocality();
       getProfile();
+
+      // Keep dob in sync if page is re-entered with different preEndDate
+      const freshDefault = preEndDate
+        ? moment(preEndDate, 'YYYY-MM-DD').add(1, 'day').toDate()
+        : moment().add(1, 'day').toDate();
+      setDob(freshDefault);
     }
-  }, [isFocused]);
+  }, [isFocused, flowerData, preEndDate]);
+
+  // The earliest allowed start date = max(tomorrow, preEndDate+1)
+  const minStartDate = React.useMemo(() => {
+    const tomorrow = moment().add(1, 'day');
+    const afterPrev = preEndDate ? moment(preEndDate, 'YYYY-MM-DD').add(1, 'day') : null;
+    return (afterPrev && afterPrev.isAfter(tomorrow) ? afterPrev : tomorrow).format('YYYY-MM-DD');
+  }, [preEndDate]);
 
   return (
     <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
@@ -508,6 +524,11 @@ const Index = (props) => {
             {/* Address, Date & Suggestion Section */}
             <View style={styles.address}>
               {/* Subscription Start Date */}
+              {!!preEndDate && (
+                <Text style={{ color: '#065F46', fontWeight: '700', marginBottom: 6 }}>
+                  Renewal detected — start date prefilled to {moment(preEndDate).add(1, 'day').format('DD-MM-YYYY')}
+                </Text>
+              )}
               <View style={{ width: '100%', marginBottom: 5 }}>
                 <Text style={styles.label}>Subscription Start Date</Text>
                 <TouchableOpacity onPress={openDatePicker}>
@@ -654,7 +675,7 @@ const Index = (props) => {
                   selectedColor: 'blue'
                 }
               }}
-              minDate={moment().add(1, 'days').format('YYYY-MM-DD')}
+              minDate={minStartDate}
             />
           </View>
         </View>
@@ -940,7 +961,7 @@ const Index = (props) => {
             </TouchableOpacity>
 
             <View style={styles.actionsRow}>
-              <TouchableOpacity onPress={() => navigation.replace('CustomOrderHistory')} activeOpacity={0.9} style={styles.primaryBtn}>
+              <TouchableOpacity onPress={() => navigation.replace('SubscriptionOrderHistory')} activeOpacity={0.9} style={styles.primaryBtn}>
                 <LinearGradient colors={['#F59E0B', '#F97316']} style={styles.primaryGrad}>
                   <Text style={styles.primaryText}>Order Details</Text>
                 </LinearGradient>

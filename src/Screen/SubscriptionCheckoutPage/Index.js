@@ -86,6 +86,19 @@ const Index = (props) => {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleDayPress = (day) => {
+    const selected = moment(day.dateString, 'YYYY-MM-DD');
+    const tomorrow = moment().add(1, 'day').startOf('day');
+    const cutoffPassed = moment().isSameOrAfter(moment().hour(18).minute(0).second(0));
+
+    // Block picking "tomorrow" after 6PM
+    if (selected.isSame(tomorrow, 'day') && cutoffPassed) {
+      Alert.alert(
+        'Not available',
+        'Tomorrow’s start date is no longer available after 6:00 PM. Please choose a later date.'
+      );
+      return;
+    }
+
     setDob(new Date(day.dateString));
     closeDatePicker();
   };
@@ -468,9 +481,20 @@ const Index = (props) => {
     return (afterPrev && afterPrev.isAfter(tomorrow) ? afterPrev : tomorrow).format('YYYY-MM-DD');
   }, [preEndDate]);
 
+  const effectiveMinStartDate = React.useMemo(() => {
+    const now = moment();
+    const cutoffPassed = now.isSameOrAfter(now.clone().hour(18).minute(0).second(0));
+    const base = moment(minStartDate, 'YYYY-MM-DD');
+
+    // if base == tomorrow and cutoff has passed, move to day-after-tomorrow
+    if (cutoffPassed && base.isSame(moment().add(1, 'day'), 'day')) {
+      return base.add(1, 'day').format('YYYY-MM-DD');
+    }
+    return base.format('YYYY-MM-DD');
+  }, [minStartDate]);
+
   return (
     <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
-
       <View style={styles.scrollView}>
         <LinearGradient colors={['#1E293B', '#334155', '#475569']} style={styles.header}>
           <View style={styles.heroContent}>
@@ -675,7 +699,7 @@ const Index = (props) => {
                   selectedColor: 'blue'
                 }
               }}
-              minDate={minStartDate}
+              minDate={effectiveMinStartDate}
             />
           </View>
         </View>
@@ -998,7 +1022,6 @@ const Index = (props) => {
           </View>
         </View>
       </Modal>
-
     </SafeAreaView>
   )
 }

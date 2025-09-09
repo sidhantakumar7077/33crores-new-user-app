@@ -175,6 +175,9 @@ const NewLogin = () => {
             formData.append('device_model', deviceModel);
             formData.append('platform', platformName);
 
+            // console.log("Verifying OTP with data:", { otp, phone, fcmToken, deviceModel, platformName });
+            // return;
+
             const res = await fetch(`${base_url}api/verify-otpless`, { method: 'POST', body: formData });
             const data = await res.json();
 
@@ -190,6 +193,7 @@ const NewLogin = () => {
                 }
             } else {
                 showError(data?.message || 'Failed to verify OTP. Please try again.');
+                console.log("OTP verification failed", data);
             }
         } catch (e) {
             showError('Verification failed. Please try again.');

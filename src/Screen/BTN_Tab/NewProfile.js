@@ -13,7 +13,9 @@ import {
     ToastAndroid,
     Share,
     Linking,
-    RefreshControl
+    RefreshControl,
+    Alert,
+    ActivityIndicator
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -71,6 +73,66 @@ const NewProfile = () => {
     const [updateProfileError, setUpdateProfileError] = useState('');
     const [profileImgMenu, setProfileImgMenu] = useState(false);
     const [showProfileImage, setShowProfileImage] = useState(false);
+
+    const [canDelete, setCanDelete] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+
+    const checkDeleteFlag = async () => {
+        try {
+            const token = await AsyncStorage.getItem('storeAccesstoken');
+            const res = await fetch(`${base_url}api/say-yes`, {
+                method: 'GET',
+                headers: {
+                    Accept: 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+            });
+            const j = await res.json();
+            // treat "yes" (any case) as true
+            const value = String(j?.response || '').toLowerCase() === 'yes';
+            setCanDelete(value);
+        } catch (e) {
+            setCanDelete(false); // fail closed (hide button)
+        }
+    };
+
+    const confirmDelete = () => {
+        Alert.alert(
+            'Delete account?',
+            'This will remove your personal data and sign you out.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Delete', style: 'destructive', onPress: performDelete },
+            ],
+        );
+    };
+
+    const performDelete = async () => {
+        try {
+            setDeleting(true);
+            const token = await AsyncStorage.getItem('storeAccesstoken');
+            const res = await fetch(`${base_url}api/users-delet`, {   // <-- use your exact path
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            const j = await res.json().catch(() => ({}));
+
+            if (res.ok && (j?.success ?? true)) {
+                Alert.alert('Deleted', j?.message || 'Your account has been deleted.');
+                await AsyncStorage.clear();
+                navigation.reset({ index: 0, routes: [{ name: 'NewLogin' }] });
+            } else {
+                Alert.alert('Delete failed', j?.message || 'Please try again.');
+            }
+        } catch (e) {
+            Alert.alert('Network error', 'Please try again.');
+        } finally {
+            setDeleting(false);
+        }
+    };
 
     const onRefresh = React.useCallback(() => {
         setRefreshing(true);
@@ -331,6 +393,7 @@ const NewProfile = () => {
         if (isFocused) {
             getProfile();
             getReferralCode();
+            checkDeleteFlag();
         }
     }, [isFocused]);
 
@@ -482,6 +545,27 @@ const NewProfile = () => {
                             </View>
                         </LinearGradient>
                     </View> */}
+
+                    {/* Delete Account Button */}
+                    {canDelete && (
+                        <TouchableOpacity
+                            style={styles.logoutButton}
+                            onPress={confirmDelete}
+                            disabled={deleting}
+                            activeOpacity={0.8}
+                        >
+                            <LinearGradient colors={['#FFE5E5', '#FFB8B8']} style={styles.logoutGradient}>
+                                {deleting ? (
+                                    <ActivityIndicator />
+                                ) : (
+                                    <>
+                                        <Icon name="trash-alt" size={20} color="#EF4444" />
+                                        <Text style={styles.logoutText}>Delete Account</Text>
+                                    </>
+                                )}
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    )}
                 </ScrollView>
             </View>
 
@@ -809,8 +893,8 @@ const styles = StyleSheet.create({
         color: '#8B5CF6',
     },
     logoutButton: {
-        // marginHorizontal: 20,
-        margin: 20,
+        marginHorizontal: 20,
+        margin: 10,
         borderRadius: 20,
         overflow: 'hidden',
         shadowColor: '#000',

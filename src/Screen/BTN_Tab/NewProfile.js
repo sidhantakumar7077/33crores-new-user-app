@@ -57,7 +57,7 @@ const NewProfile = () => {
     const [email, setEmail] = useState('');
     const [dob, setDob] = useState(new Date());
     const [about, setAbout] = useState('');
-    const [gender, setGender] = useState('');
+    const [gender, setGender] = useState(false);
     const [genderID, setGenderID] = useState(null);
     const [genderitems, setGenderItems] = useState([
         { label: 'Male', value: 'Male' },
@@ -220,6 +220,7 @@ const NewProfile = () => {
         formData.append('email', email);
         formData.append('gender', genderID);
         formData.append('about', about);
+        if (dob) formData.append('dob', dob);
 
         try {
             const response = await fetch(base_url + 'api/update-profile', {
@@ -569,151 +570,153 @@ const NewProfile = () => {
                 </ScrollView>
             </View>
 
+            {/* Edit Profile Modal */}
             <Modal
-                animationType="slide"
-                transparent={true}
                 visible={profileModal}
-                onRequestClose={() => { setProfileModal(false) }}
+                animationType="slide"
+                transparent={false}
+                onRequestClose={() => setProfileModal(false)}
             >
-                <View style={styles.fullModal}>
-                    <StatusBar hidden={true} />
-                    <View style={styles.headerPart}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <Text style={{ color: '#000', fontSize: 16, fontWeight: '500', marginBottom: 3, marginLeft: 5 }}>Edit Profile</Text>
-                        </View>
-                        <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
-                            <TouchableOpacity onPress={closeProfileModal} style={{ marginLeft: 20 }}>
-                                <MaterialIcons name="close" color={'#000'} size={25} />
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                    <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
-                        <View style={{ marginVertical: 10, alignItems: 'center' }}>
-                            <View style={styles.profileBorder}>
-                                <TouchableOpacity onPress={() => setProfileImgMenu(true)} style={styles.profileContainer}>
-                                    {imageSource ?
-                                        <Image source={{ uri: imageSource }} style={{ width: '100%', height: '100%', resizeMode: 'cover', borderRadius: 90 }} />
-                                        :
-                                        <Image
-                                            source={require('../../assets/images/user.png')}
-                                            style={{ width: '100%', height: '100%', resizeMode: 'cover', borderRadius: 90 }}
-                                        />
-                                    }
+                <View style={styles.fmContainer}>
+                    <StatusBar barStyle="light-content" backgroundColor="#334155" />
+
+                    {/* Header */}
+                    <LinearGradient colors={['#1E293B', '#334155', '#475569']} style={styles.fmHeader}>
+                        <TouchableOpacity onPress={() => setProfileModal(false)} style={styles.fmBackBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                            <Feather name="arrow-left" size={22} color="#fff" />
+                        </TouchableOpacity>
+                        <Text style={styles.fmHeaderTitle}>Edit Profile</Text>
+                        <View style={{ width: 22 }} />
+                    </LinearGradient>
+
+                    {/* Body */}
+                    <ScrollView
+                        style={styles.fmBody}
+                        contentContainerStyle={styles.fmBodyContent}
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                    >
+                        {/* Avatar */}
+                        <View style={styles.fmAvatarWrap}>
+                            <LinearGradient colors={['#F59E0B', '#F97316']} style={styles.fmAvatarRing}>
+                                <TouchableOpacity onPress={() => setProfileImgMenu(true)} style={styles.fmAvatar}>
+                                    {imageSource ? (
+                                        <Image source={{ uri: imageSource }} style={styles.fmAvatarImg} />
+                                    ) : (
+                                        <Image source={require('../../assets/images/user.png')} style={styles.fmAvatarImg} />
+                                    )}
                                 </TouchableOpacity>
-                                <TouchableOpacity onPress={() => setProfileImgMenu(true)} style={styles.cameraBtm}>
-                                    <Feather name="edit" style={{ color: '#fff' }} size={18} />
+                                <TouchableOpacity onPress={() => setProfileImgMenu(true)} style={styles.fmAvatarEdit} activeOpacity={0.9}>
+                                    <Feather name="edit-2" size={14} color="#fff" />
                                 </TouchableOpacity>
-                            </View>
+                            </LinearGradient>
                         </View>
-                        <View style={{ width: '90%', height: '100%', alignSelf: 'center', marginTop: 14 }}>
-                            <View style={{ width: '100%' }}>
-                                <Text style={{ color: '#000', fontSize: 16, marginLeft: 8 }}>Name</Text>
-                                <View style={styles.cardStyle}>
-                                    <TextInput
-                                        style={styles.inputs}
-                                        onChangeText={setName}
-                                        type='text'
-                                        value={name}
-                                        placeholder="Enter Your Name"
-                                        placeholderTextColor="#b7b7c2"
-                                        underlineColorAndroid='transparent'
-                                    />
-                                </View>
+
+                        {/* Error banner */}
+                        {updateProfileErrorVisible ? (
+                            <View style={styles.fmError}>
+                                <Feather name="alert-triangle" size={16} color="#991B1B" />
+                                <Text style={styles.fmErrorText}>{updateProfileError}</Text>
                             </View>
-                            <View style={{ width: '100%' }}>
-                                <Text style={{ color: '#000', fontSize: 16, marginLeft: 8 }}>Phone Number</Text>
-                                <View style={[styles.cardStyle, { backgroundColor: '#e8e8eb', borderColor: '#868687', }]}>
-                                    <TextInput
-                                        style={[styles.inputs, { color: '#6a6a6b' }]}
-                                        onChangeText={setPhoneNumber}
-                                        type='number'
-                                        editable={false}
-                                        keyboardType='numeric'
-                                        value={phoneNumber}
-                                        placeholder="Enter Your Phone Number"
-                                        placeholderTextColor="#b7b7c2"
-                                        underlineColorAndroid='transparent'
-                                    />
-                                </View>
-                            </View>
-                            <View style={{ width: '100%' }}>
-                                <Text style={{ color: '#000', fontSize: 16, marginLeft: 8 }}>Email ID</Text>
-                                <View style={styles.cardStyle}>
-                                    <TextInput
-                                        style={styles.inputs}
-                                        onChangeText={setEmail}
-                                        type='email'
-                                        value={email}
-                                        keyboardType='email-address'
-                                        placeholder="Enter Your Email ID"
-                                        placeholderTextColor="#b7b7c2"
-                                        underlineColorAndroid='transparent'
-                                    />
-                                </View>
-                            </View>
-                            <View style={{ width: '100%' }}>
-                                <Text style={{ color: '#000', fontSize: 16, marginLeft: 8 }}>Date of Birth</Text>
-                                <View style={[styles.cardStyle, { backgroundColor: '#e8e8eb', borderColor: '#868687', }]}>
-                                    <TextInput
-                                        style={[styles.inputs, { color: '#6a6a6b' }]}
-                                        onChangeText={setDob}
-                                        value={moment(dob).format('YYYY-MM-DD')}
-                                        placeholder="Select Date of Birth"
-                                        placeholderTextColor="#b7b7c2"
-                                        underlineColorAndroid='transparent'
-                                        editable={false}
-                                    />
-                                </View>
-                            </View>
-                            <View style={{ width: '100%' }}>
-                                <Text style={{ color: '#000', fontSize: 16, marginLeft: 8, marginBottom: 4 }}>Gender</Text>
-                                <DropDownPicker
-                                    style={{ zIndex: 10, borderWidth: 0, backgroundColor: "#fff", borderWidth: 0.4, borderColor: '#000', marginBottom: 15 }}
-                                    placeholder={!isFocus ? 'Gender' : '...'}
-                                    open={gender}
-                                    value={genderID}
-                                    items={genderitems}
-                                    listMode="SCROLLVIEW"
-                                    // dropDownDirection="TOP"
-                                    disableBorderRadius={true}
-                                    dropDownContainerStyle={{
-                                        backgroundColor: "#fff",
-                                        borderWidth: 0.8,
-                                        borderColor: '#000',
-                                        // zIndex: 9
-                                    }}
-                                    itemSeparator={true}
-                                    autoScroll={true}
-                                    setOpen={setGender}
-                                    setValue={setGenderID}
-                                    setItems={setGenderItems}
-                                />
-                            </View>
-                            <View style={{ width: '100%' }}>
-                                <Text style={{ color: '#000', fontSize: 16, marginLeft: 8 }}>About Yourself</Text>
-                                <View style={styles.cardStyle}>
-                                    <TextInput
-                                        style={{ width: '80%', alignSelf: 'center', marginLeft: 0, fontSize: 16, color: '#000' }}
-                                        onChangeText={setAbout}
-                                        type='text'
-                                        value={about}
-                                        placeholder="Enter About Yourself"
-                                        placeholderTextColor="#b7b7c2"
-                                        underlineColorAndroid='transparent'
-                                        multiline
-                                    />
-                                </View>
-                            </View>
-                            <Text style={styles.errorText}>{updateProfileErrorVisible ? updateProfileError : ''}</Text>
-                            <View style={{ width: '100%', alignItems: 'flex-end', marginTop: 20, marginBottom: 20 }}>
-                                <TouchableOpacity onPress={() => EditProfile()}>
-                                    <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.saveBtm}>
-                                        <Text style={{ fontSize: 20, fontWeight: '500', color: '#fff' }}>Save</Text>
-                                    </LinearGradient>
-                                </TouchableOpacity>
-                            </View>
+                        ) : null}
+
+                        {/* Name */}
+                        <Text style={styles.fmLabel}>Full Name</Text>
+                        <View style={styles.fmField}>
+                            <Feather name="user" size={18} color="#64748B" style={styles.fmIcon} />
+                            <TextInput
+                                style={styles.fmInput}
+                                placeholder="Enter your name"
+                                placeholderTextColor="#94A3B8"
+                                value={name}
+                                onChangeText={setName}
+                            />
                         </View>
+
+                        {/* Phone (read-only) */}
+                        <Text style={styles.fmLabel}>Phone Number</Text>
+                        <View style={[styles.fmField, styles.fmFieldDisabled]}>
+                            <Feather name="phone" size={18} color="#94A3B8" style={styles.fmIcon} />
+                            <TextInput style={[styles.fmInput, styles.fmInputDisabled]} value={phoneNumber} editable={false} />
+                        </View>
+
+                        {/* Email */}
+                        <Text style={styles.fmLabel}>Email</Text>
+                        <View style={styles.fmField}>
+                            <Feather name="mail" size={18} color="#64748B" style={styles.fmIcon} />
+                            <TextInput
+                                style={styles.fmInput}
+                                placeholder="you@example.com"
+                                placeholderTextColor="#94A3B8"
+                                value={email}
+                                onChangeText={setEmail}
+                                autoCapitalize="none"
+                                keyboardType="email-address"
+                            />
+                        </View>
+
+                        {/* DOB (read-only like your current flow) */}
+                        <Text style={styles.fmLabel}>Date of Birth</Text>
+                        <View style={[styles.fmField, styles.fmFieldDisabled]}>
+                            <Feather name="calendar" size={18} color="#94A3B8" style={styles.fmIcon} />
+                            <TextInput
+                                style={[styles.fmInput, styles.fmInputDisabled]}
+                                value={dob ? moment(dob, 'YYYY-MM-DD').format('DD MMM YYYY') : ''}
+                                editable={false}
+                                placeholder="Select Date of Birth"
+                                placeholderTextColor="#b7b7c2"
+                            />
+                        </View>
+
+                        {/* Gender (DropDownPicker) */}
+                        <Text style={[styles.fmLabel, { marginBottom: 4 }]}>Gender</Text>
+                        <View style={{ zIndex: 1000, marginBottom: 14 }}>
+                            <DropDownPicker
+                                open={gender}
+                                value={genderID}
+                                items={genderitems}
+                                setOpen={setGender}
+                                setValue={setGenderID}
+                                setItems={setGenderItems}
+                                placeholder="Select gender"
+                                listMode="SCROLLVIEW"
+                                style={styles.fmDD}
+                                dropDownContainerStyle={styles.fmDDContainer}
+                                textStyle={{ fontWeight: '700', color: '#0f172a' }}
+                                placeholderStyle={{ color: '#94A3B8', fontWeight: '600' }}
+                                itemSeparator
+                            />
+                        </View>
+
+                        {/* About */}
+                        <Text style={styles.fmLabel}>About Yourself</Text>
+                        <View style={[styles.fmField, { height: 110, alignItems: 'flex-start', paddingVertical: 10 }]}>
+                            <Feather name="message-circle" size={18} color="#64748B" style={[styles.fmIcon, { marginTop: 4 }]} />
+                            <TextInput
+                                style={[styles.fmInput, { height: '100%', textAlignVertical: 'top' }]}
+                                placeholder="A few lines about you"
+                                placeholderTextColor="#94A3B8"
+                                value={about}
+                                onChangeText={setAbout}
+                                multiline
+                            />
+                        </View>
+
+                        <View style={{ height: 90 }} />
                     </ScrollView>
+
+                    {/* Sticky Footer */}
+                    <View style={styles.fmFooter}>
+                        <TouchableOpacity onPress={() => setProfileModal(false)} style={styles.fmCancelBtn} activeOpacity={0.9}>
+                            <Text style={styles.fmCancelText}>Cancel</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity onPress={EditProfile} style={styles.fmSaveBtn} activeOpacity={0.9}>
+                            <LinearGradient colors={['#F59E0B', '#F97316']} style={styles.fmSaveGrad}>
+                                <Text style={styles.fmSaveText}>Save</Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    </View>
                 </View>
             </Modal>
         </View>
@@ -921,86 +924,84 @@ const styles = StyleSheet.create({
         marginLeft: 12,
     },
     // Modal styles
-    fullModal: {
-        width: '100%',
-        height: '100%',
-        backgroundColor: '#fff',
-        // borderTopLeftRadius: 20,
-        // borderTopRightRadius: 20,
-        bottom: 0,
-        position: 'absolute',
-        alignSelf: 'center',
-        borderRadius: 10
-    },
-    headerPart: {
-        width: '100%',
-        alignSelf: 'center',
+    fmContainer: { flex: 1, backgroundColor: '#FFFFFF' },
+
+    /* Header */
+    fmHeader: {
+        paddingTop: 24,      // safe-ish for most devices
+        paddingBottom: 14,
+        paddingHorizontal: 16,
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        backgroundColor: '#fff',
-        paddingVertical: 13,
-        paddingHorizontal: 5,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.8,
-        shadowRadius: 13,
-        elevation: 5
-    },
-    profileBorder: {
-        borderColor: '#88888a',
-        borderWidth: 2,
-        height: 120,
-        width: 120,
-        padding: 2,
-        borderRadius: 90,
         alignItems: 'center',
-        justifyContent: 'center'
+        justifyContent: 'center',
     },
-    profileContainer: {
-        backgroundColor: '#ffcb44',
-        width: '100%',
-        height: '100%',
-        borderRadius: 90,
-        alignItems: 'center',
+    fmBackBtn: { position: 'absolute', left: 16, bottom: 14 },
+    fmHeaderTitle: { color: '#fff', fontSize: 18, fontWeight: '900' },
+
+    /* Body */
+    fmBody: { flex: 1 },
+    fmBodyContent: { paddingHorizontal: 18, paddingTop: 16, paddingBottom: 0 },
+
+    /* Avatar */
+    fmAvatarWrap: { alignItems: 'center', marginBottom: 10, marginTop: 4 },
+    fmAvatarRing: {
+        width: 116, height: 116, borderRadius: 58, padding: 3,
+        alignItems: 'center', justifyContent: 'center',
+        shadowColor: '#F97316', shadowOpacity: 0.25, shadowRadius: 10, shadowOffset: { width: 0, height: 6 }, elevation: 6,
     },
-    cameraBtm: {
-        position: 'absolute',
-        right: 0,
-        bottom: 6,
-        backgroundColor: '#9c9998',
-        borderRadius: 20,
-        padding: 6
+    fmAvatar: { width: 110, height: 110, borderRadius: 55, overflow: 'hidden', backgroundColor: '#F1F5F9' },
+    fmAvatarImg: { width: '100%', height: '100%', resizeMode: 'cover' },
+    fmAvatarEdit: {
+        position: 'absolute', right: -4, bottom: 16,
+        backgroundColor: '#ff4d00ff', padding: 8, borderRadius: 16, elevation: 3,
     },
-    cardStyle: {
-        backgroundColor: '#fff',
-        width: '100%',
-        marginTop: 4,
-        marginBottom: 15,
-        flexDirection: 'row',
-        paddingHorizontal: 10,
-        borderRadius: 10,
-        borderColor: '#000',
-        borderWidth: 0.4
+
+    /* Error banner */
+    fmError: {
+        flexDirection: 'row', alignItems: 'center', gap: 8,
+        backgroundColor: '#FEE2E2', borderColor: '#FCA5A5', borderWidth: 1,
+        paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, marginBottom: 12,
     },
-    inputs: {
-        height: 50,
-        width: '80%',
-        alignSelf: 'center',
-        marginLeft: 0,
-        fontSize: 16,
-        color: '#000'
+    fmErrorText: { color: '#991B1B', fontWeight: '800', flex: 1 },
+
+    /* Fields */
+    fmLabel: { color: '#0f172a', fontWeight: '800', marginTop: 6, marginBottom: 6 },
+    fmField: {
+        flexDirection: 'row', alignItems: 'center',
+        backgroundColor: '#F9FAFB',
+        borderRadius: 14, borderWidth: 2, borderColor: '#E5E7EB',
+        paddingHorizontal: 12, height: 54, marginBottom: 10,
     },
-    saveBtm: {
-        backgroundColor: '#ffcb44',
-        paddingHorizontal: 15,
-        paddingVertical: 6,
-        borderRadius: 6
+    fmIcon: { marginRight: 10 },
+    fmInput: { flex: 1, fontSize: 16, color: '#111827', fontWeight: '700' },
+    fmFieldDisabled: { backgroundColor: '#F1F5F9', borderColor: '#E2E8F0' },
+    fmInputDisabled: { color: '#6B7280', fontWeight: '700' },
+
+    /* DropDownPicker */
+    fmDD: {
+        borderWidth: 2, borderColor: '#E5E7EB', backgroundColor: '#F9FAFB',
+        borderRadius: 14, minHeight: 54,
     },
-    errorText: {
-        color: '#f00c27',
-        marginTop: 10,
-        // fontWeight: '500'
+    fmDDContainer: {
+        borderWidth: 2, borderColor: '#E5E7EB', backgroundColor: '#fff', borderRadius: 14,
     },
+
+    /* Footer */
+    fmFooter: {
+        position: 'absolute', left: 0, right: 0, bottom: 0,
+        paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16,
+        backgroundColor: '#FFFFFF',
+        borderTopWidth: 1, borderTopColor: '#E5E7EB',
+        flexDirection: 'row', gap: 10,
+    },
+    fmCancelBtn: {
+        flex: 1, height: 48, borderRadius: 14,
+        borderWidth: 2, borderColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center',
+    },
+    fmCancelText: { color: '#334155', fontWeight: '900' },
+    fmSaveBtn: { flex: 1, height: 48, borderRadius: 14, overflow: 'hidden' },
+    fmSaveGrad: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    fmSaveText: { color: '#fff', fontSize: 16, fontWeight: '900', letterSpacing: 0.3 },
 
     // Refer & earn style
     referralWrap: {

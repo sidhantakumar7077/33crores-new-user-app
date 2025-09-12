@@ -1465,7 +1465,7 @@ const NewHome = () => {
                         <Calendar
                             onDayPress={handleResumDatePress}
                             markedDates={{ [moment(resumeDate || pause_start_date).format('YYYY-MM-DD')]: { selected: true, marked: true, selectedColor: 'blue' } }}
-                            minDate={moment(pause_start_date).format('YYYY-MM-DD')}
+                            minDate={moment().add(1, 'day').format('YYYY-MM-DD')}
                             maxDate={moment(pause_end_date).format('YYYY-MM-DD')}
                         />
                     </View>

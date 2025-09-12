@@ -160,7 +160,7 @@ const Index = (props) => {
                         <Icon name="arrow-left" size={16} color="#fff" />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Product History</Text>
-                    <View style={styles.headerIcon} />
+                    <View style={{ width: 25 }} />
                 </View>
                 <Text style={styles.headerSubtitle}>Track your puja product orders.</Text>
             </LinearGradient>

@@ -1177,19 +1177,6 @@ const Index = () => {
                 </View>
               </View>
               <View style={{ flex: 1, marginTop: 15 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5, alignItems: 'center' }}>
-                  <View style={{ width: '65%' }}>
-                    {addressErrorMessageVisible ?
-                      <Text style={{ color: '#f00c27', fontWeight: '500' }}>{addressError}</Text>
-                      : null
-                    }
-                  </View>
-                  <TouchableOpacity onPress={() => setAddAddressModal(true)}>
-                    <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.addressAddBtm}>
-                      <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>Add Address</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </View>
                 <FlatList
                   showsHorizontalScrollIndicator={false}
                   data={displayedAddresses}
@@ -1257,6 +1244,19 @@ const Index = () => {
                     </TouchableOpacity>
                   )
                 )}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginVertical: 15, alignItems: 'center' }}>
+                  <View style={{ width: '65%' }}>
+                    {addressErrorMessageVisible ?
+                      <Text style={{ color: '#f00c27', fontWeight: '500' }}>{addressError}</Text>
+                      : null
+                    }
+                  </View>
+                  <TouchableOpacity onPress={() => setAddAddressModal(true)}>
+                    <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.addressAddBtm}>
+                      <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>Add Address</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </ScrollView>
@@ -1894,10 +1894,16 @@ const styles = StyleSheet.create({
 
   actionsRow: {
     flexDirection: 'row',
-    gap: 10,
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginTop: 18,
   },
-  primaryBtn: { flex: 1, borderRadius: 12, overflow: 'hidden' },
+  primaryBtn: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginRight: 8,  // small spacing
+  },
   primaryGrad: { paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
   primaryText: { color: '#fff', fontSize: 15, fontWeight: '800' },
 
@@ -1908,6 +1914,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#E5E7EB',
     backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   secondaryText: { color: '#334155', fontWeight: '800' },
   errorModalOverlay: {

@@ -353,87 +353,126 @@ const Index = (props) => {
     } catch (error) {
       console.log(error);
     }
-  }
+  };
 
   const handleBuy = async () => {
     const access_token = await AsyncStorage.getItem('storeAccesstoken');
+
+    if (!selectedOption) {
+      setErrormasg('Please Select Your Address');
+      setErrorModal(true);
+      return;
+    }
+
     setIsLoading(true);
-
     try {
-      if (selectedOption === "") {
-        // displayErrorMessage("Please Select Your Address");
-        setErrormasg("Please Select Your Address");
-        setErrorModal(true);
-        setIsLoading(false);
-        return;
-      }
-
-      const options = {
-        description: props.route.params.flowerData.name,
-        image: '',
-        currency: 'INR',
-        key: 'rzp_live_m8GAuZDtZ9W0AI',
-        amount: props.route.params.flowerData.price * 100,
-        name: profileDetails.name,
-        order_id: '',
-        prefill: {
-          email: profileDetails.email,
-          contact: profileDetails.mobile_number,
-          name: profileDetails.name
-        },
-        theme: { color: '#53a20e' }
-      };
-      const data = await RazorpayCheckout.open(options);
-
-      // const Data = {
-      //     product_id: props.route.params.flowerData.product_id,
-      //     order_id: props.route.params.orderId || "", // capture Razorpay order ID if available
-      //     address_id: selectedOption,
-      //     payment_id: data.razorpay_payment_id || "", // capture Razorpay payment ID if available
-      //     // payment_id: "pay_29QQoUBi66xm2f",
-      //     paid_amount: props.route.params.flowerData.price,
-      //     duration: props.route.params.flowerData.duration,
-      //     suggestion: suggestions,
-      //     start_date: moment(dob).format('YYYY-MM-DD')
-      // }
-      // console.log("Data", Data);
-      // return;
-
-      // Proceed only if Razorpay payment succeeds
-      const response = await fetch(base_url + 'api/purchase-subscription', {
+      // -----------------------------
+      // 1) Create order on your server
+      // -----------------------------
+      const amountRupees = Number(props.route.params.flowerData?.price || 0);
+      const createRes = await fetch(base_url + 'api/order-subscription', {
         method: 'POST',
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${access_token}`
+          Authorization: `Bearer ${access_token}`,
         },
         body: JSON.stringify({
           product_id: props.route.params.flowerData.product_id,
           order_id: props.route.params.orderId || "",
           address_id: selectedOption,
-          payment_id: data.razorpay_payment_id || "",
-          // payment_id: "pay_29QQoUBi66xm2f",
-          paid_amount: props.route.params.flowerData.price,
-          duration: props.route.params.flowerData.duration,
           suggestion: suggestions,
-          start_date: moment(dob).format('YYYY-MM-DD')
+          paid_amount: amountRupees,
+          duration: props.route.params.flowerData.duration,
+          start_date: moment(dob).format('YYYY-MM-DD'),
         }),
       });
 
-      const responseData = await response.json();
-      if (response.ok) {
-        // console.log("Booking successfully", responseData);
-        setOrderModalVisible(true);
-      } else {
+      const createJson = await createRes.json();
+      if (!createRes.ok) {
+        // throw new Error(createJson?.message || 'Unable to create order');
+        setErrormasg(createJson?.message || 'Unable to create order');
         setErrorModal(true);
-        setErrormasg(responseData.message);
-        // console.log("responseData", responseData);
       }
-    } catch (error) {
-      // Handle any errors, either from Razorpay or fetch
+
+      // Expect the server to return at least:
+      // - your internal order id (for /process-payment)
+      // - the Razorpay order id to use in Checkout
+      // - optionally the key_id to use in Checkout
+      const backendOrderId =
+        createJson?.order_id || createJson?.id || createJson?.data?.order_id;
+      const rzpOrderId =
+        createJson?.rzp_order_id ||
+        createJson?.razorpay_order_id ||
+        createJson?.data?.rzp_order_id;
+      const rzpKeyId =
+        createJson?.key_id || createJson?.rzp_key_id || 'rzp_live_m8GAuZDtZ9W0AI';
+
+      if (!backendOrderId || !rzpOrderId) {
+        // throw new Error('Order created but missing payment identifiers');
+
+      }
+
+      // -------------------------------------
+      // 2) Open Razorpay with server order_id
+      // -------------------------------------
+      const options = {
+        description: props.route.params.flowerData.name,
+        currency: 'INR',
+        key: rzpKeyId,
+        amount: Math.round(amountRupees * 100), // paise
+        name: profileDetails.name,
+        order_id: rzpOrderId,
+        prefill: {
+          email: profileDetails.email,
+          contact: profileDetails.mobile_number,
+          name: profileDetails.name,
+        },
+        theme: { color: '#53a20e' },
+      };
+
+      const payResult = await RazorpayCheckout.open(options);
+      // payResult typically has:
+      // payResult.razorpay_payment_id
+      // payResult.razorpay_order_id
+      // payResult.razorpay_signature
+
+      if (!payResult?.razorpay_payment_id) {
+        // throw new Error('Payment failed or cancelled');
+        setErrormasg('Payment failed or cancelled');
+        setErrorModal(true);
+      }
+
+      // ------------------------------------------
+      // 3) Confirm payment on your server (capture)
+      // ------------------------------------------
+      const confirmRes = await fetch(base_url + 'api/process-payment', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${access_token}`,
+        },
+        body: JSON.stringify({
+          order_id: backendOrderId,                    // your server order id
+          payment_id: payResult.razorpay_payment_id,   // Razorpay payment id
+          paid_amount: amountRupees,                   // rupees (as per your Postman)
+        }),
+      });
+
+      const confirmJson = await confirmRes.json();
+      if (!confirmRes.ok) {
+        // throw new Error(confirmJson?.message || 'Payment verification failed');
+        setErrormasg(confirmJson?.message || 'Payment verification failed');
+        setErrorModal(true);
+      }
+
+      // Success 🎉
+      setOrderModalVisible(true);
+    } catch (err) {
+      // console.log('Payment flow error:', err);
+      setErrormasg(err?.message || 'Something went wrong');
       setErrorModal(true);
-      setErrormasg(error.message || "An error occurred during payment");
-      console.log("An error occurred during payment", error);
     } finally {
       setIsLoading(false);
     }
@@ -584,19 +623,6 @@ const Index = (props) => {
               </View>
               {/* Address */}
               <View style={{ flex: 1, marginTop: 15 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5, alignItems: 'center' }}>
-                  <View style={{ width: '65%' }}>
-                    {addressErrorMessageVisible ?
-                      <Text style={{ color: '#f00c27', fontWeight: '500' }}>{addressError}</Text>
-                      : null
-                    }
-                  </View>
-                  <TouchableOpacity onPress={() => setAddAddressModal(true)}>
-                    <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.addressAddBtm}>
-                      <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>Add Address</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </View>
                 <FlatList
                   showsHorizontalScrollIndicator={false}
                   data={displayedAddresses}
@@ -664,6 +690,19 @@ const Index = (props) => {
                     </TouchableOpacity>
                   )
                 )}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 15, alignItems: 'center' }}>
+                  <View style={{ width: '65%' }}>
+                    {addressErrorMessageVisible ?
+                      <Text style={{ color: '#f00c27', fontWeight: '500' }}>{addressError}</Text>
+                      : null
+                    }
+                  </View>
+                  <TouchableOpacity onPress={() => setAddAddressModal(true)}>
+                    <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.addressAddBtm}>
+                      <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>Add Address</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </ScrollView>
@@ -1026,7 +1065,7 @@ const Index = (props) => {
   )
 }
 
-export default Index
+export default Index;
 
 const styles = StyleSheet.create({
   container: {
@@ -1295,10 +1334,16 @@ const styles = StyleSheet.create({
 
   actionsRow: {
     flexDirection: 'row',
-    gap: 10,
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginTop: 18,
   },
-  primaryBtn: { flex: 1, borderRadius: 12, overflow: 'hidden' },
+  primaryBtn: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginRight: 8,  // small spacing
+  },
   primaryGrad: { paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
   primaryText: { color: '#fff', fontSize: 15, fontWeight: '800' },
 
@@ -1309,6 +1354,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#E5E7EB',
     backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   secondaryText: { color: '#334155', fontWeight: '800' },
   // Error Modal

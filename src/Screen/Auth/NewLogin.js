@@ -333,7 +333,7 @@ const NewLogin = () => {
                                 <>
                                     <View style={styles.stepHeader}>
                                         <Text style={styles.stepTitle}>Verify your number</Text>
-                                        <Text style={styles.stepSubtitle}>Enter the 6-digit code sent to {phone}</Text>
+                                        <Text style={styles.stepSubtitle}>Enter the 6-digit code sent to {phone} <Text style={{ fontWeight: 'bold', color: '#0e90fbff' }}>(WhatsApp)</Text></Text>
                                     </View>
 
                                     <View style={styles.inputSection}>

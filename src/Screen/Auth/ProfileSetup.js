@@ -96,9 +96,17 @@ const ProfileSetup = () => {
                 showError('Enter your name');
                 return;
             }
+            if (email.trim() && !validateEmail(email)) {
+                showError('Enter a valid email address');
+                return;
+            }
             // ✅ Required: DOB
             if (!dobISO) {
                 showError('Select your date of birth');
+                return;
+            }
+            if (gender && !['Male', 'Female', 'Other'].includes(gender)) {
+                showError('Select a valid gender');
                 return;
             }
             // ✅ Required: T&C
@@ -195,7 +203,7 @@ const ProfileSetup = () => {
                             </View>
 
                             {/* Email */}
-                            <Text style={styles.label}>Email</Text>
+                            <Text style={styles.label}>Email <Text style={styles.req}>*</Text></Text>
                             <View style={styles.inputWrap}>
                                 <Feather name="mail" size={18} color="#64748B" style={{ marginRight: 8 }} />
                                 <TextInput
@@ -213,35 +221,31 @@ const ProfileSetup = () => {
                             <Text style={styles.label}>Date of Birth <Text style={styles.req}>*</Text></Text>
                             <TouchableOpacity
                                 style={[styles.inputWrap, { justifyContent: 'space-between' }]}
-                                onPress={() => setShowDOBPicker((v) => !v)}
+                                onPress={() => setShowDOBPicker(true)}
                                 activeOpacity={0.9}
                             >
                                 <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                                     <Feather name="calendar" size={18} color="#64748B" style={{ marginRight: 8 }} />
                                     <Text style={[styles.input, { color: dobISO ? '#111827' : '#94A3B8' }]}>
-                                        {dobISO ? formatDatePretty(dobISO) : 'Select Date'}
+                                        {dobISO ? formatDatePretty(dobISO) : 'Select Date of Birth'}
                                     </Text>
                                 </View>
-                                <Feather
-                                    name={showDOBPicker ? 'chevron-up' : 'chevron-down'}
-                                    size={18}
-                                    color="#64748B"
-                                />
+                                <Feather name="chevron-right" size={18} color="#64748B" />
                             </TouchableOpacity>
 
-                            {showDOBPicker && (
-                                <View style={styles.pickerWrap}>
-                                    <DatePicker
-                                        date={dobDate}
-                                        mode="date"
-                                        maximumDate={new Date()}           // not in the future
-                                        minimumDate={new Date(1900, 0, 1)} // sensible minimum
-                                        onDateChange={(d) => setDobISO(d.toISOString().slice(0, 10))}
-                                        locale="en-IN"
-                                        androidVariant="nativeAndroid"
-                                    />
-                                </View>
-                            )}
+                            <DatePicker
+                                modal
+                                open={showDOBPicker}
+                                date={dobDate}
+                                mode="date"
+                                maximumDate={new Date()}           // disallow future
+                                minimumDate={new Date(1900, 0, 1)} // sensible min
+                                onConfirm={(d) => {
+                                    setShowDOBPicker(false);
+                                    setDobISO(d.toISOString().slice(0, 10));
+                                }}
+                                onCancel={() => setShowDOBPicker(false)}
+                            />
 
                             {/* About */}
                             <Text style={styles.label}>About Yourself</Text>
@@ -258,7 +262,7 @@ const ProfileSetup = () => {
                             </View>
 
                             {/* Gender */}
-                            <Text style={styles.label}>Gender</Text>
+                            <Text style={styles.label}>Gender <Text style={styles.req}>*</Text></Text>
                             <View style={styles.genderRow}>
                                 {['Male', 'Female', 'Other'].map((g) => (
                                     <TouchableOpacity
@@ -298,11 +302,25 @@ const ProfileSetup = () => {
                                 style={[
                                     styles.primaryButton,
                                     { marginTop: 18 },
-                                    (!name.trim() || !dobISO || !tncAccepted || saving) && { opacity: 0.6 },
+                                    (
+                                        !name.trim() ||
+                                        !email.trim() ||
+                                        !dobISO ||
+                                        !gender ||
+                                        !tncAccepted ||
+                                        saving
+                                    ) && { opacity: 0.6 },
                                 ]}
                                 activeOpacity={0.9}
                                 onPress={handleSave}
-                                disabled={!name.trim() || !dobISO || !tncAccepted || saving}
+                                disabled={
+                                    !name.trim() ||
+                                    !email.trim() ||
+                                    !dobISO ||
+                                    !gender ||
+                                    !tncAccepted ||
+                                    saving
+                                }
                             >
                                 <LinearGradient colors={['#F59E0B', '#f18204ff']} style={styles.buttonGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
                                     {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Save & Continue</Text>}

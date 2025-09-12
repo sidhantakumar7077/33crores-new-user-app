@@ -1374,10 +1374,16 @@ const styles = StyleSheet.create({
 
     actionsRow: {
         flexDirection: 'row',
-        gap: 10,
+        justifyContent: 'space-between',
+        alignItems: 'center',
         marginTop: 18,
     },
-    primaryBtn: { flex: 1, borderRadius: 12, overflow: 'hidden' },
+    primaryBtn: {
+        flex: 1,
+        borderRadius: 12,
+        overflow: 'hidden',
+        marginRight: 8,  // small spacing
+    },
     primaryGrad: { paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
     primaryText: { color: '#fff', fontSize: 15, fontWeight: '800' },
 
@@ -1388,6 +1394,8 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         borderColor: '#E5E7EB',
         backgroundColor: '#fff',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     secondaryText: { color: '#334155', fontWeight: '800' },
 

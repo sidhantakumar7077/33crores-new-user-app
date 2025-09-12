@@ -3,12 +3,15 @@ import {
   StyleSheet,
   Text,
   View,
+  TextInput,
   SafeAreaView,
   TouchableOpacity,
   ScrollView,
   Image,
   FlatList,
   Modal,
+  ActivityIndicator,
+  ToastAndroid,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
@@ -16,14 +19,17 @@ import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import Feather from 'react-native-vector-icons/Feather';
 import RazorpayCheckout from 'react-native-razorpay';
 import moment from 'moment';
 import { base_url } from '../../../App';
 
 const Index = (props) => {
+
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
 
+  const [loading, setLoading] = useState(false);
   const [packageDetails, setPackageDetails] = useState(null);
   const [flowerList, setFlowerList] = useState([]);
   const [garlandList, setGarlandList] = useState([]);
@@ -34,6 +40,7 @@ const Index = (props) => {
 
   const flowerPayment = async () => {
     const access_token = await AsyncStorage.getItem('storeAccesstoken');
+    setLoading(true);
     try {
       const options = {
         description: 'Custom Flower Request',
@@ -70,14 +77,18 @@ const Index = (props) => {
 
       const responseData = await response.json();
       if (response.ok) {
+        setLoading(false);
         navigation.goBack();
+        ToastAndroid.show('Payment successful', ToastAndroid.SHORT);
       } else {
         setErrorModal(true);
         setErrormasg(responseData?.message || 'Payment failed');
+        setLoading(false);
       }
     } catch (error) {
       setErrorModal(true);
       setErrormasg(error?.message || 'An error occurred during payment');
+      setLoading(false);
     }
   };
 
@@ -162,6 +173,67 @@ const Index = (props) => {
     );
   };
 
+  const [cancelRequestModalVisible, setCancelRequestModalVisible] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelRequestLoading, setCancelRequestLoading] = useState(false);
+
+  const openCancelRequestModal = () => setCancelRequestModalVisible(true);
+  const closeCancelRequestModal = () => {
+    setCancelRequestModalVisible(false);
+    setCancelReason('');
+  };
+
+  const cancelOrderRequest = async () => {
+    if (!approvedRequest) return;
+    const requestId = approvedRequest?.request_id;
+    if (!requestId) {
+      // Alert.alert('Error', 'Missing request id');
+      ToastAndroid.show('Missing request id', ToastAndroid.SHORT);
+      return;
+    }
+    if (!cancelReason.trim()) {
+      // Alert.alert('Reason required', 'Please enter a reason for cancellation.');
+      ToastAndroid.show('Reason required', ToastAndroid.SHORT);
+      return;
+    }
+
+    try {
+      setCancelRequestLoading(true);
+      const access_token = await AsyncStorage.getItem('storeAccesstoken');
+      const res = await fetch(`${base_url}api/flower-requests/cancel/${requestId}`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          ...(access_token ? { Authorization: `Bearer ${access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          cancel_by: 'user',
+          cancel_reason: cancelReason.trim(),
+        }),
+      });
+
+      const json = await res.json();
+      if (res.ok || res.status === 200) {
+        // success
+        closeCancelRequestModal();
+        // refresh lists and clear the pending bar
+        console.log("Cancelled Successfully", json);
+        await getCurrentOrder?.();
+        setApprovedRequest(null);
+        // Alert.alert('Cancelled', 'Your request has been cancelled.');
+        ToastAndroid.show('Your request has been cancelled.', ToastAndroid.SHORT);
+      } else {
+        // Alert.alert('Error', json?.message || 'Unable to cancel the order');
+        ToastAndroid.show(json?.message || 'Unable to cancel the order', ToastAndroid.SHORT);
+      }
+    } catch (e) {
+      ToastAndroid.show(e?.message || 'Something went wrong', ToastAndroid.SHORT);
+    } finally {
+      setCancelRequestLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom }]}>
       <View style={styles.mainView}>
@@ -176,8 +248,7 @@ const Index = (props) => {
           </View>
         </LinearGradient>
 
-        <ScrollView style={{ flex: 1, ...(packageDetails?.status === 'approved' && { marginBottom: 60 }) }} showsVerticalScrollIndicator={false}>
-
+        <ScrollView style={{ flex: 1, ...((packageDetails?.status === 'approved' || packageDetails?.status === 'pending') && { marginBottom: 60 }) }} showsVerticalScrollIndicator={false}>
           {/* ===== Top summary card (NEW) ===== */}
           <View style={styles.topCard}>
             <View style={styles.topHeaderRow}>
@@ -324,14 +395,175 @@ const Index = (props) => {
           )}
         </ScrollView>
 
-        {/* Pay CTA */}
-        {packageDetails?.status === 'approved' && (
-          <TouchableOpacity onPress={flowerPayment}>
-            <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.submitButton}>
-              <Text style={styles.submitText}>Pay</Text>
-            </LinearGradient>
+        {/* Footer Actions */}
+        {packageDetails?.status === 'pending' && (
+          <TouchableOpacity
+            onPress={openCancelRequestModal}
+            style={[styles.submitButton, { backgroundColor: '#ef4444', width: '90%' }]}
+          >
+            <Text style={styles.submitText}>Cancel</Text>
           </TouchableOpacity>
         )}
+
+        {packageDetails?.status === 'approved' && (
+          <View style={styles.footerActionsRow}>
+            <TouchableOpacity onPress={flowerPayment} style={{ flex: 1, marginRight: 8 }}>
+              <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.submitButtonRow}>
+                {loading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.submitText}>Pay</Text>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={openCancelRequestModal}
+              style={[styles.submitButtonRow, { backgroundColor: '#ef4444', flex: 1 }]}
+            >
+              <Text style={styles.submitText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Cancel Custome Oreder */}
+        <Modal
+          animationType="slide"
+          transparent
+          visible={cancelRequestModalVisible}
+          onRequestClose={closeCancelRequestModal}
+        >
+          <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' }}>
+            {/* backdrop */}
+            <TouchableOpacity
+              style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
+              activeOpacity={1}
+              onPress={!cancelRequestLoading ? closeCancelRequestModal : undefined}
+            />
+
+            <View
+              style={{
+                backgroundColor: '#fff',
+                borderTopLeftRadius: 20,
+                borderTopRightRadius: 20,
+                paddingHorizontal: 18,
+                paddingTop: 10,
+                paddingBottom: 18,
+                borderTopWidth: 1,
+                borderColor: '#E5E7EB',
+              }}
+            >
+              {/* handle bar */}
+              <View
+                style={{
+                  alignSelf: 'center',
+                  width: 40,
+                  height: 4,
+                  borderRadius: 999,
+                  backgroundColor: '#E5E7EB',
+                  marginBottom: 12,
+                }}
+              />
+
+              {/* icon */}
+              <LinearGradient
+                colors={['#fb7185', '#ef4444']}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 12,
+                }}
+              >
+                <Feather name="x-circle" size={26} color="#fff" />
+              </LinearGradient>
+
+              {/* title + desc */}
+              <Text style={{ fontSize: 18, fontWeight: '900', color: '#111827' }}>
+                Cancel this order?
+              </Text>
+              <Text style={{ marginTop: 6, color: '#374151', lineHeight: 20, fontWeight: '600' }}>
+                Please share a reason for cancelling. This helps us improve.
+              </Text>
+
+              {/* Request ID pill */}
+              {!!packageDetails?.request_id && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, marginTop: 12 }}>
+                  <Icon name="hashtag" size={12} color="#6B7280" />
+                  <Text style={{ color: '#374151', fontWeight: '700' }}>Request ID: {packageDetails.request_id}</Text>
+                </View>
+              )}
+
+              {/* reason input */}
+              <View
+                style={{
+                  marginTop: 12,
+                  borderWidth: 1,
+                  borderColor: '#CBD5E1',
+                  borderRadius: 10,
+                  backgroundColor: '#F9FAFB',
+                }}
+              >
+                <TextInput
+                  style={{
+                    minHeight: 90,
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                    color: '#0f172a',
+                  }}
+                  placeholder="Type your reason..."
+                  placeholderTextColor="#9CA3AF"
+                  multiline
+                  value={cancelReason}
+                  onChangeText={setCancelReason}
+                  editable={!cancelRequestLoading}
+                />
+              </View>
+
+              {/* action buttons */}
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    borderWidth: 1.5,
+                    borderColor: '#CBD5E1',
+                    backgroundColor: '#fff',
+                    paddingVertical: 12,
+                    borderRadius: 12,
+                    alignItems: 'center',
+                  }}
+                  onPress={closeCancelRequestModal}
+                  disabled={cancelRequestLoading}
+                >
+                  <Text style={{ color: '#111827', fontWeight: '900', fontSize: 14 }}>
+                    No, keep order
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    borderRadius: 12,
+                    alignItems: 'center',
+                    paddingVertical: 12,
+                    backgroundColor: '#ef4444',
+                    opacity: cancelRequestLoading ? 0.7 : 1,
+                  }}
+                  onPress={cancelOrderRequest}
+                  disabled={cancelRequestLoading}
+                >
+                  {cancelRequestLoading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={{ color: '#fff', fontWeight: '900', fontSize: 14 }}>Yes, cancel</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         {/* Error Modal */}
         <Modal animationType="slide" transparent visible={errorModal} onRequestClose={closeErrorModal}>
@@ -518,7 +750,25 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 7,
+  }, footerActionsRow: {
+    position: 'absolute',
+    bottom: 0,
+    width: '90%',
+    alignSelf: 'center',
+    flexDirection: 'row',
   },
+
+  submitButtonRow: {
+    borderRadius: 12,
+    paddingVertical: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    elevation: 3,
+  },
+
 
   submitButton: {
     position: 'absolute',

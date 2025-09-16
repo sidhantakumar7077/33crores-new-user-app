@@ -750,9 +750,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 7,
-  }, footerActionsRow: {
+  },
+  footerActionsRow: {
     position: 'absolute',
-    bottom: 0,
+    bottom: 5,
     width: '90%',
     alignSelf: 'center',
     flexDirection: 'row',
@@ -772,7 +773,7 @@ const styles = StyleSheet.create({
 
   submitButton: {
     position: 'absolute',
-    bottom: 0,
+    bottom: 5,
     width: '90%',
     alignSelf: 'center',
     borderRadius: 12,

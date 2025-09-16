@@ -363,6 +363,114 @@ const Index = () => {
   // Saved garland rows
   const [savedGarlands, setSavedGarlands] = useState([]);
 
+  // --- Edit FLOWER state ---
+  const [editFlowerVisible, setEditFlowerVisible] = useState(false);
+  const [editingFlowerIndex, setEditingFlowerIndex] = useState(null);
+  const [editingFlower, setEditingFlower] = useState({
+    flowerName: null,
+    flowerQuantity: '',
+    flowerUnit: null,
+  });
+
+  // --- Edit GARLAND state ---
+  const [editGarlandVisible, setEditGarlandVisible] = useState(false);
+  const [editingGarlandIndex, setEditingGarlandIndex] = useState(null);
+  const [editingGarland, setEditingGarland] = useState({
+    garlandName: null,
+    garlandQuantity: '',
+    radioChoice: null,
+    garlandCount: '',
+    garlandSize: null,
+  });
+
+  // Launch edit for a FLOWER row
+  const startEditFlower = (idx) => {
+    const f = savedFlowers[idx];
+    setEditingFlowerIndex(idx);
+    setEditingFlower({
+      flowerName: f.flower_name ?? null,
+      flowerQuantity: String(f.flower_quantity ?? ''),
+      flowerUnit: f.flower_unit ?? null,
+    });
+    setEditFlowerVisible(true);
+  };
+
+  // Validate + save edited FLOWER
+  const isEditingFlowerValid = () =>
+    isNonEmpty(editingFlower.flowerName) &&
+    isNonEmpty(editingFlower.flowerUnit) &&
+    toNumberOrNull(editingFlower.flowerQuantity) !== null;
+
+  const handleUpdateFlower = () => {
+    if (!isEditingFlowerValid() || editingFlowerIndex === null) return;
+    setSavedFlowers(prev =>
+      prev.map((row, i) =>
+        i === editingFlowerIndex
+          ? {
+            ...row,
+            flower_name: editingFlower.flowerName,
+            flower_unit: editingFlower.flowerUnit,
+            flower_quantity: toNumberOrNull(editingFlower.flowerQuantity),
+          }
+          : row
+      )
+    );
+    setEditFlowerVisible(false);
+    setEditingFlowerIndex(null);
+  };
+
+  // Launch edit for a GARLAND row
+  const startEditGarland = (idx) => {
+    const g = savedGarlands[idx];
+    setEditingGarlandIndex(idx);
+    setEditingGarland({
+      garlandName: g.garland_name ?? null,
+      garlandQuantity: String(g.garland_quantity ?? ''),
+      radioChoice: g.flower_count != null ? 'count' : 'size',
+      garlandCount: g.flower_count != null ? String(g.flower_count) : '',
+      garlandSize: g.garland_size != null ? g.garland_size : null,
+    });
+    setEditGarlandVisible(true);
+  };
+
+  // Validate + save edited GARLAND
+  const isEditingGarlandValid = () => {
+    const qtyOK = toNumberOrNull(editingGarland.garlandQuantity) !== null;
+    const basicOK =
+      isNonEmpty(editingGarland.garlandName) && qtyOK && isNonEmpty(editingGarland.radioChoice);
+    if (!basicOK) return false;
+    if (editingGarland.radioChoice === 'count') {
+      return toNumberOrNull(editingGarland.garlandCount) !== null;
+    }
+    if (editingGarland.radioChoice === 'size') {
+      return isNonEmpty(editingGarland.garlandSize);
+    }
+    return false;
+  };
+
+  const handleUpdateGarland = () => {
+    if (!isEditingGarlandValid() || editingGarlandIndex === null) return;
+    setSavedGarlands(prev =>
+      prev.map((row, i) =>
+        i === editingGarlandIndex
+          ? {
+            type: 'garland',
+            garland_name: editingGarland.garlandName,
+            garland_quantity: toNumberOrNull(editingGarland.garlandQuantity),
+            flower_count:
+              editingGarland.radioChoice === 'count'
+                ? toNumberOrNull(editingGarland.garlandCount)
+                : null,
+            garland_size:
+              editingGarland.radioChoice === 'size' ? editingGarland.garlandSize : null,
+          }
+          : row
+      )
+    );
+    setEditGarlandVisible(false);
+    setEditingGarlandIndex(null);
+  };
+
   // fetch units
   const getUnitList = async () => {
     const access_token = await AsyncStorage.getItem('storeAccesstoken');
@@ -637,13 +745,23 @@ const Index = () => {
             <Text style={styles.tableCell}>{row.flower_quantity}</Text>
             <Text style={styles.tableCell}>{row.flower_unit}</Text>
             <View style={[styles.tableCell, styles.actionCell]}>
-              <TouchableOpacity
-                onPress={() => removeFlowerAt(idx)}
-                style={styles.iconBtn}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Feather name="trash-2" size={16} color="#DC2626" />
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity
+                  onPress={() => startEditFlower(idx)}
+                  style={[styles.iconBtn, { backgroundColor: '#EFF6FF' }]}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Feather name="edit-2" size={16} color="#2563EB" />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => removeFlowerAt(idx)}
+                  style={styles.iconBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Feather name="trash-2" size={16} color="#DC2626" />
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         ))}
@@ -674,13 +792,23 @@ const Index = () => {
             <Text style={styles.tableCell}>{row.flower_count ?? '-'}</Text>
             <Text style={styles.tableCell}>{row.garland_size ?? '-'}</Text>
             <View style={[styles.tableCell, styles.actionCell]}>
-              <TouchableOpacity
-                onPress={() => removeGarlandAt(idx)}
-                style={styles.iconBtn}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Feather name="trash-2" size={16} color="#DC2626" />
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity
+                  onPress={() => startEditGarland(idx)}
+                  style={[styles.iconBtn, { backgroundColor: '#EFF6FF' }]}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Feather name="edit-2" size={16} color="#2563EB" />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => removeGarlandAt(idx)}
+                  style={styles.iconBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Feather name="trash-2" size={16} color="#DC2626" />
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         ))}
@@ -1622,6 +1750,191 @@ const Index = () => {
         </View>
       </Modal>
 
+      {/* Edit Flower Modal */}
+      <Modal
+        animationType="slide"
+        transparent
+        visible={editFlowerVisible}
+        onRequestClose={() => setEditFlowerVisible(false)}
+      >
+        <View style={styles.errorModalOverlay}>
+          <View style={[styles.errorModalContainer, { paddingBottom: 10 }]}>
+            <Text style={{ color: '#0f172a', fontSize: 18, fontWeight: '800', marginBottom: 12 }}>
+              Edit Flower
+            </Text>
+
+            {/* Flower */}
+            <Text style={styles.inputLabel}>Flower</Text>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.textInput}
+            >
+              <Text style={{ color: editingFlower.flowerName ? '#0f172a' : '#94a3b8', fontSize: 15, marginTop: 8 }}>
+                {editingFlower.flowerName
+                  ? (flowerNames.find(f => f.value === editingFlower.flowerName)?.label || editingFlower.flowerName)
+                  : 'Select flower'}
+              </Text>
+              <Feather name="chevron-down" size={18} color="#64748B" style={{ position: 'absolute', right: 12, top: 13 }} />
+            </TouchableOpacity>
+
+            {/* Quantity */}
+            <Text style={[styles.inputLabel, { marginTop: 10 }]}>Quantity</Text>
+            <TextInput
+              style={styles.textInput}
+              value={editingFlower.flowerQuantity}
+              onChangeText={t => setEditingFlower(prev => ({ ...prev, flowerQuantity: t }))}
+              keyboardType="numeric"
+              placeholder="e.g. 2"
+              placeholderTextColor="#94a3b8"
+            />
+
+            {/* Unit */}
+            <Text style={[styles.inputLabel, { marginTop: 10 }]}>Unit</Text>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setModalFlowerUnit(true)}
+              style={styles.textInput}
+            >
+              <Text style={{ color: editingFlower.flowerUnit ? '#0f172a' : '#94a3b8', fontSize: 15, marginTop: 8 }}>
+                {editingFlower.flowerUnit
+                  ? (flowerUnits.find(u => u.value === editingFlower.flowerUnit)?.label || editingFlower.flowerUnit)
+                  : 'Select unit'}
+              </Text>
+              <Feather name="chevron-down" size={18} color="#64748B" style={{ position: 'absolute', right: 12, top: 13 }} />
+            </TouchableOpacity>
+
+            {/* Actions */}
+            <View style={{ flexDirection: 'row', marginTop: 16 }}>
+              <TouchableOpacity onPress={() => setEditFlowerVisible(false)} style={[styles.secondaryBtn, { flex: 1, marginRight: 8 }]}>
+                <Text style={styles.secondaryText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                disabled={!isEditingFlowerValid()}
+                onPress={handleUpdateFlower}
+                style={[styles.primaryBtn, { flex: 1, opacity: isEditingFlowerValid() ? 1 : 0.5 }]}
+              >
+                <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.primaryGrad}>
+                  <Text style={styles.primaryText}>Save</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Garland Modal */}
+      <Modal
+        animationType="slide"
+        transparent
+        visible={editGarlandVisible}
+        onRequestClose={() => setEditGarlandVisible(false)}
+      >
+        <View style={styles.errorModalOverlay}>
+          <View style={[styles.errorModalContainer, { paddingBottom: 10 }]}>
+            <Text style={{ color: '#0f172a', fontSize: 18, fontWeight: '800', marginBottom: 12 }}>
+              Edit Garland
+            </Text>
+
+            {/* Flower */}
+            <Text style={styles.inputLabel}>Flower</Text>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.textInput}
+            >
+              <Text style={{ color: editingGarland.garlandName ? '#0f172a' : '#94a3b8', fontSize: 15, marginTop: 8 }}>
+                {editingGarland.garlandName
+                  ? (flowerNames.find(f => f.value === editingGarland.garlandName)?.label || editingGarland.garlandName)
+                  : 'Select flower'}
+              </Text>
+              <Feather name="chevron-down" size={18} color="#64748B" style={{ position: 'absolute', right: 12, top: 13 }} />
+            </TouchableOpacity>
+
+            {/* No. of Garlands */}
+            <Text style={[styles.inputLabel, { marginTop: 10 }]}>No. of Garlands</Text>
+            <TextInput
+              style={styles.textInput}
+              value={editingGarland.garlandQuantity}
+              onChangeText={t => setEditingGarland(prev => ({ ...prev, garlandQuantity: t }))}
+              keyboardType="numeric"
+              placeholder="e.g. 2"
+              placeholderTextColor="#94a3b8"
+            />
+
+            {/* Radio Choice */}
+            <View style={[styles.row, { marginTop: 12 }]}>
+              <TouchableOpacity
+                onPress={() => setEditingGarland(prev => ({ ...prev, radioChoice: 'count' }))}
+                style={[styles.radioPill, editingGarland.radioChoice === 'count' && styles.radioPillActive]}
+              >
+                <View style={[styles.radioCircle, editingGarland.radioChoice === 'count' && styles.radioCircleActive]}>
+                  {editingGarland.radioChoice === 'count' && <View style={styles.radioDot} />}
+                </View>
+                <Text style={[styles.radioText, editingGarland.radioChoice === 'count' && styles.radioTextActive]}>Flower Count</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setEditingGarland(prev => ({ ...prev, radioChoice: 'size' }))}
+                style={[styles.radioPill, editingGarland.radioChoice === 'size' && styles.radioPillActive]}
+              >
+                <View style={[styles.radioCircle, editingGarland.radioChoice === 'size' && styles.radioCircleActive]}>
+                  {editingGarland.radioChoice === 'size' && <View style={styles.radioDot} />}
+                </View>
+                <Text style={[styles.radioText, editingGarland.radioChoice === 'size' && styles.radioTextActive]}>Garland Size</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Conditional field */}
+            {editingGarland.radioChoice === 'count' ? (
+              <>
+                <Text style={[styles.inputLabel, { marginTop: 10 }]}>Flower Count</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={editingGarland.garlandCount}
+                  onChangeText={t => setEditingGarland(prev => ({ ...prev, garlandCount: t }))}
+                  keyboardType="numeric"
+                  placeholder="e.g. 50"
+                  placeholderTextColor="#94a3b8"
+                />
+              </>
+            ) : null}
+
+            {editingGarland.radioChoice === 'size' ? (
+              <>
+                <Text style={[styles.inputLabel, { marginTop: 10 }]}>Size</Text>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => setModalGarlandSize(true)}
+                  style={styles.textInput}
+                >
+                  <Text style={{ color: editingGarland.garlandSize ? '#0f172a' : '#94a3b8', fontSize: 15, marginTop: 8 }}>
+                    {editingGarland.garlandSize
+                      ? (garlandSizes.find(s => s.value === editingGarland.garlandSize)?.label || `${editingGarland.garlandSize}`)
+                      : 'Select size'}
+                  </Text>
+                  <Feather name="chevron-down" size={18} color="#64748B" style={{ position: 'absolute', right: 12, top: 13 }} />
+                </TouchableOpacity>
+              </>
+            ) : null}
+
+            {/* Actions */}
+            <View style={{ flexDirection: 'row', marginTop: 16 }}>
+              <TouchableOpacity onPress={() => setEditGarlandVisible(false)} style={[styles.secondaryBtn, { flex: 1, marginRight: 8 }]}>
+                <Text style={styles.secondaryText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                disabled={!isEditingGarlandValid()}
+                onPress={handleUpdateGarland}
+                style={[styles.primaryBtn, { flex: 1, opacity: isEditingGarlandValid() ? 1 : 0.5 }]}
+              >
+                <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.primaryGrad}>
+                  <Text style={styles.primaryText}>Save</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Modal: Select Flower (Flower section) */}
       <SelectModal
         visible={modalFlowerName}
@@ -1639,7 +1952,7 @@ const Index = () => {
         data={flowerUnits}
         selectedValue={flowerInput.flowerUnit}
         onClose={() => setModalFlowerUnit(false)}
-        onSelect={(val) => setFlowerInput(prev => ({ ...prev, flowerUnit: val }))}
+        onSelect={(val) => { setFlowerInput(prev => ({ ...prev, flowerUnit: val })); setEditingFlower(prev => ({ ...prev, flowerUnit: val })) }}
       />
 
       {/* Modal: Select Flower (Garland section) */}
@@ -1659,9 +1972,8 @@ const Index = () => {
         data={garlandSizes}
         selectedValue={garlandInput.garlandSize}
         onClose={() => setModalGarlandSize(false)}
-        onSelect={(val) => setGarlandInput(prev => ({ ...prev, garlandSize: val }))}
+        onSelect={(val) => { setGarlandInput(prev => ({ ...prev, garlandSize: val })); setEditingGarland(prev => ({ ...prev, garlandSize: val })) }}
       />
-
     </SafeAreaView>
   )
 }

@@ -32,6 +32,7 @@ import { useTab } from '../TabContext';
 import Drawer from '../../component/Drawer'
 import Notification from '../../component/Notification';
 import moment from 'moment';
+import DeviceInfo from 'react-native-device-info';
 
 const { width } = Dimensions.get('window');
 
@@ -439,6 +440,56 @@ const NewHome = () => {
         ToastAndroid.show('Referral code copied', ToastAndroid.SHORT);
     };
 
+    // Last login and version check
+    const postLastLoginAndVersion = async () => {
+        try {
+            // Current timestamp
+            const nowIso = new Date().toISOString();
+            const lastLogin = moment(nowIso).format('YYYY-MM-DD HH:mm:ss');
+
+            // Device/App info
+            const version = DeviceInfo.getVersion();
+            const model = DeviceInfo.getModel();
+            const os_name = DeviceInfo.getSystemName();
+
+            // Auth token from storage
+            const token = await AsyncStorage.getItem('storeAccesstoken');
+
+            // Build payload
+            const payload = {
+                last_login_at: lastLogin,
+                version: version,
+                model: model,
+                os_name: os_name
+            };
+
+            // console.log('Posting last login and version info:', payload);
+
+            // POST request
+            const response = await fetch(`${base_url}api/update-device`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(payload),
+            });
+
+            // Parse response
+            const data = await response.json();
+            if (response.ok) {
+                // console.log('Server response:', data);
+                return data;
+            } else {
+                // console.log('Failed:', data.message || 'Unknown error');
+                return null;
+            }
+        } catch (error) {
+            // console.log('Error posting last login info:', error);
+            return null;
+        }
+    };
+
     useEffect(() => {
         if (isFocused) {
             const fetchData = async () => {
@@ -448,6 +499,7 @@ const NewHome = () => {
                 await getReferralCode();
                 await getCurrentOrder();
                 await getProductPackages();
+                await postLastLoginAndVersion();
 
                 try {
                     const storedStatus = await AsyncStorage.getItem('isReferCodeApply');

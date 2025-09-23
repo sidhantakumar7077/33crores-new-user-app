@@ -1026,7 +1026,7 @@ const NewHome = () => {
                                         keyExtractor={(item) => item.id}
                                         renderItem={({ item }) => (
                                             <View style={[styles.subscriptionCard, { width: width - 40 }]}>
-                                                <LinearGradient colors={['#1E293B', '#334155', '#475569']} style={styles.subscriptionGradient}>
+                                                <LinearGradient colors={['#f18204ff', '#e89a42ff', '#e9b476ff']} style={styles.subscriptionGradient}>
                                                     <View style={styles.subscriptionContent}>
                                                         <View style={styles.subscriptionLeft}>
                                                             <Text style={styles.subscriptionTitle}>{item.name}</Text>

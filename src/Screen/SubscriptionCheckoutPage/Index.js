@@ -7,6 +7,7 @@ import {
   SafeAreaView,
   Image,
   TouchableOpacity,
+  Pressable,
   TextInput,
   FlatList,
   Modal,
@@ -711,12 +712,12 @@ const Index = (props) => {
         {isLoading ? (
           <ActivityIndicator size="large" color="#c80100" />
         ) : (
-          <TouchableOpacity onPress={handleBuy}>
-            <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.fixedBtm}>
+          <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.fixedBtm} onTouchEnd={handleBuy}>
+            <Pressable hitSlop={10} style={({ pressed }) => [styles.buyNowBtn, pressed && { opacity: 0.3 }]} onPress={handleBuy} disabled={isLoading}>
               <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>BUY NOW</Text>
               <Feather name="arrow-right" color={'#fff'} size={24} marginLeft={10} marginTop={3} />
-            </LinearGradient>
-          </TouchableOpacity>
+            </Pressable>
+          </LinearGradient>
         )}
       </View>
 
@@ -1277,6 +1278,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'absolute',
     bottom: 0
+  },
+  buyNowBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8
   },
   // Order Modal
   backdrop: {

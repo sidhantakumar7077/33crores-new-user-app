@@ -114,7 +114,7 @@ export default function SubscriptionScreen() {
                         <Text style={{ color: '#ffcb44', fontSize: 17 }}>Loading...</Text>
                     </View>
                     :
-                    <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+                    <ScrollView style={{ flex: 1, marginBottom: 30 }} showsVerticalScrollIndicator={false}>
                         {/* Benefits Section */}
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>✨ Benefits</Text>
@@ -167,19 +167,19 @@ export default function SubscriptionScreen() {
                                 </TouchableOpacity>
                             ))}
                         </View>
-
-                        {/* Subscribe Button */}
-                        <View style={styles.subscribe}>
-                            <TouchableOpacity style={styles.subscribeBtn} onPress={() => navigation.navigate('SubscriptionCheckoutPage', { flowerData: selectedPackage, order_id: "", preEndData: null })} disabled={!selectedPlan}>
-                                <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.subscribeGradient}>
-                                    <Text style={styles.subscribeText}>
-                                        {allPackages.find(p => p.product_id === selectedPlan)?.name} - ₹{allPackages.find(p => p.product_id === selectedPlan)?.price}/{allPackages.find(p => p.product_id === selectedPlan)?.interval}
-                                    </Text>
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        </View>
                     </ScrollView>
                 }
+
+                {/* Subscribe Button */}
+                <View style={styles.subscribeFloating}>
+                    <TouchableOpacity style={styles.subscribeBtn} onPress={() => navigation.navigate('SubscriptionCheckoutPage', { flowerData: selectedPackage, order_id: "", preEndData: null })} disabled={!selectedPlan}>
+                        <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.subscribeGradient}>
+                            <Text style={styles.subscribeText}>
+                                {allPackages.find(p => p.product_id === selectedPlan)?.name} - ₹{allPackages.find(p => p.product_id === selectedPlan)?.price}/{allPackages.find(p => p.product_id === selectedPlan)?.interval}
+                            </Text>
+                        </LinearGradient>
+                    </TouchableOpacity>
+                </View>
             </View>
         </View>
     );
@@ -295,11 +295,22 @@ const styles = StyleSheet.create({
     featureText: { marginLeft: 6, fontSize: 12, color: '#374151' },
     radio: { paddingLeft: 10 },
     subscribe: { padding: 20 },
-    subscribeBtn: { borderRadius: 12, overflow: 'hidden' },
+    subscribeFloating: {
+        position: 'absolute',
+        bottom: 5,
+        left: 20,
+        right: 20,
+        zIndex: 1000,
+    },
+    subscribeBtn: {
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
     subscribeGradient: {
-        paddingVertical: 14,
+        paddingVertical: 16,
         alignItems: 'center',
         justifyContent: 'center',
+        borderRadius: 12,
     },
     subscribeText: {
         color: '#fff',

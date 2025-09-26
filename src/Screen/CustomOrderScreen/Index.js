@@ -6,6 +6,7 @@ import {
   ScrollView,
   Image,
   TouchableOpacity,
+  Pressable,
   TextInput,
   SafeAreaView,
   FlatList,
@@ -1393,12 +1394,12 @@ const Index = () => {
         {isLoading ? (
           <ActivityIndicator size="large" color="#c80100" />
         ) : (
-          <TouchableOpacity onPress={handleAnyFlowerBuy}>
-            <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.fixedBtm}>
+          <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.fixedBtm} onTouchEnd={handleAnyFlowerBuy}>
+            <Pressable hitSlop={10} style={({ pressed }) => [styles.buyNowBtn, pressed && { opacity: 0.3 }]} onPress={handleAnyFlowerBuy} disabled={isLoading}>
               <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>BUY NOW</Text>
               <Feather name="arrow-right" color={'#fff'} size={24} marginLeft={10} marginTop={3} />
-            </LinearGradient>
-          </TouchableOpacity>
+            </Pressable>
+          </LinearGradient>
         )}
       </View>
 
@@ -2082,6 +2083,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'absolute',
     bottom: 0
+  },
+  buyNowBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8
   },
 
   // Address Modal styles

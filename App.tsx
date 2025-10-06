@@ -23,6 +23,7 @@ import NoInternet from './src/Screen/NoInternet/Index'
 import PromotionGate from './src/component/PromotionGate';
 
 // Auth
+import IntroPage from './src/Screen/Auth/IntroPage';
 import Login from './src/Screen/Auth/Login'
 import OTP from './src/Screen/Auth/OTP'
 import NewLogin from './src/Screen/Auth/NewLogin';
@@ -215,6 +216,7 @@ const App = () => {
               {accessToken ? <Stack.Screen name="BTN_Layout" component={BTN_Layout} /> : <Stack.Screen name="NewLogin" component={NewLogin} />}
               {!accessToken ? <Stack.Screen name="BTN_Layout" component={BTN_Layout} /> : <Stack.Screen name="NewLogin" component={NewLogin} />}
               {/* <Stack.Screen name='BTN_Layout' component={BTN_Layout} /> */}
+              {/* <Stack.Screen name="IntroPage" component={IntroPage} /> */}
               <Stack.Screen name='OTP' component={OTP} />
               <Stack.Screen name='ProfileSetup' component={ProfileSetup} />
               <Stack.Screen name='SubscriptionCheckoutPage' component={SubscriptionCheckoutPage} />

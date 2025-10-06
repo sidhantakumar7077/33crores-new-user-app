@@ -712,7 +712,7 @@ const Index = (props) => {
         {isLoading ? (
           <ActivityIndicator size="large" color="#c80100" />
         ) : (
-          <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.fixedBtm} onTouchEnd={handleBuy}>
+          <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.fixedBtm}>
             <Pressable hitSlop={10} style={({ pressed }) => [styles.buyNowBtn, pressed && { opacity: 0.3 }]} onPress={handleBuy} disabled={isLoading}>
               <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>BUY NOW</Text>
               <Feather name="arrow-right" color={'#fff'} size={24} marginLeft={10} marginTop={3} />

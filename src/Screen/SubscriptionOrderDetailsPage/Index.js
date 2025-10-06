@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import RazorpayCheckout from 'react-native-razorpay';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import Feather from 'react-native-vector-icons/Feather';
 import { Calendar } from 'react-native-calendars';
@@ -283,6 +284,105 @@ const Index = (props) => {
     closeEndDatePicker();
   };
 
+  const [profileDetails, setProfileDetails] = useState({});
+
+  const getProfile = async () => {
+    var access_token = await AsyncStorage.getItem('storeAccesstoken');
+    try {
+      const response = await fetch(base_url + 'api/user/details', {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${access_token}`
+        },
+      });
+      const responseData = await response.json();
+      if (responseData.success === true) {
+        // console.log("getProfile-------", responseData);
+        setProfileDetails(responseData.user);
+        // setImageSource(user.);
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const [ispaymentLoading, setIsPaymentLoading] = useState(false);
+  const [errormasg, setErrormasg] = useState(null);
+  const [errorModal, setErrorModal] = useState(false);
+  const [orderModalVisible, setOrderModalVisible] = useState(false);
+
+  const payPendingOrder = async (order_id) => {
+    if (!order_id) return;
+
+    const access_token = await AsyncStorage.getItem('storeAccesstoken');
+    const amountRupees = Number(packageDetails?.order?.total_price || 0);
+
+    if (!amountRupees) {
+      setErrormasg('Invalid amount for this order.');
+      setErrorModal(true);
+      return;
+    }
+
+    setIsPaymentLoading(true);
+    try {
+      const rzpKeyId = 'rzp_live_m8GAuZDtZ9W0AI';
+
+      // 2) Open Razorpay Checkout
+      const options = {
+        description: packageDetails?.flower_products?.name || 'Subscription Payment',
+        currency: 'INR',
+        key: rzpKeyId,
+        amount: Math.round(amountRupees * 100), // in paise
+        name: profileDetails?.name || 'User',
+        order_id: "",
+        prefill: {
+          email: profileDetails?.email,
+          contact: profileDetails?.mobile_number,
+          name: profileDetails?.name,
+        },
+        theme: { color: '#53a20e' },
+      };
+
+      const payResult = await RazorpayCheckout.open(options);
+
+      if (!payResult?.razorpay_payment_id) {
+        setErrormasg('Payment failed or cancelled');
+        setErrorModal(true);
+      }
+
+      // 3) Confirm payment on your backend
+      const confirmRes = await fetch(`${base_url}api/process-payment`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          ...(access_token ? { Authorization: `Bearer ${access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          order_id: order_id,
+          payment_id: payResult.razorpay_payment_id,
+          paid_amount: amountRupees,
+        }),
+      });
+
+      const confirmText = await confirmRes.text();
+      if (!confirmText.ok) {
+        setErrormasg(confirmText?.message || 'Payment verification failed');
+        setErrorModal(true);
+      }
+      // Success 🎉
+      // setOrderModalVisible(true);
+      navigation.goBack();
+    } catch (err) {
+      setErrormasg(err?.message || 'Something went wrong during payment.');
+      setErrorModal(true);
+    } finally {
+      setIsPaymentLoading(false);
+    }
+  };
+
   // days left + pending renewal check
   const { remainingDays, hasPendingRenewal } = useMemo(() => {
     const prod = packageDetails?.flower_products || {};
@@ -310,6 +410,7 @@ const Index = (props) => {
 
   useEffect(() => {
     setPackageDetails(props.route.params);
+    getProfile();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ===== Image fallback =====
@@ -725,6 +826,24 @@ const Index = (props) => {
           )}
         </ScrollView>
         {/* ===== Redesigned content ends here ===== */}
+
+        {/* Show a full width button for payment if status is pending and price is greater than 0 and show with price. And Add one more button for cancelling the order */}
+        {packageDetails?.status === 'pending' && packageDetails?.order?.total_price > 0 && (
+          <TouchableOpacity
+            onPress={() => payPendingOrder(packageDetails?.order_id)}
+            activeOpacity={0.9}
+          >
+            <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.renewButton}>
+              {ispaymentLoading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.renewButtonText}>
+                  Pay  ₹{packageDetails?.order?.total_price ?? '0'}
+                </Text>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
 
         {/* Full-width Renew CTA (only when ≤5 days left and no pending renewal) */}
         {remainingDays <= 5 && !hasPendingRenewal && (

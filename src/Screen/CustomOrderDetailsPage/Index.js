@@ -184,15 +184,12 @@ const Index = (props) => {
   };
 
   const cancelOrderRequest = async () => {
-    if (!approvedRequest) return;
-    const requestId = approvedRequest?.request_id;
+    const requestId = packageDetails?.request_id;
     if (!requestId) {
-      // Alert.alert('Error', 'Missing request id');
-      ToastAndroid.show('Missing request id', ToastAndroid.SHORT);
+      ToastAndroid.show('Invalid request ID', ToastAndroid.SHORT);
       return;
     }
     if (!cancelReason.trim()) {
-      // Alert.alert('Reason required', 'Please enter a reason for cancellation.');
       ToastAndroid.show('Reason required', ToastAndroid.SHORT);
       return;
     }
@@ -218,13 +215,10 @@ const Index = (props) => {
         // success
         closeCancelRequestModal();
         // refresh lists and clear the pending bar
-        console.log("Cancelled Successfully", json);
-        await getCurrentOrder?.();
-        setApprovedRequest(null);
-        // Alert.alert('Cancelled', 'Your request has been cancelled.');
+        // console.log("Cancelled Successfully", json);
+        navigation.goBack();
         ToastAndroid.show('Your request has been cancelled.', ToastAndroid.SHORT);
       } else {
-        // Alert.alert('Error', json?.message || 'Unable to cancel the order');
         ToastAndroid.show(json?.message || 'Unable to cancel the order', ToastAndroid.SHORT);
       }
     } catch (e) {

@@ -679,6 +679,8 @@ const Index = () => {
       }
 
       const payload = buildPayloadForApi();
+      // console.log("Built payload:", payload);
+      // return; // Uncomment this to dry-run
 
       if (!payload.items.length) {
         // displayErrorMessage("Please save at least one Flower or Garland entry");
@@ -688,7 +690,7 @@ const Index = () => {
         return;
       }
 
-      console.log('Payload to API:', JSON.stringify(payload));
+      // console.log('Payload to API:', JSON.stringify(payload));
       // return; // Uncomment this to dry-run
 
       const response = await fetch(base_url + 'api/flower-requests', {
@@ -1394,7 +1396,7 @@ const Index = () => {
         {isLoading ? (
           <ActivityIndicator size="large" color="#c80100" />
         ) : (
-          <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.fixedBtm} onTouchEnd={handleAnyFlowerBuy}>
+          <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.fixedBtm}>
             <Pressable hitSlop={10} style={({ pressed }) => [styles.buyNowBtn, pressed && { opacity: 0.3 }]} onPress={handleAnyFlowerBuy} disabled={isLoading}>
               <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>BUY NOW</Text>
               <Feather name="arrow-right" color={'#fff'} size={24} marginLeft={10} marginTop={3} />

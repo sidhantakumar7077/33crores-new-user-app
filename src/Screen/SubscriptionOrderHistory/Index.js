@@ -13,6 +13,7 @@ import {
   Modal,
   Alert,
   ActivityIndicator,
+  ToastAndroid,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
@@ -30,6 +31,7 @@ const chipForStatus = (raw) => {
   if (s === 'active') return { bg: '#ECFDF5', text: '#065F46', label: 'Active' };
   if (s === 'paused') return { bg: '#DBEAFE', text: '#1E40AF', label: 'Paused' };
   if (s === 'expired') return { bg: '#FEE2E2', text: '#991B1B', label: 'Expired' };
+  if (s === 'cancelled') return { bg: '#f4c3bdff', text: '#eb2929ff', label: 'Cancelled' };
   return { bg: '#E5E7EB', text: '#374151', label: '—' };
 };
 
@@ -173,6 +175,42 @@ const Index = () => {
   const [cancelTargetId, setCancelTargetId] = useState(null);
   const [cancelLoading, setCancelLoading] = useState(false);
 
+  // Handle cancel subscription modal
+  const [cancelSubscriptionModalVisible, setCancelSubscriptionModalVisible] = useState(false);
+  const openCancelsubscriptionModal = () => { setCancelSubscriptionModalVisible(true); };
+  const [loadingCancelSubscription, setLoadingCancelSubscription] = useState(false);
+  const [cancelSubData, setCancelSubData] = useState(null);
+
+  const cancelSubscription = async () => {
+    if (!cancelSubData) return;
+    setLoadingCancelSubscription(true);
+
+    try {
+      const res = await fetch(`${base_url}api/subscriptions/cancel/${cancelSubData.id}`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const json = await res.json();
+
+      if (res.ok && json?.success) {
+        ToastAndroid.show("Subscription cancelled successfully", ToastAndroid.SHORT);
+        setCancelSubData(null);
+        setCancelSubscriptionModalVisible(false);
+        await getSubscriptionList();
+      } else {
+        ToastAndroid.show(json?.message || 'Failed to cancel subscription', ToastAndroid.SHORT);
+      }
+    } catch (error) {
+      ToastAndroid.show(error?.message || 'Something went wrong', ToastAndroid.SHORT);
+    } finally {
+      setLoadingCancelSubscription(false);
+    }
+  };
+
   const openCancelModal = (orderId) => {
     setCancelTargetId(orderId);
     setCancelModalVisible(true);
@@ -252,6 +290,7 @@ const Index = () => {
       String(item?.status).toLowerCase() === 'active' && !!item?.pause_start_date;
     const isScheduledPause =
       String(item?.status).toLowerCase() === 'active' && item?.pause_start_date && new Date(item.pause_start_date) > new Date();
+    const isPending = String(item?.status).toLowerCase() === 'pending';
 
     // --- NEW: compute remaining days
     const start = moment(item?.start_date, 'YYYY-MM-DD');
@@ -335,6 +374,24 @@ const Index = () => {
           >
             <Text style={styles.outlineText}>View Details</Text>
           </TouchableOpacity>
+
+          {isPending && (
+            <>
+              <TouchableOpacity
+                style={[styles.outlineBtn, { backgroundColor: '#FEE2E2', borderColor: '#FECACA' }]}
+                onPress={() => { openCancelsubscriptionModal(); setCancelSubData(item); }}
+              >
+                <Text style={[styles.outlineText, { color: '#DC2626' }]}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.outlineBtn, { backgroundColor: '#c6f3e1ff', borderColor: '#10B981' }]}
+                onPress={() => navigation.navigate('SubscriptionOrderDetailsPage', item)}
+              >
+                <Text style={[styles.outlineText, { color: '#10B981' }]}>Pay</Text>
+              </TouchableOpacity>
+            </>
+          )}
 
           {showPause && !showEditPause && (
             <TouchableOpacity style={styles.actionGradBtn} onPress={() => { handlePauseButton(item?.order_id); setIsPausedEdit('no'); setSelectedPauseLogId(null); }}>
@@ -663,6 +720,121 @@ const Index = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Cancel Subscription Modal */}
+      <Modal
+        animationType="slide"
+        transparent
+        visible={cancelSubscriptionModalVisible}
+        onRequestClose={() => setCancelSubscriptionModalVisible(false)}
+      >
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' }}>
+          {/* backdrop */}
+          <TouchableOpacity
+            style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
+            activeOpacity={1}
+            onPress={() => setCancelSubscriptionModalVisible(false)}
+          />
+          <View
+            style={{
+              backgroundColor: '#fff',
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              paddingHorizontal: 18,
+              paddingTop: 10,
+              paddingBottom: 18,
+              borderTopWidth: 1,
+              borderColor: '#E5E7EB',
+            }}
+          >
+            {/* handle bar */}
+            <View
+              style={{
+                alignSelf: 'center',
+                width: 40,
+                height: 4,
+                borderRadius: 999,
+                backgroundColor: '#E5E7EB',
+                marginBottom: 12,
+              }}
+            />
+            <LinearGradient
+              colors={['#fb7185', '#ef4444']}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 12,
+              }}
+            >
+              <Feather name="x-circle" size={26} color="#fff" />
+            </LinearGradient>
+            <Text style={{ fontSize: 18, fontWeight: '900', color: '#111827' }}>
+              Cancel Subscription?
+            </Text>
+            <Text style={{ marginTop: 6, color: '#374151', lineHeight: 20, fontWeight: '600' }}>
+              Cancelling your subscription will stop all future deliveries. You can resubscribe anytime.
+            </Text>
+            {!!cancelSubData?.subscription_id && (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  paddingVertical: 8,
+                  paddingHorizontal: 12,
+                  backgroundColor: '#F9FAFB',
+                  borderWidth: 1,
+                  borderColor: '#E5E7EB',
+                  borderRadius: 12,
+                  marginTop: 12,
+                }}
+              >
+                <Icon name="hashtag" size={12} color="#6B7280" />
+                <Text style={{ color: '#374151', fontWeight: '700' }}>
+                  Subscription ID: {cancelSubData.subscription_id}
+                </Text>
+              </View>
+            )}
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  borderWidth: 1.5,
+                  borderColor: '#CBD5E1',
+                  backgroundColor: '#fff',
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                }}
+                onPress={() => setCancelSubscriptionModalVisible(false)}
+              >
+                <Text style={{ color: '#111827', fontWeight: '900', fontSize: 14 }}>
+                  No, keep subscription
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  paddingVertical: 12,
+                  backgroundColor: '#ef4444',
+                }}
+                onPress={cancelSubscription}
+              >
+                {loadingCancelSubscription ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={{ color: '#fff', fontWeight: '900', fontSize: 14 }}>Yes, cancel</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -734,8 +906,10 @@ const styles = StyleSheet.create({
 
   actionsRow: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 12, gap: 10 },
   outlineBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    width: "30%",
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#CBD5E1',

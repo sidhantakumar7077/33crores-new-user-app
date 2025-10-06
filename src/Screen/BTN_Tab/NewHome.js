@@ -290,7 +290,9 @@ const NewHome = () => {
                 const activeOrPausedSubs = subs.filter(
                     s =>
                         (s?.status || '').toLowerCase() === 'active' ||
-                        (s?.status || '').toLowerCase() === 'paused'
+                        (s?.status || '').toLowerCase() === 'paused' ||
+                        (s?.status || '').toLowerCase() === 'pending'
+                        // && (s.order.flower_payments.payment_status || '').toLowerCase() === 'pending')
                 );
 
                 setActiveSubscription(activeOrPausedSubs);
@@ -307,6 +309,42 @@ const NewHome = () => {
         }).catch((error) => {
             console.error('Error:', error);
         });
+    };
+
+    // Handle cancel subscription modal
+    const [cancelSubscriptionModalVisible, setCancelSubscriptionModalVisible] = useState(false);
+    const openCancelsubscriptionModal = () => { setCancelSubscriptionModalVisible(true); };
+    const [loadingCancelSubscription, setLoadingCancelSubscription] = useState(false);
+    const [cancelSubData, setCancelSubData] = useState(null);
+
+    const cancelSubscription = async () => {
+        if (!cancelSubData) return;
+        setLoadingCancelSubscription(true);
+
+        try {
+            const res = await fetch(`${base_url}api/subscriptions/cancel/${cancelSubData.id}`, {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            const json = await res.json();
+
+            if (res.ok && json?.success) {
+                ToastAndroid.show("Subscription cancelled successfully", ToastAndroid.SHORT);
+                setCancelSubData(null);
+                setCancelSubscriptionModalVisible(false);
+                await getCurrentOrder();
+            } else {
+                ToastAndroid.show(json?.message || 'Failed to cancel subscription', ToastAndroid.SHORT);
+            }
+        } catch (error) {
+            ToastAndroid.show(error?.message || 'Something went wrong', ToastAndroid.SHORT);
+        } finally {
+            setLoadingCancelSubscription(false);
+        }
     };
 
     // Handle changes to the referral code input
@@ -819,6 +857,8 @@ const NewHome = () => {
                                                 item?.pause_start_date &&
                                                 new Date(item.pause_start_date) > new Date();
                                             const hasPendingRenewal = item?.pending_renewals && Object.keys(item.pending_renewals).length > 0;
+                                            const pendingPayment = subStatus === 'pending';
+                                            // const pendingPayment = item.order.flower_payments.payment_status && item.order.flower_payments.payment_status.toLowerCase() === 'pending';
 
                                             return (
                                                 <View style={{ width }}>
@@ -888,6 +928,24 @@ const NewHome = () => {
                                                                 >
                                                                     <Text style={styles.outlineText}>View Details</Text>
                                                                 </TouchableOpacity>
+
+                                                                {pendingPayment && (
+                                                                    <>
+                                                                        <TouchableOpacity
+                                                                            style={[styles.outlineBtn, { backgroundColor: '#df2b2bff' }]}
+                                                                            onPress={() => { openCancelsubscriptionModal(); setCancelSubData(item); }}
+                                                                        >
+                                                                            <Text style={[styles.outlineText, { color: '#fff' }]}>Cancel</Text>
+                                                                        </TouchableOpacity>
+
+                                                                        <TouchableOpacity
+                                                                            style={[styles.outlineBtn, { backgroundColor: '#0ab27aff' }]}
+                                                                            onPress={() => navigation.navigate('SubscriptionOrderDetailsPage', item)}
+                                                                        >
+                                                                            <Text style={[styles.outlineText, { color: '#fff' }]}>Pay</Text>
+                                                                        </TouchableOpacity>
+                                                                    </>
+                                                                )}
 
                                                                 {showPause && !showEditPause && (
                                                                     <TouchableOpacity
@@ -1120,66 +1178,67 @@ const NewHome = () => {
                             </View>
 
                             {/* Upcoming Festivals Card */}
-                            <View style={styles.festivalsContainer}>
-                                <View style={styles.festivalsHeader}>
-                                    <Text style={styles.sectionTitle}>Upcoming Festivals</Text>
-                                </View>
+                            {festivals.length > 0 && (
+                                <View style={styles.festivalsContainer}>
+                                    <View style={styles.festivalsHeader}>
+                                        <Text style={styles.sectionTitle}>Upcoming Festivals</Text>
+                                    </View>
 
-                                {festivalsLoading && (
-                                    <ActivityIndicator size="small" color="#c9170a" style={{ marginTop: 8 }} />
-                                )}
+                                    {festivalsLoading && (
+                                        <ActivityIndicator size="small" color="#c9170a" style={{ marginTop: 8 }} />
+                                    )}
 
-                                {!festivalsLoading && festivalsError && (
-                                    <Text style={{ color: '#ef4444', marginTop: 8 }}>
-                                        {String(festivalsError)}
-                                    </Text>
-                                )}
+                                    {!festivalsLoading && festivalsError && (
+                                        <Text style={{ color: '#ef4444', marginTop: 8 }}>
+                                            {String(festivalsError)}
+                                        </Text>
+                                    )}
 
-                                {!festivalsLoading && !festivalsError && festivals.length === 0 && (
-                                    <Text style={{ color: '#64748b', marginTop: 8 }}>
-                                        No upcoming festivals.
-                                    </Text>
-                                )}
+                                    {!festivalsLoading && !festivalsError && festivals.length === 0 && (
+                                        <Text style={{ color: '#64748b', marginTop: 8 }}>
+                                            No upcoming festivals.
+                                        </Text>
+                                    )}
 
-                                {!festivalsLoading && !festivalsError && festivals.length > 0 && (
-                                    <View style={styles.festivalsGrid}>
-                                        {festivals.map((festival, index) => (
-                                            <TouchableOpacity
-                                                key={festival.id}
-                                                style={[styles.festivalCard, index === 1 && styles.middleCard]}
-                                            >
-                                                <View style={styles.festivalImageContainer}>
-                                                    <LinearGradient
-                                                        colors={festival.gradient}
-                                                        style={styles.festivalImageGradient}
-                                                    >
-                                                        <Text style={styles.festivalEmoji}>
-                                                            {/* {index === 0 ? '🌺' : index === 1 ? '🪔' : '🌸'} */}
-                                                            {festival.festival_image ?
-                                                                <Image
-                                                                    source={{ uri: festival.festival_image }}
-                                                                    style={{ width: 65, height: 65 }}
-                                                                    resizeMode="contain"
-                                                                />
-                                                                :
-                                                                '🪔'
-                                                            }
-                                                        </Text>
-                                                    </LinearGradient>
+                                    {!festivalsLoading && !festivalsError && festivals.length > 0 && (
+                                        <View style={styles.festivalsGrid}>
+                                            {festivals.map((festival, index) => (
+                                                <TouchableOpacity
+                                                    key={festival.id}
+                                                    style={[styles.festivalCard, index === 1 && styles.middleCard]}
+                                                >
+                                                    <View style={styles.festivalImageContainer}>
+                                                        <LinearGradient
+                                                            colors={festival.gradient}
+                                                            style={styles.festivalImageGradient}
+                                                        >
+                                                            <Text style={styles.festivalEmoji}>
+                                                                {/* {index === 0 ? '🌺' : index === 1 ? '🪔' : '🌸'} */}
+                                                                {festival.festival_image ?
+                                                                    <Image
+                                                                        source={{ uri: festival.festival_image }}
+                                                                        style={{ width: 65, height: 65 }}
+                                                                        resizeMode="contain"
+                                                                    />
+                                                                    :
+                                                                    '🪔'
+                                                                }
+                                                            </Text>
+                                                        </LinearGradient>
 
-                                                    <View style={styles.countdownBadge}>
-                                                        <Text style={styles.countdownNumber}>{festival.daysLeft}</Text>
-                                                        <Text style={styles.countdownLabel}>days</Text>
+                                                        <View style={styles.countdownBadge}>
+                                                            <Text style={styles.countdownNumber}>{festival.daysLeft}</Text>
+                                                            <Text style={styles.countdownLabel}>days</Text>
+                                                        </View>
                                                     </View>
-                                                </View>
 
-                                                <View style={styles.festivalInfo}>
-                                                    <Text style={styles.festivalName}>{festival.name}</Text>
-                                                    <Text style={styles.festivalDate}>{festival.date}</Text>
-                                                    <Text style={styles.festivalDescription} numberOfLines={2}>
-                                                        {festival.description}
-                                                    </Text>
-                                                    {/* <TouchableOpacity style={styles.orderButton}>
+                                                    <View style={styles.festivalInfo}>
+                                                        <Text style={styles.festivalName}>{festival.name}</Text>
+                                                        <Text style={styles.festivalDate}>{festival.date}</Text>
+                                                        <Text style={styles.festivalDescription} numberOfLines={2}>
+                                                            {festival.description}
+                                                        </Text>
+                                                        {/* <TouchableOpacity style={styles.orderButton}>
                                                 <LinearGradient
                                                     colors={['#FF6B35', '#F7931E']}
                                                     style={styles.orderButtonGradient}
@@ -1187,12 +1246,13 @@ const NewHome = () => {
                                                     <Text style={styles.orderButtonText}>Order Now</Text>
                                                 </LinearGradient>
                                             </TouchableOpacity> */}
-                                                </View>
-                                            </TouchableOpacity>
-                                        ))}
-                                    </View>
-                                )}
-                            </View>
+                                                    </View>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </View>
+                                    )}
+                                </View>
+                            )}
 
                             {/* Product Packages (like flower subscription) */}
                             {productPackages.length > 0 && (
@@ -1341,55 +1401,62 @@ const NewHome = () => {
                         },
                     ]}
                 >
-                    <LinearGradient
-                        colors={['#F59E0B', '#F97316']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.pendingBar}
+                    <TouchableOpacity
+                        activeOpacity={0.9}
+                        onPress={() => navigation.navigate('CustomOrderDetailsPage', approvedRequest)}
+                        style={{ flex: 1 }}
                     >
-                        <View style={{ flex: 1 }}>
-                            <Text style={styles.pendingTitle}>Pending Payment</Text>
-                            <Text style={styles.pendingMeta} numberOfLines={1}>
-                                {(approvedRequest?.flower_product?.name ||
-                                    approvedRequest?.flower_products?.name ||
-                                    'Custom Order')}{' '}
-                                • {approvedRequest?.date ? moment(approvedRequest.date).format('DD MMM YYYY') : ''}{' '}
-                                {approvedRequest?.time ? `• ${approvedRequest.time}` : ''}
-                            </Text>
-                        </View>
+                        <LinearGradient
+                            colors={['#F59E0B', '#F97316']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.pendingBar}
 
-                        {!!(approvedRequest?.order?.total_price || approvedRequest?.order?.requested_flower_price) && (
-                            <Text style={styles.pendingPrice}>
-                                ₹ {approvedRequest?.order?.total_price ?? approvedRequest?.order?.requested_flower_price}
-                            </Text>
-                        )}
+                        >
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.pendingTitle}>Pending Payment</Text>
+                                <Text style={styles.pendingMeta} numberOfLines={1}>
+                                    {(approvedRequest?.flower_product?.name ||
+                                        approvedRequest?.flower_products?.name ||
+                                        'Custom Order')}{' '}
+                                    • {approvedRequest?.date ? moment(approvedRequest.date).format('DD MMM YYYY') : ''}{' '}
+                                    {approvedRequest?.time ? `• ${approvedRequest.time}` : ''}
+                                </Text>
+                            </View>
 
-                        {/* NEW: Cancel + Pay buttons */}
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                            <TouchableOpacity
-                                style={{
-                                    paddingHorizontal: 14,
-                                    paddingVertical: 10,
-                                    borderRadius: 10,
-                                    borderWidth: 1.5,
-                                    borderColor: 'rgba(255,255,255,0.9)',
-                                    backgroundColor: 'transparent',
-                                }}
-                                onPress={openCancelOrderModal}
-                                activeOpacity={0.9}
-                            >
-                                <Text style={{ color: '#fff', fontWeight: '900' }}>Cancel</Text>
-                            </TouchableOpacity>
+                            {!!(approvedRequest?.order?.total_price || approvedRequest?.order?.requested_flower_price) && (
+                                <Text style={styles.pendingPrice}>
+                                    ₹ {approvedRequest?.order?.total_price ?? approvedRequest?.order?.requested_flower_price}
+                                </Text>
+                            )}
 
-                            <TouchableOpacity
-                                style={styles.payBtn}
-                                onPress={() => navigation.navigate('CustomOrderDetailsPage', approvedRequest)}
-                                activeOpacity={0.9}
-                            >
-                                <Text style={styles.payBtnText}>Pay</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </LinearGradient>
+                            {/* NEW: Cancel + Pay buttons */}
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                <TouchableOpacity
+                                    style={{
+                                        paddingHorizontal: 14,
+                                        paddingVertical: 10,
+                                        borderRadius: 10,
+                                        borderWidth: 1.5,
+                                        borderColor: 'rgba(255,255,255,0.9)',
+                                        backgroundColor: 'transparent',
+                                    }}
+                                    onPress={openCancelOrderModal}
+                                    activeOpacity={0.9}
+                                >
+                                    <Text style={{ color: '#fff', fontWeight: '900' }}>Cancel</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.payBtn}
+                                    onPress={() => navigation.navigate('CustomOrderDetailsPage', approvedRequest)}
+                                    activeOpacity={0.9}
+                                >
+                                    <Text style={styles.payBtnText}>Pay</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </LinearGradient>
+                    </TouchableOpacity>
                 </Animated.View>
             )}
 
@@ -1653,6 +1720,121 @@ const NewHome = () => {
                                 disabled={cancelRequestLoading}
                             >
                                 {cancelRequestLoading ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                    <Text style={{ color: '#fff', fontWeight: '900', fontSize: 14 }}>Yes, cancel</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Cancel Subscription Modal */}
+            <Modal
+                animationType="slide"
+                transparent
+                visible={cancelSubscriptionModalVisible}
+                onRequestClose={() => setCancelSubscriptionModalVisible(false)}
+            >
+                <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' }}>
+                    {/* backdrop */}
+                    <TouchableOpacity
+                        style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
+                        activeOpacity={1}
+                        onPress={() => setCancelSubscriptionModalVisible(false)}
+                    />
+                    <View
+                        style={{
+                            backgroundColor: '#fff',
+                            borderTopLeftRadius: 20,
+                            borderTopRightRadius: 20,
+                            paddingHorizontal: 18,
+                            paddingTop: 10,
+                            paddingBottom: 18,
+                            borderTopWidth: 1,
+                            borderColor: '#E5E7EB',
+                        }}
+                    >
+                        {/* handle bar */}
+                        <View
+                            style={{
+                                alignSelf: 'center',
+                                width: 40,
+                                height: 4,
+                                borderRadius: 999,
+                                backgroundColor: '#E5E7EB',
+                                marginBottom: 12,
+                            }}
+                        />
+                        <LinearGradient
+                            colors={['#fb7185', '#ef4444']}
+                            style={{
+                                width: 44,
+                                height: 44,
+                                borderRadius: 22,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                marginBottom: 12,
+                            }}
+                        >
+                            <Feather name="x-circle" size={26} color="#fff" />
+                        </LinearGradient>
+                        <Text style={{ fontSize: 18, fontWeight: '900', color: '#111827' }}>
+                            Cancel Subscription?
+                        </Text>
+                        <Text style={{ marginTop: 6, color: '#374151', lineHeight: 20, fontWeight: '600' }}>
+                            Cancelling your subscription will stop all future deliveries. You can resubscribe anytime.
+                        </Text>
+                        {!!cancelSubData?.subscription_id && (
+                            <View
+                                style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    paddingVertical: 8,
+                                    paddingHorizontal: 12,
+                                    backgroundColor: '#F9FAFB',
+                                    borderWidth: 1,
+                                    borderColor: '#E5E7EB',
+                                    borderRadius: 12,
+                                    marginTop: 12,
+                                }}
+                            >
+                                <Icon name="hashtag" size={12} color="#6B7280" />
+                                <Text style={{ color: '#374151', fontWeight: '700' }}>
+                                    Subscription ID: {cancelSubData.subscription_id}
+                                </Text>
+                            </View>
+                        )}
+                        <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+                            <TouchableOpacity
+                                style={{
+                                    flex: 1,
+                                    borderWidth: 1.5,
+                                    borderColor: '#CBD5E1',
+                                    backgroundColor: '#fff',
+                                    paddingVertical: 12,
+                                    borderRadius: 12,
+                                    alignItems: 'center',
+                                }}
+                                onPress={() => setCancelSubscriptionModalVisible(false)}
+                            >
+                                <Text style={{ color: '#111827', fontWeight: '900', fontSize: 14 }}>
+                                    No, keep subscription
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={{
+                                    flex: 1,
+                                    borderRadius: 12,
+                                    alignItems: 'center',
+                                    paddingVertical: 12,
+                                    backgroundColor: '#ef4444',
+                                }}
+                                onPress={cancelSubscription}
+                            >
+                                {loadingCancelSubscription ? (
                                     <ActivityIndicator size="small" color="#fff" />
                                 ) : (
                                     <Text style={{ color: '#fff', fontWeight: '900', fontSize: 14 }}>Yes, cancel</Text>
@@ -2503,8 +2685,10 @@ const styles = StyleSheet.create({
 
     actionsRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 12, gap: 10 },
     outlineBtn: {
-        paddingHorizontal: 14,
-        paddingVertical: 10,
+        width: "30%",
+        height: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
         borderRadius: 10,
         borderWidth: 1,
         borderColor: '#CBD5E1',

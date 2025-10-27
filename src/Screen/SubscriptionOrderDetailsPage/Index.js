@@ -832,16 +832,15 @@ const Index = (props) => {
           <TouchableOpacity
             onPress={() => payPendingOrder(packageDetails?.order_id)}
             activeOpacity={0.9}
+            style={styles.renewButton}
           >
-            <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.renewButton}>
-              {ispaymentLoading ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.renewButtonText}>
-                  Pay  ₹{packageDetails?.order?.total_price ?? '0'}
-                </Text>
-              )}
-            </LinearGradient>
+            {ispaymentLoading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.renewButtonText}>
+                Pay  ₹{packageDetails?.order?.total_price ?? '0'}
+              </Text>
+            )}
           </TouchableOpacity>
         )}
 
@@ -1332,7 +1331,7 @@ const styles = StyleSheet.create({
     bottom: 10,
     left: 20,
     right: 20,
-    // backgroundColor: '#ef4444',
+    backgroundColor: '#FF6B35',
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',

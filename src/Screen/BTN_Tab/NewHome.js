@@ -23,6 +23,7 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import Feather from 'react-native-vector-icons/Feather';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Clipboard from '@react-native-clipboard/clipboard';
@@ -39,6 +40,7 @@ const { width } = Dimensions.get('window');
 const NewHome = () => {
 
     const navigation = useNavigation();
+    const insets = useSafeAreaInsets();
     const isFocused = useIsFocused();
     const pulse = React.useRef(new Animated.Value(0)).current;
     const [spinner, setSpinner] = useState(false);
@@ -156,7 +158,8 @@ const NewHome = () => {
             if (response.status === 200) {
                 // console.log("object", response.data);
                 const filteredPackages = response.data.filter(item => item.category === "Subscription");
-                setAllPackages(filteredPackages);
+                const showData = filteredPackages.filter(item => item.show === "1");
+                setAllPackages(showData);
                 setSpinner(false);
             } else {
                 console.error('Failed to fetch packages:', response.message);
@@ -205,6 +208,40 @@ const NewHome = () => {
     const [cancelRequestModalVisible, setCancelRequestModalVisible] = useState(false);
     const [cancelReason, setCancelReason] = useState('');
     const [cancelRequestLoading, setCancelRequestLoading] = useState(false);
+
+    // (constants)
+    const SUPPORT_PHONE = '+919776888887'; // change to your real number
+    const DISPLAY_PHONE = '+91 97768 88887';
+
+    // Payment pending modal state
+    const [paymentPendingModalVisible, setPaymentPendingModalVisible] = useState(false);
+    const [paymentPendingData, setPaymentPendingData] = useState(null);
+
+    // --- Animation hooks (place inside your component) ---
+    const pulseScale = useRef(new Animated.Value(1)).current;
+    const pulseOpacity = useRef(new Animated.Value(0.6)).current;
+
+    useEffect(() => {
+        if (paymentPendingModalVisible) {
+            const loop = Animated.loop(
+                Animated.parallel([
+                    Animated.sequence([
+                        Animated.timing(pulseScale, { toValue: 1.18, duration: 900, useNativeDriver: true }),
+                        Animated.timing(pulseScale, { toValue: 1.0, duration: 900, useNativeDriver: true }),
+                    ]),
+                    Animated.sequence([
+                        Animated.timing(pulseOpacity, { toValue: 1.0, duration: 900, useNativeDriver: true }),
+                        Animated.timing(pulseOpacity, { toValue: 0.6, duration: 900, useNativeDriver: true }),
+                    ]),
+                ])
+            );
+            loop.start();
+            return () => loop.stop();
+        } else {
+            pulseScale.setValue(1);
+            pulseOpacity.setValue(0.6);
+        }
+    }, [paymentPendingModalVisible]);
 
     // helpers
     const openCancelOrderModal = () => {
@@ -268,47 +305,90 @@ const NewHome = () => {
     };
 
     const getCurrentOrder = async () => {
-        var access_token = await AsyncStorage.getItem('storeAccesstoken');
+        try {
+            const access_token = await AsyncStorage.getItem('storeAccesstoken');
 
-        await fetch(base_url + 'api/orders-list', {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + access_token
-            },
-        }).then(response => response.json()).then(response => {
+            const res = await fetch(base_url + 'api/orders-list', {
+                method: 'GET',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    Authorization: 'Bearer ' + access_token,
+                },
+            });
+
+            const response = await res.json();
+
             if (response.success) {
-                // console.log("object", response.data);
-                // setRequested_orderList(response.data.requested_orders);
-                // setSubscriptionList(response.data.subscriptions_order);
                 const subs = Array.isArray(response?.data?.subscriptions_order)
                     ? response.data.subscriptions_order
                     : [];
 
-                // filter all active or paused subscriptions
-                const activeOrPausedSubs = subs.filter(
-                    s =>
-                        (s?.status || '').toLowerCase() === 'active' ||
-                        (s?.status || '').toLowerCase() === 'paused' ||
-                        (s?.status || '').toLowerCase() === 'pending'
-                        // && (s.order.flower_payments.payment_status || '').toLowerCase() === 'pending')
-                );
+                // filter all pending subscriptions
+                const pendingSubs = subs.filter(s => {
+                    const st = (s?.status || '').toLowerCase();
+                    return st === 'pending';
+                });
+                if (pendingSubs.length > 0) {
+                    setPaymentPendingData(pendingSubs[0]);
+                    setPaymentPendingModalVisible(true);
+                }
 
-                setActiveSubscription(activeOrPausedSubs);
+                // filter all active, paused, or pending subscriptions
+                const activeOrPausedSubs = subs.filter(s => {
+                    const st = (s?.status || '').toLowerCase();
+                    return st === 'active' || st === 'paused' || st === 'pending';
+                });
 
+                // --- sorting helpers ---
+                const durationToDays = d => ({ 1: 30, 3: 90, 6: 180 }[Number(d)] ?? 0);
+
+                const calcRemainingDays = s => {
+                    const totalDays = durationToDays(s?.flower_products?.duration);
+                    if (!totalDays) return Number.POSITIVE_INFINITY; // unknown duration → push to end
+
+                    const start = moment(s?.start_date, 'YYYY-MM-DD');
+                    const end = moment(s?.new_date || s?.end_date, 'YYYY-MM-DD');
+                    const today = moment().startOf('day');
+                    const until = end.isValid() ? moment.min(today, end) : today;
+
+                    const usedDays = start.isValid()
+                        ? Math.min(totalDays, Math.max(0, until.diff(start, 'days') + 1))
+                        : 0;
+
+                    return Math.max(0, totalDays - usedDays);
+                };
+
+                // 1) items with < 5 days left first
+                // 2) then by fewer days left
+                const orderedSubs = [...activeOrPausedSubs].sort((a, b) => {
+                    const ra = calcRemainingDays(a);
+                    const rb = calcRemainingDays(b);
+
+                    const aUrgent = ra < 5;
+                    const bUrgent = rb < 5;
+                    if (aUrgent !== bUrgent) return aUrgent ? -1 : 1;
+
+                    if (ra !== rb) return ra - rb;
+
+                    return 0; // keep original order otherwise
+                });
+
+                // store ordered list
+                setActiveSubscription(orderedSubs);
+
+                // requested orders: pick first approved
                 const reqs = Array.isArray(response?.data?.requested_orders)
                     ? response.data.requested_orders
                     : [];
-                // first request with status 'approved'
                 const approved = reqs.find(r => (r?.status || '').toLowerCase() === 'approved') || null;
                 setApprovedRequest(approved);
             } else {
                 console.error('Failed to fetch packages:', response.message);
             }
-        }).catch((error) => {
+        } catch (error) {
             console.error('Error:', error);
-        });
+        }
     };
 
     // Handle cancel subscription modal
@@ -566,7 +646,9 @@ const NewHome = () => {
     }, [pulse]);
 
     // Pause range
-    const [startDate, setStartDate] = useState(new Date(new Date().setDate(new Date().getDate() + 1)));
+    const now = moment();
+    const defaultStart = now.hour() >= 17 ? now.clone().add(2, 'day') : now.clone().add(1, 'day');
+    const [startDate, setStartDate] = useState(new Date(defaultStart));
     const [endDate, setEndDate] = useState(new Date(new Date().setDate(new Date().getDate() + 1)));
     useEffect(() => { if (endDate < startDate) setEndDate(startDate); }, [startDate, endDate]);
 
@@ -586,6 +668,29 @@ const NewHome = () => {
     const [isEndDateModalOpen, setIsEndDateModalOpen] = useState(false);
     const openEndDatePicker = () => setIsEndDateModalOpen(true);
     const closeEndDatePicker = () => setIsEndDateModalOpen(false);
+
+    const toYMD = (d) => moment(d).format('YYYY-MM-DD');
+
+    // 5pm rule: earliest selectable date based on "now"
+    const earliestByNow = () => {
+        const now = moment();
+        const base = now.hour() >= 17 ? now.clone().add(2, 'day') : now.clone().add(1, 'day');
+        return base.startOf('day');
+    };
+
+    // Build earliest resume date with bounds (pause_start_date, pause_end_date)
+    const computeEarliestResume = (pauseStartStr, pauseEndStr) => {
+        const base = earliestByNow(); // 5pm rule
+        const psd = pauseStartStr ? moment(pauseStartStr, 'YYYY-MM-DD').startOf('day') : null;
+        const ped = pauseEndStr ? moment(pauseEndStr, 'YYYY-MM-DD').startOf('day') : null;
+
+        // earliest = max(base, pause_start_date) if psd exists
+        let earliest = psd && psd.isAfter(base) ? psd.clone() : base.clone();
+
+        // if earliest > pause_end_date, clamp to pause_end_date (and caller can handle disabled state if needed)
+        if (ped && earliest.isAfter(ped)) earliest = ped.clone();
+        return earliest;
+    };
 
     // Resume flow
     const [isResumeModalVisible, setResumeModalVisible] = useState(false);
@@ -647,18 +752,18 @@ const NewHome = () => {
         setSelectedResumePackageId(item.order_id);
         setPause_start_date(item.pause_start_date);
         setPause_end_date(item.pause_end_date);
-        // Default resumeDate = max(today+1, pause_start_date)
-        if (item.pause_start_date) {
-            const today = new Date();
-            const psd = new Date(item.pause_start_date);
-            setResumeDate(today > psd ? new Date(today.setDate(today.getDate() + 1)) : psd);
-        } else {
-            setResumeDate(new Date());
-        }
+        // Default resumeDate = earliest allowed by 5pm rule AND pause_start_date
+        const earliest = computeEarliestResume(item.pause_start_date, item.pause_end_date);
+        setResumeDate(earliest.toDate());
+
         openResumeModal();
     };
 
-    const handleResumDatePress = (day) => { setResumeDate(new Date(day.dateString)); closeResumeDatePicker(); };
+    const handleResumDatePress = (day) => {
+        const picked = moment(day.dateString, 'YYYY-MM-DD').startOf('day').toDate();
+        setResumeDate(picked);
+        closeResumeDatePicker();
+    };
 
     const submitResumeDates = async () => {
         const access_token = await AsyncStorage.getItem('storeAccesstoken');
@@ -848,6 +953,17 @@ const NewHome = () => {
                                             const remainingDays = Math.max(0, totalDays - usedDays);
                                             const progressPct = totalDays ? Math.round((usedDays / totalDays) * 100) : 0;
 
+                                            const isAfter5pmToday = moment().isSameOrAfter(
+                                                moment().set({ hour: 17, minute: 0, second: 0, millisecond: 0 })
+                                            );
+
+                                            const isPauseStartingTomorrow =
+                                                pause_start_date &&
+                                                moment(pause_start_date).isSame(moment().add(1, 'day'), 'day');
+
+                                            const showCancelPause =
+                                                isScheduledPause && !(isAfter5pmToday && isPauseStartingTomorrow);
+
                                             // flags
                                             const showPause = subStatus === 'active';
                                             const showResume = subStatus === 'paused';
@@ -982,7 +1098,7 @@ const NewHome = () => {
                                                                     </TouchableOpacity>
                                                                 )}
 
-                                                                {isScheduledPause && (
+                                                                {showCancelPause && (
                                                                     <TouchableOpacity
                                                                         style={styles.actionGradBtn}
                                                                         onPress={() => openCancelModal(item?.order_id)}
@@ -1494,7 +1610,7 @@ const NewHome = () => {
                         <Calendar
                             onDayPress={handleStartDatePress}
                             markedDates={{ [moment(startDate).format('YYYY-MM-DD')]: { selected: true, marked: true, selectedColor: 'blue' } }}
-                            minDate={moment().add(1, 'days').format('YYYY-MM-DD')}
+                            minDate={defaultStart.format('YYYY-MM-DD')}
                         />
                     </View>
                 </View>
@@ -1507,7 +1623,7 @@ const NewHome = () => {
                         <Calendar
                             onDayPress={handleEndDatePress}
                             markedDates={{ [moment(endDate).format('YYYY-MM-DD')]: { selected: true, marked: true, selectedColor: 'blue' } }}
-                            minDate={moment().add(1, 'days').format('YYYY-MM-DD')}
+                            minDate={moment(startDate).format('YYYY-MM-DD')}
                         />
                     </View>
                 </View>
@@ -1583,9 +1699,16 @@ const NewHome = () => {
                     <View style={{ width: '90%', padding: 20, backgroundColor: 'white', borderRadius: 10, elevation: 5 }}>
                         <Calendar
                             onDayPress={handleResumDatePress}
-                            markedDates={{ [moment(resumeDate || pause_start_date).format('YYYY-MM-DD')]: { selected: true, marked: true, selectedColor: 'blue' } }}
-                            minDate={moment().add(1, 'day').format('YYYY-MM-DD')}
-                            maxDate={moment(pause_end_date).format('YYYY-MM-DD')}
+                            markedDates={{
+                                [toYMD(resumeDate || computeEarliestResume(pause_start_date, pause_end_date).toDate())]: {
+                                    selected: true, marked: true, selectedColor: 'blue'
+                                }
+                            }}
+                            minDate={
+                                // enforce: if after 5pm, tomorrow is NOT selectable
+                                computeEarliestResume(pause_start_date, pause_end_date).format('YYYY-MM-DD')
+                            }
+                            maxDate={pause_end_date ? moment(pause_end_date, 'YYYY-MM-DD').format('YYYY-MM-DD') : undefined}
                         />
                     </View>
                 </View>
@@ -1843,6 +1966,262 @@ const NewHome = () => {
                         </View>
                     </View>
                 </View>
+            </Modal>
+
+            {/* Payment Pending – Full Screen Gradient Modal */}
+            <Modal
+                visible={paymentPendingModalVisible}
+                transparent={false}
+                animationType="slide"
+                presentationStyle="fullScreen"
+                statusBarTranslucent
+                hardwareAccelerated
+                onRequestClose={() => { /* block closing */ }}
+            >
+                {/* Theme gradient background */}
+                <LinearGradient
+                    colors={['#FFEDD5', '#FDBA74']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={{
+                        flex: 1,
+                        paddingTop: insets.top + 60,
+                        paddingHorizontal: 20,
+                        paddingBottom: insets.bottom + 20,
+                        justifyContent: 'space-between',
+                    }}
+                >
+                    {/* Header + animated pending icon */}
+                    <View style={{ alignItems: 'center' }}>
+                        {/* animated ring */}
+                        <Animated.View
+                            style={{
+                                transform: [{ scale: pulseScale }],
+                                opacity: pulseOpacity,
+                                width: 92,
+                                height: 92,
+                                borderRadius: 46,
+                                backgroundColor: 'rgba(234, 88, 12, 0.18)', // #EA580C
+                                borderWidth: 2,
+                                borderColor: 'rgba(234, 88, 12, 0.35)',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                            }}
+                        >
+                            {/* solid badge */}
+                            <View
+                                style={{
+                                    width: 64,
+                                    height: 64,
+                                    borderRadius: 32,
+                                    backgroundColor: '#FED7AA',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    borderWidth: 2,
+                                    borderColor: '#FDBA74',
+                                    shadowColor: '#EA580C',
+                                    shadowOpacity: 0.35,
+                                    shadowRadius: 12,
+                                    shadowOffset: { width: 0, height: 6 },
+                                    elevation: 8,
+                                }}
+                            >
+                                <Text style={{ color: '#7C2D12', fontSize: 30, fontWeight: '900' }}>!</Text>
+                            </View>
+                        </Animated.View>
+
+                        <Text
+                            style={{
+                                color: '#7C2D12',
+                                fontSize: 24,
+                                fontWeight: '800',
+                                textAlign: 'center',
+                                marginTop: 16,
+                            }}
+                        >
+                            Your Subscription has expired!
+                        </Text>
+                        <Text
+                            style={{
+                                color: '#7C2D12',
+                                opacity: 0.8,
+                                fontSize: 15,
+                                lineHeight: 22,
+                                textAlign: 'center',
+                                marginTop: 8,
+                                paddingHorizontal: 6,
+                            }}
+                        >
+                            Since you are our valued customer, we have renewed your subscription.{'\n'}{'\n'} Please complete the payment for your renewed subscription for which we will thank you.
+                        </Text>
+                    </View>
+
+                    {/* Details chips (optional) */}
+                    <View style={{ alignItems: 'center' }}>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginHorizontal: -4 }}>
+                            {paymentPendingData?.flower_products?.name ? (
+                                <View
+                                    style={{
+                                        paddingVertical: 6,
+                                        paddingHorizontal: 10,
+                                        borderRadius: 999,
+                                        margin: 4,
+                                        backgroundColor: 'rgba(255,255,255,0.7)',
+                                        borderWidth: 1,
+                                        borderColor: '#FED7AA',
+                                    }}
+                                >
+                                    <Text style={{ color: '#7C2D12', fontSize: 12, fontWeight: '700' }}>
+                                        {paymentPendingData.flower_products.name}
+                                    </Text>
+                                </View>
+                            ) : null}
+
+                            {paymentPendingData?.order_id ? (
+                                <View
+                                    style={{
+                                        paddingVertical: 6,
+                                        paddingHorizontal: 10,
+                                        borderRadius: 999,
+                                        margin: 4,
+                                        backgroundColor: 'rgba(255,255,255,0.7)',
+                                        borderWidth: 1,
+                                        borderColor: '#FED7AA',
+                                    }}
+                                >
+                                    <Text style={{ color: '#7C2D12', fontSize: 12, fontWeight: '700' }}>
+                                        Order #{String(paymentPendingData.order_id)}
+                                    </Text>
+                                </View>
+                            ) : null}
+
+                            {paymentPendingData?.start_date ? (
+                                <View
+                                    style={{
+                                        paddingVertical: 6,
+                                        paddingHorizontal: 10,
+                                        borderRadius: 999,
+                                        margin: 4,
+                                        backgroundColor: 'rgba(255,255,255,0.7)',
+                                        borderWidth: 1,
+                                        borderColor: '#FED7AA',
+                                    }}
+                                >
+                                    <Text style={{ color: '#7C2D12', fontSize: 12, fontWeight: '700' }}>
+                                        {moment(paymentPendingData.start_date).format('DD MMM YYYY')}
+                                    </Text>
+                                </View>
+                            ) : null}
+
+                            {paymentPendingData?.amount_due != null ? (
+                                <View
+                                    style={{
+                                        paddingVertical: 6,
+                                        paddingHorizontal: 10,
+                                        borderRadius: 999,
+                                        margin: 4,
+                                        backgroundColor: '#FFFBEB',
+                                        borderWidth: 1,
+                                        borderColor: '#FDE68A',
+                                    }}
+                                >
+                                    <Text style={{ color: '#92400E', fontSize: 12, fontWeight: '900' }}>
+                                        ₹{paymentPendingData.amount_due}
+                                    </Text>
+                                </View>
+                            ) : null}
+                        </View>
+                    </View>
+
+                    {/* Bottom CTAs */}
+                    <View>
+                        {/* Pay Now */}
+                        <TouchableOpacity
+                            activeOpacity={0.92}
+                            disabled={!paymentPendingData}
+                            onPress={() => {
+                                navigation.navigate('SubscriptionOrderDetailsPage', paymentPendingData);
+                                setTimeout(() => setPaymentPendingModalVisible(false), 120);
+                            }}
+                            style={{
+                                borderRadius: 18,
+                                overflow: 'hidden',
+                                opacity: paymentPendingData ? 1 : 0.7,
+                                shadowColor: '#EA580C',
+                                shadowOpacity: 0.32,
+                                shadowRadius: 12,
+                                shadowOffset: { width: 0, height: 6 },
+                                elevation: 8,
+                            }}
+                        >
+                            <LinearGradient
+                                colors={['#F59E0B', '#D97706']} // deeper accent for contrast
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={{
+                                    paddingVertical: 16,
+                                    paddingHorizontal: 18,
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                }}
+                            >
+                                <Text style={{ color: '#ffffff', fontSize: 17, fontWeight: '900' }}>
+                                    Pay Now
+                                </Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+
+                        {/* Skip */}
+                        {/* <TouchableOpacity
+                            activeOpacity={0.9}
+                            onPress={() => setPaymentPendingModalVisible(false)}
+                            style={{
+                                marginTop: 12,
+                                paddingVertical: 14,
+                                paddingHorizontal: 12,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                borderRadius: 14,
+                                borderWidth: 1,
+                                borderColor: '#FDBA74',
+                                backgroundColor: 'rgba(255,255,255,0.65)',
+                            }}
+                        >
+                            <Text style={{ color: '#7C2D12', fontSize: 14, fontWeight: '800' }}>Skip</Text>
+                        </TouchableOpacity> */}
+
+                        {/* Support text */}
+                        <Text
+                            style={{
+                                textAlign: 'center',
+                                marginTop: 16,
+                                color: '#7C2D12',
+                                opacity: 0.7,
+                                fontSize: 14,
+                            }}
+                        >
+                            Need help? Contact support:{' '}
+                            <Text
+                                style={{
+                                    color: '#7C2D12',
+                                    textDecorationLine: 'underline',
+                                    fontWeight: '800',
+                                }}
+                                onPress={async () => {
+                                    const url = `tel:${SUPPORT_PHONE}`;
+                                    const can = await Linking.canOpenURL(url);
+                                    if (can) {
+                                        Linking.openURL(url);
+                                    } else {
+                                        Alert.alert('Unable to place call', `Please dial ${DISPLAY_PHONE}`);
+                                    }
+                                }}
+                            >
+                                {DISPLAY_PHONE}
+                            </Text>
+                        </Text>
+                    </View>
+                </LinearGradient>
             </Modal>
         </View>
     );

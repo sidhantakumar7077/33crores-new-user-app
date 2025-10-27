@@ -46,7 +46,9 @@ const Index = () => {
   const [subscriptionList, setSubscriptionList] = useState([]);
 
   // Pause range
-  const [startDate, setStartDate] = useState(new Date(new Date().setDate(new Date().getDate() + 1)));
+  const now = moment();
+  const defaultStart = now.hour() >= 17 ? now.clone().add(2, 'day') : now.clone().add(1, 'day');
+  const [startDate, setStartDate] = useState(new Date(defaultStart));
   const [endDate, setEndDate] = useState(new Date(new Date().setDate(new Date().getDate() + 1)));
   useEffect(() => { if (endDate < startDate) setEndDate(startDate); }, [startDate]);
 
@@ -57,6 +59,29 @@ const Index = () => {
   const [isEndDateModalOpen, setIsEndDateModalOpen] = useState(false);
   const openEndDatePicker = () => setIsEndDateModalOpen(true);
   const closeEndDatePicker = () => setIsEndDateModalOpen(false);
+
+  const toYMD = (d) => moment(d).format('YYYY-MM-DD');
+
+  // 5pm rule: earliest selectable date based on "now"
+  const earliestByNow = () => {
+    const now = moment();
+    const base = now.hour() >= 17 ? now.clone().add(2, 'day') : now.clone().add(1, 'day');
+    return base.startOf('day');
+  };
+
+  // Build earliest resume date with bounds (pause_start_date, pause_end_date)
+  const computeEarliestResume = (pauseStartStr, pauseEndStr) => {
+    const base = earliestByNow(); // 5pm rule
+    const psd = pauseStartStr ? moment(pauseStartStr, 'YYYY-MM-DD').startOf('day') : null;
+    const ped = pauseEndStr ? moment(pauseEndStr, 'YYYY-MM-DD').startOf('day') : null;
+
+    // earliest = max(base, pause_start_date) if psd exists
+    let earliest = psd && psd.isAfter(base) ? psd.clone() : base.clone();
+
+    // if earliest > pause_end_date, clamp to pause_end_date (and caller can handle disabled state if needed)
+    if (ped && earliest.isAfter(ped)) earliest = ped.clone();
+    return earliest;
+  };
 
   // Pause modal
   const [isPauseModalVisible, setPauseModalVisible] = useState(false);
@@ -78,17 +103,13 @@ const Index = () => {
   const [pause_start_date, setPause_start_date] = useState(null);
   const [pause_end_date, setPause_end_date] = useState(null);
 
-  useEffect(() => {
-    if (pause_start_date) {
-      const today = new Date();
-      const psd = new Date(pause_start_date);
-      setResumeDate(today > psd ? new Date(today.setDate(today.getDate() + 1)) : psd);
-    }
-  }, [pause_start_date]);
-
   const handleStartDatePress = (day) => { setStartDate(new Date(day.dateString)); closeStartDatePicker(); };
   const handleEndDatePress = (day) => { setEndDate(new Date(day.dateString)); closeEndDatePicker(); };
-  const handleResumDatePress = (day) => { setResumeDate(new Date(day.dateString)); closeResumeDatePicker(); };
+  const handleResumDatePress = (day) => {
+    const picked = moment(day.dateString, 'YYYY-MM-DD').startOf('day').toDate();
+    setResumeDate(picked);
+    closeResumeDatePicker();
+  };
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -137,6 +158,10 @@ const Index = () => {
     setSelectedResumePackageId(item.order_id);
     setPause_start_date(item.pause_start_date);
     setPause_end_date(item.pause_end_date);
+    // Default resumeDate = earliest allowed by 5pm rule AND pause_start_date
+    const earliest = computeEarliestResume(item.pause_start_date, item.pause_end_date);
+    setResumeDate(earliest.toDate());
+
     openResumeModal();
   };
 
@@ -292,6 +317,17 @@ const Index = () => {
       String(item?.status).toLowerCase() === 'active' && item?.pause_start_date && new Date(item.pause_start_date) > new Date();
     const isPending = String(item?.status).toLowerCase() === 'pending';
 
+    const isAfter5pmToday = moment().isSameOrAfter(
+      moment().set({ hour: 17, minute: 0, second: 0, millisecond: 0 })
+    );
+
+    const isPauseStartingTomorrow =
+      item?.pause_start_date &&
+      moment(item?.pause_start_date).isSame(moment().add(1, 'day'), 'day');
+
+    const showCancelPause =
+      isScheduledPause && !(isAfter5pmToday && isPauseStartingTomorrow);
+
     // --- NEW: compute remaining days
     const start = moment(item?.start_date, 'YYYY-MM-DD');
     const end = moment(item?.new_date || item?.end_date, 'YYYY-MM-DD');
@@ -421,7 +457,7 @@ const Index = () => {
             </TouchableOpacity>
           )}
 
-          {isScheduledPause && (
+          {showCancelPause && (
             <TouchableOpacity
               style={styles.actionGradBtn}
               onPress={() => openCancelModal(item?.order_id)}
@@ -537,7 +573,7 @@ const Index = () => {
               markedDates={{
                 [moment(startDate).format('YYYY-MM-DD')]: { selected: true, marked: true, selectedColor: 'blue' },
               }}
-              minDate={moment().add(1, 'days').format('YYYY-MM-DD')}
+              minDate={defaultStart.format('YYYY-MM-DD')}
             />
           </View>
         </View>
@@ -552,7 +588,7 @@ const Index = () => {
               markedDates={{
                 [moment(endDate).format('YYYY-MM-DD')]: { selected: true, marked: true, selectedColor: 'blue' },
               }}
-              minDate={moment().add(1, 'days').format('YYYY-MM-DD')}
+              minDate={moment(startDate).format('YYYY-MM-DD')}
             />
           </View>
         </View>
@@ -686,22 +722,24 @@ const Index = () => {
 
       {/* Resume modal */}
       <Modal animationType="slide" transparent visible={isResumeModalVisible} onRequestClose={closeResumeModal}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View style={{ width: '90%', backgroundColor: '#fff', padding: 20, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB' }}>
             <TouchableOpacity style={{ alignSelf: 'flex-end' }} onPress={closeResumeModal}>
               <Feather name="x" color="#000" size={26} />
             </TouchableOpacity>
 
-            <Text style={styles.label}>Resume Date</Text>
+            <Text style={{ fontSize: 14, fontWeight: '800', color: '#111827', marginTop: 6 }}>Resume Date</Text>
             <TouchableOpacity onPress={openResumeDatePicker}>
-              <Text style={[styles.input, { paddingVertical: 10 }]}>
+              <Text style={{ borderBottomWidth: 1, borderBottomColor: '#CBD5E1', marginBottom: 10, color: '#0f172a', paddingVertical: 10, fontWeight: '700' }}>
                 {resumeDate ? moment(resumeDate).format('DD MMM YYYY') : 'Select a date'}
               </Text>
             </TouchableOpacity>
             {!resumeDate && <Text style={{ color: 'red', marginBottom: 8 }}>Please select a resume date</Text>}
 
-            <TouchableOpacity style={styles.primaryBtn} onPress={submitResumeDates}>
-              <Text style={styles.primaryText}>Submit</Text>
+            <TouchableOpacity onPress={submitResumeDates}>
+              <LinearGradient colors={['#FF6B35', '#F7931E']} style={{ marginTop: 8, borderRadius: 10, overflow: 'hidden', alignItems: 'center', paddingVertical: 12 }}>
+                <Text style={{ color: '#fff', fontWeight: '900', fontSize: 14 }}>Submit</Text>
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         </View>
@@ -713,9 +751,16 @@ const Index = () => {
           <View style={styles.pickerCard}>
             <Calendar
               onDayPress={handleResumDatePress}
-              markedDates={{ [moment(resumeDate || pause_start_date).format('YYYY-MM-DD')]: { selected: true, marked: true, selectedColor: 'blue' } }}
-              minDate={moment().add(1, 'day').format('YYYY-MM-DD')}
-              maxDate={moment(pause_end_date).format('YYYY-MM-DD')}
+              markedDates={{
+                [toYMD(resumeDate || computeEarliestResume(pause_start_date, pause_end_date).toDate())]: {
+                  selected: true, marked: true, selectedColor: 'blue'
+                }
+              }}
+              minDate={
+                // enforce: if after 5pm, tomorrow is NOT selectable
+                computeEarliestResume(pause_start_date, pause_end_date).format('YYYY-MM-DD')
+              }
+              maxDate={pause_end_date ? moment(pause_end_date, 'YYYY-MM-DD').format('YYYY-MM-DD') : undefined}
             />
           </View>
         </View>

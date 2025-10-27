@@ -68,8 +68,15 @@ const App = () => {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [latestVersion, setLatestVersion] = useState('');
-
+  const [hasSeenIntro, setHasSeenIntro] = useState<null | boolean>(null);
   const [showPromotion, setShowPromotion] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const v = await AsyncStorage.getItem('hasSeenIntro');
+      setHasSeenIntro(v === 'true');
+    })();
+  }, []);
 
   useEffect(() => {
     const checkForUpdates = async () => {
@@ -213,9 +220,16 @@ const App = () => {
             <Stack.Screen name="NoInternet" component={NoInternet} />
           ) : (
             <>
-              {accessToken ? <Stack.Screen name="BTN_Layout" component={BTN_Layout} /> : <Stack.Screen name="NewLogin" component={NewLogin} />}
+              {accessToken ?
+                <Stack.Screen name="BTN_Layout" component={BTN_Layout} />
+                :
+                <>
+                  {!hasSeenIntro ? <Stack.Screen name="IntroPage" component={IntroPage} /> : <Stack.Screen name="NewLogin" component={NewLogin} />}
+                  {hasSeenIntro ? <Stack.Screen name="IntroPage" component={IntroPage} /> : <Stack.Screen name="NewLogin" component={NewLogin} />}
+                </>
+              }
               {!accessToken ? <Stack.Screen name="BTN_Layout" component={BTN_Layout} /> : <Stack.Screen name="NewLogin" component={NewLogin} />}
-              {/* <Stack.Screen name='BTN_Layout' component={BTN_Layout} /> */}
+              {/* <Stack.Screen name='BTN_Layout' component={BTN_Layout} />
               {/* <Stack.Screen name="IntroPage" component={IntroPage} /> */}
               <Stack.Screen name='OTP' component={OTP} />
               <Stack.Screen name='ProfileSetup' component={ProfileSetup} />

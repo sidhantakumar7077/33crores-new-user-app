@@ -44,7 +44,7 @@ const PromotionGate = ({
     const statusOk = !item.status || String(item.status).toLowerCase() === 'active';
     const now = moment().startOf('day');
     const startOk = item.start_date ? now.isSameOrAfter(moment(item.start_date, 'YYYY-MM-DD')) : true;
-    const endOk   = item.end_date   ? now.isSameOrBefore(moment(item.end_date, 'YYYY-MM-DD'))   : true;
+    const endOk = item.end_date ? now.isSameOrBefore(moment(item.end_date, 'YYYY-MM-DD')) : true;
     return statusOk && startOk && endOk;
   };
 

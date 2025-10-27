@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, ScrollView, Image, ActivityIndicator, FlatList, RefreshControl, BackHandler } from 'react-native'
 import LinearGradient from 'react-native-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useIsFocused, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -39,6 +40,7 @@ const Index = () => {
   );
 
   const getAllNotifications = async () => {
+    const access_token = await AsyncStorage.getItem('storeAccesstoken');
     try {
       setSpinner(true);
       const response = await fetch(base_url + 'api/fcm-bulk-notifications', {
@@ -46,9 +48,11 @@ const Index = () => {
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${access_token}`
         },
       });
       const responseData = await response.json();
+      console.log("Notification", responseData);
       if (responseData.status === 200) {
         setAllNotifications(responseData.data);
       }

@@ -304,6 +304,93 @@ const NewHome = () => {
         }
     };
 
+    // const getCurrentOrder = async () => {
+    //     try {
+    //         const access_token = await AsyncStorage.getItem('storeAccesstoken');
+
+    //         const res = await fetch(base_url + 'api/orders-list', {
+    //             method: 'GET',
+    //             headers: {
+    //                 Accept: 'application/json',
+    //                 'Content-Type': 'application/json',
+    //                 Authorization: 'Bearer ' + access_token,
+    //             },
+    //         });
+
+    //         const response = await res.json();
+
+    //         if (response.success) {
+    //             const subs = Array.isArray(response?.data?.subscriptions_order)
+    //                 ? response.data.subscriptions_order
+    //                 : [];
+
+    //             // filter all pending subscriptions
+    //             const pendingSubs = subs.filter(s => {
+    //                 const st = (s?.status || '').toLowerCase();
+    //                 return st === 'pending';
+    //             });
+    //             if (pendingSubs.length > 0) {
+    //                 setPaymentPendingData(pendingSubs[0]);
+    //                 setPaymentPendingModalVisible(true);
+    //             }
+
+    //             // filter all active, paused, or pending subscriptions
+    //             const activeOrPausedSubs = subs.filter(s => {
+    //                 const st = (s?.status || '').toLowerCase();
+    //                 return st === 'active' || st === 'paused' || st === 'pending';
+    //             });
+
+    //             // --- sorting helpers ---
+    //             const durationToDays = d => ({ 1: 30, 3: 90, 6: 180 }[Number(d)] ?? 0);
+
+    //             const calcRemainingDays = s => {
+    //                 const totalDays = durationToDays(s?.flower_products?.duration);
+    //                 if (!totalDays) return Number.POSITIVE_INFINITY; // unknown duration → push to end
+
+    //                 const start = moment(s?.start_date, 'YYYY-MM-DD');
+    //                 const end = moment(s?.new_date || s?.end_date, 'YYYY-MM-DD');
+    //                 const today = moment().startOf('day');
+    //                 const until = end.isValid() ? moment.min(today, end) : today;
+
+    //                 const usedDays = start.isValid()
+    //                     ? Math.min(totalDays, Math.max(0, until.diff(start, 'days') + 1))
+    //                     : 0;
+
+    //                 return Math.max(0, totalDays - usedDays);
+    //             };
+
+    //             // 1) items with < 5 days left first
+    //             // 2) then by fewer days left
+    //             const orderedSubs = [...activeOrPausedSubs].sort((a, b) => {
+    //                 const ra = calcRemainingDays(a);
+    //                 const rb = calcRemainingDays(b);
+
+    //                 const aUrgent = ra < 5;
+    //                 const bUrgent = rb < 5;
+    //                 if (aUrgent !== bUrgent) return aUrgent ? -1 : 1;
+
+    //                 if (ra !== rb) return ra - rb;
+
+    //                 return 0; // keep original order otherwise
+    //             });
+
+    //             // store ordered list
+    //             setActiveSubscription(orderedSubs);
+
+    //             // requested orders: pick first approved
+    //             const reqs = Array.isArray(response?.data?.requested_orders)
+    //                 ? response.data.requested_orders
+    //                 : [];
+    //             const approved = reqs.find(r => (r?.status || '').toLowerCase() === 'approved') || null;
+    //             setApprovedRequest(approved);
+    //         } else {
+    //             console.error('Failed to fetch packages:', response.message);
+    //         }
+    //     } catch (error) {
+    //         console.error('Error:', error);
+    //     }
+    // };
+
     const getCurrentOrder = async () => {
         try {
             const access_token = await AsyncStorage.getItem('storeAccesstoken');
@@ -324,28 +411,12 @@ const NewHome = () => {
                     ? response.data.subscriptions_order
                     : [];
 
-                // filter all pending subscriptions
-                const pendingSubs = subs.filter(s => {
-                    const st = (s?.status || '').toLowerCase();
-                    return st === 'pending';
-                });
-                if (pendingSubs.length > 0) {
-                    setPaymentPendingData(pendingSubs[0]);
-                    setPaymentPendingModalVisible(true);
-                }
-
-                // filter all active, paused, or pending subscriptions
-                const activeOrPausedSubs = subs.filter(s => {
-                    const st = (s?.status || '').toLowerCase();
-                    return st === 'active' || st === 'paused' || st === 'pending';
-                });
-
-                // --- sorting helpers ---
+                // ---- helpers ----
                 const durationToDays = d => ({ 1: 30, 3: 90, 6: 180 }[Number(d)] ?? 0);
 
                 const calcRemainingDays = s => {
                     const totalDays = durationToDays(s?.flower_products?.duration);
-                    if (!totalDays) return Number.POSITIVE_INFINITY; // unknown duration → push to end
+                    if (!totalDays) return Number.POSITIVE_INFINITY;
 
                     const start = moment(s?.start_date, 'YYYY-MM-DD');
                     const end = moment(s?.new_date || s?.end_date, 'YYYY-MM-DD');
@@ -359,22 +430,41 @@ const NewHome = () => {
                     return Math.max(0, totalDays - usedDays);
                 };
 
-                // 1) items with < 5 days left first
-                // 2) then by fewer days left
-                const orderedSubs = [...activeOrPausedSubs].sort((a, b) => {
+                // buckets
+                const pendingSubs = subs.filter(s => (s?.status || '').toLowerCase() === 'pending');
+
+                const activeOrPausedOrPending = subs.filter(s => {
+                    const st = (s?.status || '').toLowerCase();
+                    return st === 'active' || st === 'paused' || st === 'pending';
+                });
+
+                // ---- OR logic for modal trigger ----
+                // find the most urgent sub with remainingDays < 5
+                const urgentSubEntry = activeOrPausedOrPending
+                    .map(s => ({ sub: s, rem: calcRemainingDays(s) }))
+                    .filter(x => x.rem < 5)
+                    .sort((a, b) => a.rem - b.rem)[0];
+
+                const urgentSub = urgentSubEntry?.sub;
+
+                // If urgentSub exists OR there is at least one pending sub, show modal
+                if (urgentSub || pendingSubs.length > 0) {
+                    setPaymentPendingData(urgentSub ?? pendingSubs[0]);
+                    setPaymentPendingModalVisible(true);
+                }
+
+                // ---- sorting list (keep your previous ordering) ----
+                const orderedSubs = [...activeOrPausedOrPending].sort((a, b) => {
                     const ra = calcRemainingDays(a);
                     const rb = calcRemainingDays(b);
 
                     const aUrgent = ra < 5;
                     const bUrgent = rb < 5;
                     if (aUrgent !== bUrgent) return aUrgent ? -1 : 1;
-
                     if (ra !== rb) return ra - rb;
-
-                    return 0; // keep original order otherwise
+                    return 0;
                 });
 
-                // store ordered list
                 setActiveSubscription(orderedSubs);
 
                 // requested orders: pick first approved
@@ -1014,14 +1104,14 @@ const NewHome = () => {
 
                                                         {/* Progress + stats */}
                                                         <View style={styles.subBody}>
-                                                            <View style={styles.progressRow}>
+                                                            {/* <View style={styles.progressRow}>
                                                                 <View style={styles.progressTrack}>
                                                                     <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
                                                                 </View>
                                                                 <Text style={styles.progressPct}>{progressPct}%</Text>
-                                                            </View>
+                                                            </View> */}
 
-                                                            <View style={styles.statsRow}>
+                                                            {/* <View style={styles.statsRow}>
                                                                 <View style={styles.statBadge}>
                                                                     <Icon name="calendar-day" size={10} color="#0F172A" />
                                                                     <Text style={styles.statText}>Total {totalDays}d</Text>
@@ -1034,7 +1124,7 @@ const NewHome = () => {
                                                                     <Icon name="hourglass-half" size={10} color="#065F46" />
                                                                     <Text style={[styles.statText, { color: '#065F46' }]}>Left {remainingDays}d</Text>
                                                                 </View>
-                                                            </View>
+                                                            </View> */}
 
                                                             {/* Actions */}
                                                             <View style={styles.actionsRow}>
@@ -1976,7 +2066,7 @@ const NewHome = () => {
                 presentationStyle="fullScreen"
                 statusBarTranslucent
                 hardwareAccelerated
-                onRequestClose={() => { /* block closing */ }}
+                onRequestClose={() => { setPaymentPendingModalVisible(false); }}
             >
                 {/* Theme gradient background */}
                 <LinearGradient
@@ -2039,7 +2129,7 @@ const NewHome = () => {
                                 marginTop: 16,
                             }}
                         >
-                            Your Subscription has expired!
+                            Pending Payment!
                         </Text>
                         <Text
                             style={{
@@ -2052,7 +2142,7 @@ const NewHome = () => {
                                 paddingHorizontal: 6,
                             }}
                         >
-                            Since you are our valued customer, we have renewed your subscription.{'\n'}{'\n'} Please complete the payment for your renewed subscription for which we will thank you.
+                            Please complete the payment to continue enjoying our services.
                         </Text>
                     </View>
 
@@ -2095,7 +2185,7 @@ const NewHome = () => {
                                 </View>
                             ) : null}
 
-                            {paymentPendingData?.start_date ? (
+                            {/* {paymentPendingData?.start_date ? (
                                 <View
                                     style={{
                                         paddingVertical: 6,
@@ -2111,7 +2201,7 @@ const NewHome = () => {
                                         {moment(paymentPendingData.start_date).format('DD MMM YYYY')}
                                     </Text>
                                 </View>
-                            ) : null}
+                            ) : null} */}
 
                             {paymentPendingData?.amount_due != null ? (
                                 <View
@@ -2172,7 +2262,7 @@ const NewHome = () => {
                         </TouchableOpacity>
 
                         {/* Skip */}
-                        {/* <TouchableOpacity
+                        <TouchableOpacity
                             activeOpacity={0.9}
                             onPress={() => setPaymentPendingModalVisible(false)}
                             style={{
@@ -2188,7 +2278,7 @@ const NewHome = () => {
                             }}
                         >
                             <Text style={{ color: '#7C2D12', fontSize: 14, fontWeight: '800' }}>Skip</Text>
-                        </TouchableOpacity> */}
+                        </TouchableOpacity>
 
                         {/* Support text */}
                         <Text

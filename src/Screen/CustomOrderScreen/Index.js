@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useMemo, useRef as useRefAlias } from 'react';
 import {
   View,
   Text,
@@ -27,7 +27,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import Entypo from 'react-native-vector-icons/Entypo';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Feather from 'react-native-vector-icons/Feather';
-import { useNavigation, useIsFocused } from '@react-navigation/native';
+import { useNavigation, useIsFocused, useRoute } from '@react-navigation/native';
 import DatePicker from 'react-native-date-picker';
 import { Calendar } from 'react-native-calendars';
 import moment from 'moment';
@@ -38,6 +38,12 @@ const Index = () => {
   const navigation = useNavigation();
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
+
+  const route = useRoute();
+  const reorderFrom = route?.params?.reorderFrom || null;
+
+  // prevent double rehydrate on focus/refetches
+  const didHydrateFromReorder = useRef(false);
 
   const [spinner, setSpinner] = useState(false);
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
@@ -337,6 +343,65 @@ const Index = () => {
   };
 
   // === NEW: Single entry inputs + saved tables ===
+
+  useEffect(() => {
+    if (!reorderFrom || didHydrateFromReorder.current) return;
+
+    // 1) Items → saved tables
+    const items = Array.isArray(reorderFrom?.flower_request_items)
+      ? reorderFrom.flower_request_items
+      : [];
+
+    const flowers = items.filter(i => i?.type === 'flower').map(mapFlower);
+    const garlands = items.filter(i => i?.type === 'garland').map(mapGarland);
+
+    setSavedFlowers(flowers);
+    setSavedGarlands(garlands);
+
+    // 2) Date / Time
+    if (reorderFrom?.date) {
+      const parsedDate = moment(reorderFrom.date, ['YYYY-MM-DD', moment.ISO_8601], true);
+      if (parsedDate.isValid()) setDob(parsedDate.toDate());
+    }
+    if (reorderFrom?.time) {
+      const parsedTime = moment(reorderFrom.time, ['HH:mm', 'hh:mm A', moment.ISO_8601], true);
+      if (parsedTime.isValid()) setDeliveryTime(parsedTime.toDate());
+    }
+
+    // 3) Suggestions (optional)
+    setSuggestions(reorderFrom?.suggestion || '');
+
+    // 4) Preselect address (once your addresses load, this id will match)
+    setSelectedOption(reorderFrom?.address?.id ?? null);
+
+    // 5) Product (for product_id in your payload)
+    if (reorderFrom?.flower_product) {
+      setFlowerRequest(prev => ({
+        ...prev,
+        product_id: reorderFrom.flower_product.product_id ?? prev?.product_id,
+        name: reorderFrom.flower_product.name ?? prev?.name,
+        immediate_price: prev?.immediate_price, // keep your price source
+        product_image: reorderFrom.flower_product.product_image_url ?? prev?.product_image,
+      }));
+    }
+
+    didHydrateFromReorder.current = true;
+  }, [reorderFrom]);
+
+  const mapFlower = (it) => ({
+    type: 'flower',
+    flower_name: String(it?.flower_name ?? ''),
+    flower_unit: String(it?.flower_unit ?? ''),
+    flower_quantity: Number(it?.flower_quantity ?? 0),
+  });
+
+  const mapGarland = (it) => ({
+    type: 'garland',
+    garland_name: String(it?.garland_name ?? ''),
+    garland_quantity: Number(it?.garland_quantity ?? 0),
+    flower_count: it?.flower_count != null ? Number(it.flower_count) : null,
+    garland_size: it?.garland_size ?? null,
+  });
 
   // Flower input (single row)
   const [flowerInput, setFlowerInput] = useState({

@@ -390,6 +390,18 @@ const Index = (props) => {
         </ScrollView>
 
         {/* Footer Actions */}
+        {/* Reorder Button  */}
+        <TouchableOpacity
+          onPress={() =>
+            navigation.navigate('CustomOrderScreen', {
+              reorderFrom: packageDetails,
+            })
+          }
+          style={[styles.submitButton, { backgroundColor: '#4CAF50', width: '90%', marginBottom: packageDetails?.status === 'approved' || packageDetails?.status === 'pending' ? 53 : 10 }]}
+        >
+          <Text style={styles.submitText}>Reorder</Text>
+        </TouchableOpacity>
+
         {packageDetails?.status === 'pending' && (
           <TouchableOpacity
             onPress={openCancelRequestModal}
@@ -755,7 +767,7 @@ const styles = StyleSheet.create({
 
   submitButtonRow: {
     borderRadius: 12,
-    paddingVertical: 15,
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -771,7 +783,7 @@ const styles = StyleSheet.create({
     width: '90%',
     alignSelf: 'center',
     borderRadius: 12,
-    paddingVertical: 15,
+    paddingVertical: 10,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },

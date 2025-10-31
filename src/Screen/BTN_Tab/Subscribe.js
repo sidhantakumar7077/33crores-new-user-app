@@ -59,12 +59,13 @@ export default function SubscriptionScreen() {
 
             if (json.status === 200) {
                 const filteredPackages = json.data.filter(item => item.category === "Subscription");
-                setAllPackages(filteredPackages);
+                const showData = filteredPackages.filter(item => item.show === "1");
+                setAllPackages(showData);
 
                 // ✅ Automatically select the first plan if available
-                if (filteredPackages.length > 0) {
-                    setSelectedPlan(filteredPackages[0].product_id);
-                    setSelectedPackage(filteredPackages[0]);
+                if (showData.length > 0) {
+                    setSelectedPlan(showData[0].product_id);
+                    setSelectedPackage(showData[0]);
                 }
             } else {
                 console.error('Failed to fetch packages:', json.message);

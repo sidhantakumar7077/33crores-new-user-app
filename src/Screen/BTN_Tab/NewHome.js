@@ -430,30 +430,45 @@ const NewHome = () => {
                     return Math.max(0, totalDays - usedDays);
                 };
 
-                // buckets
-                const pendingSubs = subs.filter(s => (s?.status || '').toLowerCase() === 'pending');
+                const statusOf = s => String(s?.status || '').toLowerCase();
+                const payStatusOf = s => String(s?.order?.flower_payments?.payment_status || '').toLowerCase();
 
+                // Buckets we still use later for UI ordering
                 const activeOrPausedOrPending = subs.filter(s => {
-                    const st = (s?.status || '').toLowerCase();
+                    const st = statusOf(s);
                     return st === 'active' || st === 'paused' || st === 'pending';
                 });
 
-                // ---- OR logic for modal trigger ----
-                // find the most urgent sub with remainingDays < 5
-                const urgentSubEntry = activeOrPausedOrPending
+                // ---------- MODAL DECISION LOGIC ----------
+                const pendingPaid = subs.filter(s => statusOf(s) === 'pending' && payStatusOf(s) === 'paid');
+                const pendingUnpaid = subs.filter(s => statusOf(s) === 'pending' && payStatusOf(s) === 'pending');
+                const activeUnpaid = subs.filter(s => statusOf(s) === 'active' && payStatusOf(s) === 'pending');
+
+                const activeUrgent = subs
+                    .filter(s => statusOf(s) === 'active')
                     .map(s => ({ sub: s, rem: calcRemainingDays(s) }))
                     .filter(x => x.rem < 5)
-                    .sort((a, b) => a.rem - b.rem)[0];
+                    .sort((a, b) => a.rem - b.rem); // most urgent first
 
-                const urgentSub = urgentSubEntry?.sub;
+                // Rule #2: suppress modal entirely if ANY pending + paid exists
+                if (pendingPaid.length > 0) {
+                    setPaymentPendingModalVisible(false);
+                } else {
+                    // Pick target to display in modal by priority
+                    const target =
+                        pendingUnpaid[0] ||
+                        activeUnpaid[0] ||
+                        (activeUrgent[0]?.sub || null);
 
-                // If urgentSub exists OR there is at least one pending sub, show modal
-                if (urgentSub || pendingSubs.length > 0) {
-                    setPaymentPendingData(urgentSub ?? pendingSubs[0]);
-                    setPaymentPendingModalVisible(true);
+                    if (target) {
+                        setPaymentPendingData(target);
+                        setPaymentPendingModalVisible(true);
+                    } else {
+                        setPaymentPendingModalVisible(false);
+                    }
                 }
 
-                // ---- sorting list (keep your previous ordering) ----
+                // ---------- SORT & SET LIST ----------
                 const orderedSubs = [...activeOrPausedOrPending].sort((a, b) => {
                     const ra = calcRemainingDays(a);
                     const rb = calcRemainingDays(b);
@@ -1043,28 +1058,51 @@ const NewHome = () => {
                                             const remainingDays = Math.max(0, totalDays - usedDays);
                                             const progressPct = totalDays ? Math.round((usedDays / totalDays) * 100) : 0;
 
+                                            // Payment status
+                                            const payStatus = (item?.order?.flower_payments?.payment_status || '').toLowerCase();
+                                            const isSubPending = subStatus === 'pending';
+                                            const pendingPayment = payStatus === 'pending';
+                                            const paidPayment = payStatus === 'paid';
+
+                                            // Pause flags
+                                            const pauseStartStr = item?.pause_start_date ? String(item.pause_start_date) : null;
+                                            const hasAnyPauseStart = !!pauseStartStr;
+                                            const hasFuturePause = pauseStartStr
+                                                ? moment(pauseStartStr, 'YYYY-MM-DD', true).isAfter(moment(), 'day')
+                                                : false;
+
                                             const isAfter5pmToday = moment().isSameOrAfter(
                                                 moment().set({ hour: 17, minute: 0, second: 0, millisecond: 0 })
                                             );
-
                                             const isPauseStartingTomorrow =
-                                                pause_start_date &&
-                                                moment(pause_start_date).isSame(moment().add(1, 'day'), 'day');
+                                                pauseStartStr &&
+                                                moment(pauseStartStr, 'YYYY-MM-DD', true).isSame(moment().add(1, 'day'), 'day');
 
-                                            const showCancelPause =
-                                                isScheduledPause && !(isAfter5pmToday && isPauseStartingTomorrow);
-
-                                            // flags
-                                            const showPause = subStatus === 'active';
+                                            // Button visibility (per your rules)
+                                            const showPause = subStatus === 'active' && !hasAnyPauseStart;
+                                            const showEditPause = subStatus === 'active' && hasAnyPauseStart;
+                                            const isScheduledPause = subStatus === 'active' && hasFuturePause;
+                                            const showCancelPause = isScheduledPause && !(isAfter5pmToday && isPauseStartingTomorrow);
                                             const showResume = subStatus === 'paused';
-                                            const showEditPause = subStatus === 'active' && !!item?.pause_start_date;
-                                            const isScheduledPause =
-                                                subStatus === 'active' &&
-                                                item?.pause_start_date &&
-                                                new Date(item.pause_start_date) > new Date();
-                                            const hasPendingRenewal = item?.pending_renewals && Object.keys(item.pending_renewals).length > 0;
-                                            const pendingPayment = subStatus === 'pending';
-                                            // const pendingPayment = item.order.flower_payments.payment_status && item.order.flower_payments.payment_status.toLowerCase() === 'pending';
+
+                                            const hasPendingRenewal =
+                                                item?.pending_renewals && Object.keys(item.pending_renewals).length > 0;
+
+                                            // --- Which actions to show (exclusive precedence) ---
+                                            // 1) subStatus pending AND payment pending -> View Details + Cancel + Pay
+                                            const showCase1 = isSubPending && pendingPayment;
+
+                                            // 6) subStatus pending AND payment paid -> View Details + info text
+                                            const showCase6 = isSubPending && paidPayment;
+
+                                            // 3) Edit Pause has priority over Pause
+                                            const showCase3 = showEditPause;
+                                            // 4) Cancel Pause
+                                            const showCase4 = showCancelPause;
+                                            // 5) Resume
+                                            const showCase5 = showResume;
+                                            // 2) Pause (only when no Edit Pause)
+                                            const showCase2 = showPause && !showEditPause;
 
                                             return (
                                                 <View style={{ width }}>
@@ -1102,7 +1140,7 @@ const NewHome = () => {
                                                             </View>
                                                         </LinearGradient>
 
-                                                        {/* Progress + stats */}
+                                                        {/* Body */}
                                                         <View style={styles.subBody}>
                                                             {/* <View style={styles.progressRow}>
                                                                 <View style={styles.progressTrack}>
@@ -1125,9 +1163,9 @@ const NewHome = () => {
                                                                     <Text style={[styles.statText, { color: '#065F46' }]}>Left {remainingDays}d</Text>
                                                                 </View>
                                                             </View> */}
-
                                                             {/* Actions */}
                                                             <View style={styles.actionsRow}>
+                                                                {/* Always show View Details first */}
                                                                 <TouchableOpacity
                                                                     style={styles.outlineBtn}
                                                                     onPress={() => navigation.navigate('SubscriptionOrderDetailsPage', item)}
@@ -1135,7 +1173,7 @@ const NewHome = () => {
                                                                     <Text style={styles.outlineText}>View Details</Text>
                                                                 </TouchableOpacity>
 
-                                                                {pendingPayment && (
+                                                                {showCase1 && (
                                                                     <>
                                                                         <TouchableOpacity
                                                                             style={[styles.outlineBtn, { backgroundColor: '#df2b2bff' }]}
@@ -1153,14 +1191,10 @@ const NewHome = () => {
                                                                     </>
                                                                 )}
 
-                                                                {showPause && !showEditPause && (
+                                                                {!showCase1 && showCase2 && (
                                                                     <TouchableOpacity
                                                                         style={styles.actionGradBtn}
-                                                                        onPress={() => {
-                                                                            handlePauseButton(item?.order_id);
-                                                                            setIsPausedEdit('no');
-                                                                            setSelectedPauseLogId(null);
-                                                                        }}
+                                                                        onPress={() => { handlePauseButton(item?.order_id); setIsPausedEdit('no'); setSelectedPauseLogId(null); }}
                                                                     >
                                                                         <LinearGradient colors={['#16A34A', '#10B981']} style={styles.gradInner}>
                                                                             <Icon name="pause" size={12} color="#fff" />
@@ -1169,16 +1203,14 @@ const NewHome = () => {
                                                                     </TouchableOpacity>
                                                                 )}
 
-                                                                {showEditPause && (
+                                                                {!showCase1 && showCase3 && (
                                                                     <TouchableOpacity
                                                                         style={styles.actionGradBtn}
                                                                         onPress={() => {
                                                                             handlePauseButton(item?.order_id);
                                                                             setIsPausedEdit('yes');
                                                                             const logs = item?.pause_resume_log;
-                                                                            if (logs && logs.length > 0) {
-                                                                                setSelectedPauseLogId(logs[logs.length - 1]?.id);
-                                                                            }
+                                                                            if (logs && logs.length > 0) setSelectedPauseLogId(logs[logs.length - 1]?.id);
                                                                         }}
                                                                     >
                                                                         <LinearGradient colors={['#F59E0B', '#D97706']} style={styles.gradInner}>
@@ -1188,7 +1220,7 @@ const NewHome = () => {
                                                                     </TouchableOpacity>
                                                                 )}
 
-                                                                {showCancelPause && (
+                                                                {!showCase1 && !showCase3 && showCase4 && (
                                                                     <TouchableOpacity
                                                                         style={styles.actionGradBtn}
                                                                         onPress={() => openCancelModal(item?.order_id)}
@@ -1200,7 +1232,7 @@ const NewHome = () => {
                                                                     </TouchableOpacity>
                                                                 )}
 
-                                                                {showResume && (
+                                                                {!showCase1 && showCase5 && (
                                                                     <TouchableOpacity
                                                                         style={styles.actionGradBtn}
                                                                         onPress={() => handleResumeButton(item)}
@@ -1213,6 +1245,20 @@ const NewHome = () => {
                                                                 )}
                                                             </View>
 
+                                                            {/* Case 6 message BELOW the buttons */}
+                                                            {showCase6 && (
+                                                                <View style={{ marginTop: 10, alignItems: 'flex-start' }}>
+                                                                    <View style={[styles.renewPendingPill, { marginLeft: 0 }]}>
+                                                                        <Icon name="clock" size={12} color="#92400E" style={{ marginRight: 6 }} />
+                                                                        <Text style={styles.renewPendingText}>
+                                                                            Your order is active from {moment(item?.start_date).format('DD MMM YYYY')}
+                                                                        </Text>
+                                                                    </View>
+                                                                </View>
+                                                            )}
+
+
+                                                            {/* Renewal CTA / pill */}
                                                             {remainingDays <= 5 && !hasPendingRenewal && (
                                                                 <View style={styles.renewWrap}>
                                                                     <TouchableOpacity
@@ -1233,7 +1279,9 @@ const NewHome = () => {
 
                                                                             <View style={styles.renewPill}>
                                                                                 <Text style={styles.renewPillText}>
-                                                                                    {remainingDays > 0 ? `${remainingDays} day${remainingDays === 1 ? '' : 's'} left` : 'Ends today'}
+                                                                                    {remainingDays > 0
+                                                                                        ? `${remainingDays} day${remainingDays === 1 ? '' : 's'} left`
+                                                                                        : 'Ends today'}
                                                                                 </Text>
                                                                             </View>
                                                                         </LinearGradient>

@@ -37,12 +37,33 @@ const Index = (props) => {
 
   const { flowerData = {}, order_id = "", preEndDate = null } = props?.route?.params || {};
 
+  // --- constants
+  const CUTOFF_HOUR = 17; // 5 PM local
+  // "today" in local time
+  const now = moment();
+  // Base rule: if after 5 PM, start = day-after-tomorrow; else start = tomorrow.
+  const cutoffStart = moment()
+    .startOf('day')
+    .add(now.hour() >= CUTOFF_HOUR ? 2 : 1, 'day');   // 👈 this is your rule
+  // If preEndDate provided, you cannot start before (preEndDate + 1 day)
+  const preEndPlus1 = preEndDate
+    ? moment(preEndDate, 'YYYY-MM-DD', true).add(1, 'day')
+    : null;
+  // Effective minimum start date (max of both rules)
+  const effectiveStartMoment = preEndPlus1
+    ? moment.max(cutoffStart, preEndPlus1)
+    : cutoffStart;
+
+  // console.log(
+  //   'cutoffStart:', cutoffStart.format('YYYY-MM-DD'),
+  //   'preEndPlus1:', preEndPlus1?.format('YYYY-MM-DD') || null,
+  // );
+
   const navigation = useNavigation();
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const [packageDetails, setPackageDetails] = useState({});
-  const defaultStart = preEndDate ? moment(preEndDate, 'YYYY-MM-DD').add(1, 'day').toDate() : moment().add(1, 'day').toDate();
-  const [dob, setDob] = useState(defaultStart);
+  const [dob, setDob] = useState(effectiveStartMoment.format('YYYY-MM-DD'));
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
   const openDatePicker = () => { setDatePickerVisibility(true) };
   const closeDatePicker = () => { setDatePickerVisibility(false) };
@@ -509,7 +530,7 @@ const Index = (props) => {
       // Keep dob in sync if page is re-entered with different preEndDate
       const freshDefault = preEndDate
         ? moment(preEndDate, 'YYYY-MM-DD').add(1, 'day').toDate()
-        : moment().add(1, 'day').toDate();
+        : effectiveStartMoment.format('YYYY-MM-DD');
       setDob(freshDefault);
     }
   }, [isFocused, flowerData, preEndDate]);
@@ -523,7 +544,7 @@ const Index = (props) => {
 
   const effectiveMinStartDate = React.useMemo(() => {
     const now = moment();
-    const cutoffPassed = now.isSameOrAfter(now.clone().hour(18).minute(0).second(0));
+    const cutoffPassed = now.isSameOrAfter(now.clone().hour(17).minute(0).second(0));
     const base = moment(minStartDate, 'YYYY-MM-DD');
 
     // if base == tomorrow and cutoff has passed, move to day-after-tomorrow
@@ -598,7 +619,7 @@ const Index = (props) => {
                 <TouchableOpacity onPress={openDatePicker}>
                   <TextInput
                     style={styles.input}
-                    value={dob ? moment(dob).format('DD-MM-YYYY') : ""}
+                    value={dob ? moment(dob, 'YYYY-MM-DD').format('DD-MM-YYYY') : ''}
                     editable={false}
                   />
                   <MaterialCommunityIcons name="calendar-month" color={'#555454'} size={26} style={{ position: 'absolute', right: 10, top: 10 }} />

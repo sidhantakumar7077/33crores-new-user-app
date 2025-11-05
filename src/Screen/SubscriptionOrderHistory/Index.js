@@ -306,21 +306,32 @@ const Index = () => {
   const renderItem = ({ item }) => {
     const product = item?.flower_products || {};
     const chip = chipForStatus(item?.status);
-    const duration = product?.duration ? `${product.duration} Month${Number(product.duration) > 1 ? 's' : ''}` : null;
-    const showPause =
-      String(item?.status).toLowerCase() === 'active';
-    const showResume =
-      String(item?.status).toLowerCase() === 'paused';
-    const showEditPause =
-      String(item?.status).toLowerCase() === 'active' && !!item?.pause_start_date;
+    const duration = product?.duration
+      ? `${product.duration} Month${Number(product.duration) > 1 ? 's' : ''}`
+      : null;
+
+    const statusStr = String(item?.status || '').toLowerCase();
+    const isPending = statusStr === 'pending';
+    const isActive = statusStr === 'active';
+    const isPaused = statusStr === 'paused';
+
+    // payment status
+    const paymentStatus = String(item?.order?.flower_payments?.payment_status || '').toLowerCase();
+    const isPaymentPending = paymentStatus === 'pending';
+    const isPaymentPaid = paymentStatus === 'paid';
+
+    // pause stuff
+    const showPause = isActive;
+    const showResume = isPaused;
+    const showEditPause = isActive && !!item?.pause_start_date;
     const isScheduledPause =
-      String(item?.status).toLowerCase() === 'active' && item?.pause_start_date && new Date(item.pause_start_date) > new Date();
-    const isPending = String(item?.status).toLowerCase() === 'pending';
+      isActive &&
+      item?.pause_start_date &&
+      new Date(item.pause_start_date) > new Date();
 
     const isAfter5pmToday = moment().isSameOrAfter(
       moment().set({ hour: 17, minute: 0, second: 0, millisecond: 0 })
     );
-
     const isPauseStartingTomorrow =
       item?.pause_start_date &&
       moment(item?.pause_start_date).isSame(moment().add(1, 'day'), 'day');
@@ -328,7 +339,7 @@ const Index = () => {
     const showCancelPause =
       isScheduledPause && !(isAfter5pmToday && isPauseStartingTomorrow);
 
-    // --- NEW: compute remaining days
+    // --- remaining days ---
     const start = moment(item?.start_date, 'YYYY-MM-DD');
     const end = moment(item?.new_date || item?.end_date, 'YYYY-MM-DD');
     const today = moment().startOf('day');
@@ -343,9 +354,15 @@ const Index = () => {
 
     const remainingDays = Math.max(0, totalDays - usedDays);
 
-    // --- NEW: check for pending renewals
+    // pending renewal
     const hasPendingRenewal =
       item?.pending_renewals && Object.keys(item.pending_renewals).length > 0;
+
+    // ----- ACTION CASES (same as previous list) -----
+    // case1: pending + payment pending
+    const showCase1 = isPending && isPaymentPending;
+    // case6: pending + payment paid
+    const showCase6 = isPending && isPaymentPaid;
 
     return (
       <TouchableOpacity
@@ -363,16 +380,20 @@ const Index = () => {
           )}
 
           <View style={{ flex: 1 }}>
-            <Text style={styles.title} numberOfLines={1}>{product?.name || 'Subscription'}</Text>
+            <Text style={styles.title} numberOfLines={1}>
+              {product?.name || 'Subscription'}
+            </Text>
             <Text style={styles.meta}>
               Order ID: <Text style={styles.metaBold}>{item?.order_id}</Text>
             </Text>
 
-            {/* price + duration */}
+            {/* price + duration + status */}
             <View style={styles.badgesRow}>
               {product?.price ? (
                 <View style={[styles.chip, styles.moneyChip]}>
-                  <Text style={styles.moneyText}>₹ {Number(item?.order?.total_price).toFixed(2)}</Text>
+                  <Text style={styles.moneyText}>
+                    ₹ {Number(item?.order?.total_price).toFixed(2)}
+                  </Text>
                 </View>
               ) : null}
 
@@ -389,12 +410,12 @@ const Index = () => {
             </View>
 
             {/* contextual info */}
-            {String(item?.status).toLowerCase() === 'pending' && (
+            {statusStr === 'pending' && (
               <Text style={[styles.noteText, { marginTop: 6 }]}>
                 Starts on {moment(item?.start_date).format('DD MMM YYYY')}
               </Text>
             )}
-            {String(item?.status).toLowerCase() === 'paused' && item?.pause_end_date && (
+            {statusStr === 'paused' && item?.pause_end_date && (
               <Text style={[styles.noteText, { marginTop: 6 }]}>
                 Paused till {moment(item?.pause_end_date).format('DD MMM YYYY')}
               </Text>
@@ -404,6 +425,7 @@ const Index = () => {
 
         {/* actions */}
         <View style={styles.actionsRow}>
+          {/* always */}
           <TouchableOpacity
             style={styles.outlineBtn}
             onPress={() => navigation.navigate('SubscriptionOrderDetailsPage', item)}
@@ -411,11 +433,15 @@ const Index = () => {
             <Text style={styles.outlineText}>View Details</Text>
           </TouchableOpacity>
 
-          {isPending && (
+          {/* 1) pending + payment pending */}
+          {showCase1 && (
             <>
               <TouchableOpacity
                 style={[styles.outlineBtn, { backgroundColor: '#FEE2E2', borderColor: '#FECACA' }]}
-                onPress={() => { openCancelsubscriptionModal(); setCancelSubData(item); }}
+                onPress={() => {
+                  openCancelsubscriptionModal();
+                  setCancelSubData(item);
+                }}
               >
                 <Text style={[styles.outlineText, { color: '#DC2626' }]}>Cancel</Text>
               </TouchableOpacity>
@@ -429,8 +455,16 @@ const Index = () => {
             </>
           )}
 
-          {showPause && !showEditPause && (
-            <TouchableOpacity style={styles.actionGradBtn} onPress={() => { handlePauseButton(item?.order_id); setIsPausedEdit('no'); setSelectedPauseLogId(null); }}>
+          {/* 2) active -> pause (but only if not in case1/case6) */}
+          {!showCase1 && !showCase6 && showPause && !showEditPause && (
+            <TouchableOpacity
+              style={styles.actionGradBtn}
+              onPress={() => {
+                handlePauseButton(item?.order_id);
+                setIsPausedEdit('no');
+                setSelectedPauseLogId(null);
+              }}
+            >
               <LinearGradient colors={['#16A34A', '#10B981']} style={styles.gradInner}>
                 <Icon name="pause" size={12} color="#fff" />
                 <Text style={styles.gradText}>Pause</Text>
@@ -438,7 +472,8 @@ const Index = () => {
             </TouchableOpacity>
           )}
 
-          {showEditPause && (
+          {/* 3) active + pause scheduled -> edit */}
+          {!showCase1 && !showCase6 && showEditPause && (
             <TouchableOpacity
               style={styles.actionGradBtn}
               onPress={() => {
@@ -446,10 +481,10 @@ const Index = () => {
                 setIsPausedEdit('yes');
                 const logs = item?.pause_resume_log;
                 if (logs && logs.length > 0) {
-                  // console.log("Edit Pause Pressed", logs[logs.length - 1]?.id);
                   setSelectedPauseLogId(logs[logs.length - 1]?.id);
                 }
-              }}>
+              }}
+            >
               <LinearGradient colors={['#F59E0B', '#D97706']} style={styles.gradInner}>
                 <Icon name="edit" size={12} color="#fff" />
                 <Text style={styles.gradText}>Edit Pause</Text>
@@ -457,7 +492,8 @@ const Index = () => {
             </TouchableOpacity>
           )}
 
-          {showCancelPause && (
+          {/* 4) cancel pause */}
+          {!showCase1 && !showCase6 && showCancelPause && (
             <TouchableOpacity
               style={styles.actionGradBtn}
               onPress={() => openCancelModal(item?.order_id)}
@@ -469,8 +505,12 @@ const Index = () => {
             </TouchableOpacity>
           )}
 
-          {showResume && (
-            <TouchableOpacity style={styles.actionGradBtn} onPress={() => handleResumeButton(item)}>
+          {/* 5) paused -> resume */}
+          {!showCase1 && !showCase6 && showResume && (
+            <TouchableOpacity
+              style={styles.actionGradBtn}
+              onPress={() => handleResumeButton(item)}
+            >
               <LinearGradient colors={['#FF6B35', '#F7931E']} style={styles.gradInner}>
                 <Icon name="play" size={12} color="#fff" />
                 <Text style={styles.gradText}>Resume</Text>
@@ -479,7 +519,19 @@ const Index = () => {
           )}
         </View>
 
-        {/* --- NEW Renew section --- */}
+        {/* 6) pending + payment paid -> text BELOW buttons */}
+        {showCase6 && (
+          <View style={{ marginTop: 10 }}>
+            <View style={[styles.renewPendingPill, { marginLeft: 0 }]}>
+              <Icon name="clock" size={12} color="#92400E" style={{ marginRight: 6 }} />
+              <Text style={styles.renewPendingText}>
+                Your order is active from {moment(item?.start_date).format('DD MMM YYYY')}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Renew section */}
         {remainingDays <= 5 && !hasPendingRenewal && (
           <TouchableOpacity
             style={styles.renewCtaFull}
@@ -965,6 +1017,20 @@ const styles = StyleSheet.create({
   actionGradBtn: { borderRadius: 10, overflow: 'hidden' },
   gradInner: { paddingHorizontal: 10, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 4 },
   gradText: { color: '#fff', fontWeight: '900', fontSize: 12 },
+  renewPendingPill: {
+    marginTop: 12,
+    alignSelf: 'stretch',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  renewPendingText: { color: '#92400E', fontWeight: '800', fontSize: 12 },
 
   emptyWrap: { alignItems: 'center', marginTop: 140, paddingHorizontal: 24 },
   emptyBadge: {

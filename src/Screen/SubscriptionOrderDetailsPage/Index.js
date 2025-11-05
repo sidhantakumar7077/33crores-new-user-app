@@ -828,7 +828,7 @@ const Index = (props) => {
         {/* ===== Redesigned content ends here ===== */}
 
         {/* Show a full width button for payment if status is pending and price is greater than 0 and show with price. And Add one more button for cancelling the order */}
-        {packageDetails?.status === 'pending' && packageDetails?.order?.total_price > 0 && (
+        {packageDetails?.order?.flower_payments?.payment_status === 'pending' && packageDetails?.order?.total_price > 0 && (
           <TouchableOpacity
             onPress={() => payPendingOrder(packageDetails?.order_id)}
             activeOpacity={0.9}

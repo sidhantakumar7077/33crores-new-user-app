@@ -50,8 +50,55 @@ const Index = () => {
   const openDatePicker = () => { setDatePickerVisibility(true) };
   const closeDatePicker = () => { setDatePickerVisibility(false) };
 
-  const [dob, setDob] = useState(new Date());
-  const [deliveryTime, setDeliveryTime] = useState(new Date(new Date().getTime() + 2 * 60 * 60 * 1000));
+  const CUTOFF_PM = 17;     // 5 PM
+  const CUTOFF_AM = 7;      // 7 AM
+
+  // 9:00 AM on the given day
+  const at9AM = (m) => m.clone().hour(9).minute(0).second(0).millisecond(0);
+
+  // DEFAULT start date/time when the screen opens
+  const getInitialDobAndTime = () => {
+    const now = moment();
+
+    // Rule #2 defaults
+    if (now.hour() >= CUTOFF_PM) {
+      // after 5 PM → default: tomorrow 9:00 AM
+      const dob = now.clone().add(1, 'day').startOf('day');
+      return { dob: dob.toDate(), time: at9AM(dob).toDate() };
+    }
+    if (now.hour() < CUTOFF_AM) {
+      // before 7 AM → default: today 9:00 AM
+      const dob = now.clone().startOf('day');
+      return { dob: dob.toDate(), time: at9AM(dob).toDate() };
+    }
+
+    // Daytime (>=7 AM and <5 PM)
+    // Same-day allowed, but must be >= now+2h
+    const dob = now.clone().startOf('day'); // today
+    const minToday = now.clone().add(2, 'hours'); // earliest valid today
+    return { dob: dob.toDate(), time: minToday.toDate() /* or roundTo15(minToday).toDate() */ };
+  };
+
+  // Compute min selectable time for the currently selected date
+  const getMinTimeForDate = (selectedDate) => {
+    const now = moment();
+    const sel = moment(selectedDate);
+    if (sel.isSame(now, 'day')) {
+      // today → must be >= now+2h, but if we're before 7AM, 9AM default still OK
+      const base = now.clone().add(2, 'hours');
+      return base.toDate();
+    }
+    // future dates → no lower bound (you can also return 9AM if you want to guide users)
+    return undefined;
+  };
+
+  // INITIAL DEFAULTS
+  const { dob: initialDob, time: initialTime } = getInitialDobAndTime();
+  const [dob, setDob] = useState(initialDob);              // Date object
+  const [deliveryTime, setDeliveryTime] = useState(initialTime);
+
+  // const [dob, setDob] = useState(new Date());
+  // const [deliveryTime, setDeliveryTime] = useState(new Date(new Date().getTime() + 2 * 60 * 60 * 1000));
   const [openTimePicker, setOpenTimePicker] = useState(false);
   const [suggestions, setSuggestions] = useState("");
   const [addressError, setAddressError] = useState('');
@@ -120,8 +167,31 @@ const Index = () => {
   }, []);
 
   const handleDayPress = (day) => {
-    setDob(new Date(day.dateString));
-    setDeliveryTime(new Date(new Date().getTime() + 2 * 60 * 60 * 1000));
+    const picked = moment(day?.dateString, 'YYYY-MM-DD', true);
+    const now = moment();
+
+    // If user selects "today" after 5PM → bump to tomorrow 9AM (rule #2)
+    if (picked.isSame(now, 'day') && now.hour() >= CUTOFF_PM) {
+      const tmr = now.clone().add(1, 'day').startOf('day');
+      setDob(tmr.toDate());
+      setDeliveryTime(at9AM(tmr).toDate());
+      closeDatePicker();
+      return;
+    }
+
+    // Set selected date
+    setDob(picked.toDate());
+
+    // Default time per rules:
+    if (picked.isSame(now, 'day')) {
+      // Same-day: at least now + 2h (rule #1)
+      const minToday = now.clone().add(2, 'hours');
+      setDeliveryTime(minToday.toDate());
+    } else {
+      // Future date: default 9AM of that day
+      setDeliveryTime(at9AM(picked).toDate());
+    }
+
     closeDatePicker();
   };
 
@@ -347,46 +417,116 @@ const Index = () => {
   useEffect(() => {
     if (!reorderFrom || didHydrateFromReorder.current) return;
 
-    // 1) Items → saved tables
+    // --- Items as you already do ---
     const items = Array.isArray(reorderFrom?.flower_request_items)
       ? reorderFrom.flower_request_items
       : [];
-
     const flowers = items.filter(i => i?.type === 'flower').map(mapFlower);
     const garlands = items.filter(i => i?.type === 'garland').map(mapGarland);
-
     setSavedFlowers(flowers);
     setSavedGarlands(garlands);
 
-    // 2) Date / Time
+    const now = moment();
+    const today = now.clone().startOf('day');
+
+    // ---- Decide DOB ----
+    let effectiveDob = today; // default
+    let reorderMoment = null;
     if (reorderFrom?.date) {
       const parsedDate = moment(reorderFrom.date, ['YYYY-MM-DD', moment.ISO_8601], true);
-      if (parsedDate.isValid()) setDob(parsedDate.toDate());
-    }
-    if (reorderFrom?.time) {
-      const parsedTime = moment(reorderFrom.time, ['HH:mm', 'hh:mm A', moment.ISO_8601], true);
-      if (parsedTime.isValid()) setDeliveryTime(parsedTime.toDate());
+      if (parsedDate.isValid()) reorderMoment = parsedDate.clone().startOf('day');
     }
 
-    // 3) Suggestions (optional)
+    if (reorderMoment) {
+      if (reorderMoment.isSame(today, 'day')) {
+        // 1) Reorder date is TODAY -> keep today
+        effectiveDob = today;
+      } else if (reorderMoment.isBefore(today, 'day')) {
+        // 2) Reorder date is BEFORE TODAY -> apply your rules
+        if (now.hour() >= CUTOFF_PM) {
+          // after 5pm -> default to tomorrow 9AM
+          effectiveDob = today.clone().add(1, 'day');
+        } else if (now.hour() < CUTOFF_AM) {
+          // before 7am -> default to today 9AM
+          effectiveDob = today;
+        } else {
+          // 7am–5pm -> same-day allowed with 2h lead
+          effectiveDob = today;
+        }
+      } else {
+        // (Optional) If reorder date is in the FUTURE, respect it
+        effectiveDob = reorderMoment;
+      }
+    }
+
+    setDob(effectiveDob.toDate());
+
+    // ---- Decide TIME ----
+    // Try to use reorder time if present; otherwise fill per rules.
+    const parsedTime = reorderFrom?.time
+      ? moment(reorderFrom.time, ['HH:mm', 'hh:mm A', moment.ISO_8601], true)
+      : null;
+
+    const isNightWindow = now.hour() >= CUTOFF_PM || now.hour() < CUTOFF_AM;
+    const isDobToday = effectiveDob && moment(effectiveDob).isSame(today, 'day');
+
+    let nextTime;
+
+    if (reorderMoment && reorderMoment.isBefore(today, 'day')) {
+      // REORDER DATE IN THE PAST -> apply your 2 rules
+      if (isNightWindow) {
+        // 5pm–7am -> 9AM (tomorrow if after 5pm, today if before 7am)
+        nextTime = at9AM(moment(effectiveDob));
+      } else {
+        // 7am–5pm -> same-day allowed with 2h lead
+        const minToday = now.clone().add(2, 'hours');
+        nextTime = minToday;
+      }
+    } else if (reorderMoment && reorderMoment.isSame(today, 'day')) {
+      // REORDER DATE IS TODAY
+      if (parsedTime?.isValid()) {
+        // use reorder time but clamp to >= now + 2h
+        const proposed = moment(effectiveDob)
+          .hour(parsedTime.hour())
+          .minute(parsedTime.minute())
+          .second(0)
+          .millisecond(0);
+        const minToday = now.clone().add(2, 'hours');
+        nextTime = proposed.isBefore(minToday) ? minToday : proposed;
+      } else {
+        // no time -> default to now + 2h
+        nextTime = now.clone().add(2, 'hours');
+      }
+    } else {
+      // FUTURE DATE or no reorder date
+      if (parsedTime?.isValid()) {
+        nextTime = moment(effectiveDob)
+          .hour(parsedTime.hour())
+          .minute(parsedTime.minute())
+          .second(0)
+          .millisecond(0);
+      } else {
+        nextTime = at9AM(moment(effectiveDob));
+      }
+    }
+
+    setDeliveryTime(nextTime.toDate());
+
+    // --- Suggestions / address / product (unchanged) ---
     setSuggestions(reorderFrom?.suggestion || '');
-
-    // 4) Preselect address (once your addresses load, this id will match)
     setSelectedOption(reorderFrom?.address?.id ?? null);
-
-    // 5) Product (for product_id in your payload)
     if (reorderFrom?.flower_product) {
       setFlowerRequest(prev => ({
         ...prev,
         product_id: reorderFrom.flower_product.product_id ?? prev?.product_id,
         name: reorderFrom.flower_product.name ?? prev?.name,
-        immediate_price: prev?.immediate_price, // keep your price source
+        immediate_price: prev?.immediate_price,
         product_image: reorderFrom.flower_product.product_image_url ?? prev?.product_image,
       }));
     }
 
     didHydrateFromReorder.current = true;
-  }, [reorderFrom]);
+  }, [reorderFrom]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const mapFlower = (it) => ({
     type: 'flower',
@@ -1348,11 +1488,24 @@ const Index = () => {
                   open={openTimePicker}
                   date={deliveryTime}
                   onConfirm={(date) => {
-                    setDeliveryTime(date);
+                    const selected = moment(date);
+                    const now = moment();
+                    if (moment(dob).isSame(now, 'day')) {
+                      const minToday = now.clone().add(2, 'hours');
+                      // Clamp to >= now+2h
+                      setDeliveryTime(selected.isBefore(minToday) ? minToday.toDate() : selected.toDate());
+                    } else {
+                      setDeliveryTime(selected.toDate());
+                    }
                     setOpenTimePicker(false);
                   }}
                   onCancel={() => setOpenTimePicker(false)}
-                  minimumDate={dob?.toDateString() === new Date().toDateString() ? new Date(new Date().getTime() + 2 * 60 * 60 * 1000) : undefined}
+                  // Only enforce a minimum when it's today
+                  minimumDate={
+                    moment(dob).isSame(moment(), 'day')
+                      ? moment().add(2, 'hours').toDate()
+                      : undefined
+                  }
                 />
               </View>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>

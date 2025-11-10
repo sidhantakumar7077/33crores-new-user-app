@@ -53,8 +53,8 @@ const Index = () => {
   const CUTOFF_PM = 17;     // 5 PM
   const CUTOFF_AM = 7;      // 7 AM
 
-  // 9:00 AM on the given day
-  const at9AM = (m) => m.clone().hour(9).minute(0).second(0).millisecond(0);
+  // 10:00 AM on the given day
+  const at10AM = (m) => m.clone().hour(10).minute(0).second(0).millisecond(0);
 
   // DEFAULT start date/time when the screen opens
   const getInitialDobAndTime = () => {
@@ -62,14 +62,14 @@ const Index = () => {
 
     // Rule #2 defaults
     if (now.hour() >= CUTOFF_PM) {
-      // after 5 PM → default: tomorrow 9:00 AM
+      // after 5 PM → default: tomorrow 10:00 AM
       const dob = now.clone().add(1, 'day').startOf('day');
-      return { dob: dob.toDate(), time: at9AM(dob).toDate() };
+      return { dob: dob.toDate(), time: at10AM(dob).toDate() };
     }
     if (now.hour() < CUTOFF_AM) {
-      // before 7 AM → default: today 9:00 AM
+      // before 7 AM → default: today 10:00 AM
       const dob = now.clone().startOf('day');
-      return { dob: dob.toDate(), time: at9AM(dob).toDate() };
+      return { dob: dob.toDate(), time: at10AM(dob).toDate() };
     }
 
     // Daytime (>=7 AM and <5 PM)
@@ -84,11 +84,11 @@ const Index = () => {
     const now = moment();
     const sel = moment(selectedDate);
     if (sel.isSame(now, 'day')) {
-      // today → must be >= now+2h, but if we're before 7AM, 9AM default still OK
+      // today → must be >= now+2h, but if we're before 7AM, 10AM default still OK
       const base = now.clone().add(2, 'hours');
       return base.toDate();
     }
-    // future dates → no lower bound (you can also return 9AM if you want to guide users)
+    // future dates → no lower bound (you can also return 10AM if you want to guide users)
     return undefined;
   };
 
@@ -170,11 +170,11 @@ const Index = () => {
     const picked = moment(day?.dateString, 'YYYY-MM-DD', true);
     const now = moment();
 
-    // If user selects "today" after 5PM → bump to tomorrow 9AM (rule #2)
+    // If user selects "today" after 5PM → bump to tomorrow 10AM (rule #2)
     if (picked.isSame(now, 'day') && now.hour() >= CUTOFF_PM) {
       const tmr = now.clone().add(1, 'day').startOf('day');
       setDob(tmr.toDate());
-      setDeliveryTime(at9AM(tmr).toDate());
+      setDeliveryTime(at10AM(tmr).toDate());
       closeDatePicker();
       return;
     }
@@ -188,8 +188,8 @@ const Index = () => {
       const minToday = now.clone().add(2, 'hours');
       setDeliveryTime(minToday.toDate());
     } else {
-      // Future date: default 9AM of that day
-      setDeliveryTime(at9AM(picked).toDate());
+      // Future date: default 10AM of that day
+      setDeliveryTime(at10AM(picked).toDate());
     }
 
     closeDatePicker();
@@ -444,10 +444,10 @@ const Index = () => {
       } else if (reorderMoment.isBefore(today, 'day')) {
         // 2) Reorder date is BEFORE TODAY -> apply your rules
         if (now.hour() >= CUTOFF_PM) {
-          // after 5pm -> default to tomorrow 9AM
+          // after 5pm -> default to tomorrow 10AM
           effectiveDob = today.clone().add(1, 'day');
         } else if (now.hour() < CUTOFF_AM) {
-          // before 7am -> default to today 9AM
+          // before 7am -> default to today 10AM
           effectiveDob = today;
         } else {
           // 7am–5pm -> same-day allowed with 2h lead
@@ -475,8 +475,8 @@ const Index = () => {
     if (reorderMoment && reorderMoment.isBefore(today, 'day')) {
       // REORDER DATE IN THE PAST -> apply your 2 rules
       if (isNightWindow) {
-        // 5pm–7am -> 9AM (tomorrow if after 5pm, today if before 7am)
-        nextTime = at9AM(moment(effectiveDob));
+        // 5pm–7am -> 10AM (tomorrow if after 5pm, today if before 7am)
+        nextTime = at10AM(moment(effectiveDob));
       } else {
         // 7am–5pm -> same-day allowed with 2h lead
         const minToday = now.clone().add(2, 'hours');
@@ -506,7 +506,7 @@ const Index = () => {
           .second(0)
           .millisecond(0);
       } else {
-        nextTime = at9AM(moment(effectiveDob));
+        nextTime = at10AM(moment(effectiveDob));
       }
     }
 

@@ -1220,7 +1220,7 @@ const NewHome = () => {
                                                                     </TouchableOpacity>
                                                                 )}
 
-                                                                {!showCase1 && !showCase3 && showCase4 && (
+                                                                {!showCase1 && showCase4 && (
                                                                     <TouchableOpacity
                                                                         style={styles.actionGradBtn}
                                                                         onPress={() => openCancelModal(item?.order_id)}

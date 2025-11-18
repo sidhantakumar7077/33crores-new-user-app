@@ -1061,7 +1061,7 @@ const NewHome = () => {
                                             // Payment status
                                             const payStatus = (item?.order?.flower_payments?.payment_status || '').toLowerCase();
                                             const isSubPending = subStatus === 'pending';
-                                            const pendingPayment = payStatus === 'pending';
+                                            const pendingPayment = payStatus === 'pending' || payStatus === '';
                                             const paidPayment = payStatus === 'paid';
 
                                             // Pause flags
